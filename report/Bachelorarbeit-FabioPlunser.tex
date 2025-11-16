@@ -1,0 +1,122 @@
+\documentclass[12pt,oneside,bibliography=totoc,listof=totoc]{scrbook}
+\input{utils/preamble}
+% Modern page style with KOMA-Script
+\pagestyle{headings}
+% Page dimensions are handled by geometry package above
+
+% Handy metadata (picked up by hyperref's pdfusetitle)
+
+\begin{document}
+\input{utils/header}
+
+% Front Matter
+\frontmatter
+\tableofcontents
+\listoffigures
+% \listoftables (enable when tables are present)
+
+% Abstract / Idea
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+This thesis presents the design and prototypical implementation of a web-based learning platform that teaches introductory programming concepts to children aged 8--12 using a focused, block-based visual environment. In contrast to open-ended ecosystems such as Scratch or MakeCode, the platform offers tightly scoped, auto-graded exercises with clear learning goals per task. Two exercise types are supported in the minimum viable product (MVP): input/output (I/O) tasks and turtle graphics. Each exercise defines a constrained toolbox, optional starter code, multi-step hints, a reference solution, and a deterministic test specification. A client-side sandbox executes learner code safely and an AI-inspired (rule-based and structured) grading layer provides immediate feedback without uploading user code to external services. The work contributes (i) a requirements model for age-appropriate block tasks, (ii) a modular architecture combining Blockly, a secure sandbox, and extensible graders, (iii) an authoring JSON schema enabling reproducible content, and (iv) an evaluation of feasibility through exemplar exercises. Pedagogical depth (empirical learning outcome measurement) is explicitly out of scope; the focus is on technical design, safety, extensibility, and accessibility.
+
+% Acknowledgments (optional)
+\chapter*{Acknowledgments}
+\addcontentsline{toc}{chapter}{Acknowledgments}
+I thank my supervisor Ass. Prof. Dr. Michael Vierhause for guidance.
+
+% Main Matter
+\mainmatter
+
+\chapter{Introduction}
+\label{ch:introduction}
+\section{Motivation}
+Digital literacy and computational thinking have become core competencies in lower secondary education. Existing block-based environments (e.g. Scratch) are powerful but often too open-ended for time-constrained classroom deployment, while commercial offerings can be closed, hardware-bound, or lack granular auto-grading. Educators need a lightweight, privacy-friendly platform delivering small, focused programming challenges with immediate formative feedback.
+
+\section{Problem Statement}
+There is a gap between open creative playgrounds and rigid quiz systems: teachers lack a flexible, self-hostable solution that (a) constrains complexity per exercise, (b) supports deterministic grading without server execution of arbitrary code, and (c) remains accessible to learners aged 8--12.
+
+\section{Objectives}
+The objective is to design and prototype a modular platform that:
+\begin{itemize}
+  \item Supports authoring and execution of structured block-based programming exercises.
+  \item Provides instant, deterministic auto-grading for I/O and turtle tasks.
+  \item Ensures safety via sandboxing and minimal data retention (privacy by default).
+  \item Enables localization (German/English) and age-appropriate UI/UX.
+  \item Is extensible for future exercise types and custom blocks.
+\end{itemize}
+
+\section{Research Questions}
+\begin{enumerate}
+  \item How can a constrained block-based exercise model balance expressiveness and cognitive load for ages 8--12?
+  \item What architectural approach enables deterministic, safe, client-side execution and grading?
+  \item How should an extensible JSON schema for exercises encapsulate toolbox, tests, hints, and localization?
+  \item What are the technical trade-offs of client-only sandboxing versus server-side execution?
+\end{enumerate}
+
+\section{Scope}
+In scope are: two exercise types (I/O, turtle), at least ten curated tasks (variables, loops, conditionals, simple functions), a JSON-based authoring format, bilingual content, sandboxed execution, and auto-grading. Out of scope: full classroom management, advanced pedagogy analytics, large-scale user studies, and complex simulation backends.
+
+\section{Contributions}
+\begin{enumerate}
+  \item Requirements catalogue (functional/non-functional) for a focused block-learning MVP.
+  \item Architecture integrating Blockly, sandbox, graders, and content layer.
+  \item Extensible exercise JSON schema with localization and validation rules.
+  \item Prototype implementation and exemplar exercises demonstrating feasibility.
+\end{enumerate}
+
+\section{Thesis Structure}
+Chapter~\ref{ch:related-work} surveys related systems and concepts. Chapter~\ref{ch:requirements} summarizes the distilled requirements. Chapter~\ref{ch:technologies} introduces the enabling technologies. Chapter~\ref{ch:design} details the system architecture and data model. Chapter~\ref{ch:implementation} outlines implementation highlights. Chapter~\ref{ch:evaluation} presents a technical evaluation. Chapter~\ref{ch:limitations} discusses limitations. Chapter~\ref{ch:conclusion} concludes and sketches future work.
+
+\chapter{Related Work}
+\label{ch:related-work}
+This chapter reviews three thematic areas: (i) block-based programming environments (Scratch, Blockly derivatives, MakeCode), (ii) learning platforms with structured exercise flows (Brilliant-like micro-challenges), and (iii) approaches to automated grading and sandboxing in educational tooling. Prior work such as \cite{karle2017semantify} illustrates structured semantic enrichment but differs in pedagogical scope. A comparative analysis motivates the design decisions in Chapter~\ref{ch:design}.
+
+\chapter{Requirements Summary}
+\label{ch:requirements}
+The full requirements engineering artefact (maintained in internal documentation) is distilled here.
+\section{Functional Overview}
+Core capabilities include: exercise model (metadata, toolbox, hints, tests), quiz assembly, authoring workflow (draft/publish, validation), client-side sandboxed execution, deterministic auto-grading (I/O normalisation, turtle command/state comparison), lightweight progress tracking, localization, and plugin-style extensibility for new blocks and exercise types.
+\section{Non-Functional Overview}
+Key non-functional goals: security (sandbox isolation, CSP), privacy (no external calls, optional anonymous mode), performance (sub-2s interaction latency), accessibility (WCAG-informed contrast and keyboard support), maintainability (modular layering, typed interfaces), and extensibility (stable plugin contracts).
+\section{Assumptions and Constraints}
+School network deployment implies intermittent connectivity and legacy browsers; thus dependencies are minimized and assets are locally hosted. Pedagogical depth evaluation is deferred.
+
+\chapter{Technologies}
+\label{ch:technologies}
+\section{Blockly}
+Chosen over platform-style alternatives for fine-grained toolbox control and integration flexibility.
+\section{Web Stack}
+Prototype stack (planned): SvelteKit front-end, TypeScript for type safety, Tailwind for rapid UI iteration. Content persists as static JSON (upgradeable to SQLite).
+\section{Sandboxing}
+Browser iframe sandbox with restricted capabilities and message-passing protocol; loop-trap and timeout instrumentation enforce resource limits.
+\section{Grading Layer}
+Pure client graders for I/O and turtle tasks perform normalization, deterministic seeding, and structured result reporting.
+\section{Localization}
+JSON-based bilingual resource bundles; fallback chain ensures resilience.
+
+\chapter{System Design}
+\label{ch:design}
+This chapter formalizes the architecture: layered front-end, sandbox boundary, grading services, and content schema. Emphasis is placed on determinism, extensibility (block and exercise-type APIs), and privacy controls (feature flags, capability whitelists).
+
+\chapter{Implementation}
+\label{ch:implementation}
+Describes representative modules: exercise JSON validator, sandbox harness, turtle command log renderer, grader result model, and authoring form logic.
+
+\chapter{Evaluation}
+\label{ch:evaluation}
+The prototype is evaluated along technical dimensions: (i) sandbox isolation effectiveness, (ii) grading determinism under repeated runs, (iii) performance metrics (load, execution latency), and (iv) expressiveness measured by coverage of targeted learning concepts in the curated exercises.
+
+\chapter{Limitations}
+\label{ch:limitations}
+Current scope excludes longitudinal learning outcome studies, large-scale classroom management, advanced accessibility adaptations (e.g. full screen reader optimization of Blockly), and server-side persistence in multi-user scenarios.
+
+\chapter{Conclusion and Future Work}
+\label{ch:conclusion}
+The thesis delivered a technically grounded prototype and framework for extendable, privacy-preserving block-based learning. Future work includes richer exercise analytics, adaptive hint sequencing, expanded exercise types (state machines, physics), classroom orchestration features, deeper accessibility enhancements, and empirical pedagogical evaluation.
+
+% Back Matter
+\backmatter
+\printbibliography[heading=bibintoc]
+
+\end{document}

@@ -1,0 +1,98 @@
+% Modern LaTeX engines handle UTF-8 by default, inputenc is obsolete
+\usepackage{graphicx}
+\usepackage[english]{babel}
+\usepackage[margin=2.5cm]{geometry}  % Modern replacement for a4wide
+\usepackage{parskip}
+\usepackage[pdfusetitle,bookmarks]{hyperref}
+\usepackage{scrlayer-scrpage}  % Modern KOMA-Script replacement for fancyhdr
+\usepackage{marvosym}  % Modern package with Euro symbol (\EUR)
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{microtype}
+\usepackage[toc,page]{appendix}
+\usepackage{csquotes} % Recommended with biblatex
+
+% Bibliography (biber backend for robustness)
+\usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
+\addbibresource{literature.bib}
+
+\usepackage{lstautogobble}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage{xcolor}  % Modern, already replaces obsolete 'color' package
+
+\colorlet{punct}{red!60!black}
+\definecolor{background}{HTML}{EEEEEE}
+\definecolor{delim}{RGB}{20,105,176}
+\colorlet{numb}{magenta!60!black}
+
+\lstdefinelanguage{json}{
+basicstyle=\footnotesize\ttfamily,
+numbers=left,
+tabsize=2,
+lineskip={-1.0pt},
+numberstyle=\scriptsize,
+stepnumber=1,
+numbersep=8pt,
+showstringspaces=false,
+breaklines=true,
+frame=lines,
+backgroundcolor=\color{background},
+literate=
+*{:}{{{\color{punct}{:}}}}{1}
+{,}{{{\color{punct}{,}}}}{1}
+{\{}{{{\color{delim}{\{}}}}{1}
+{\}}{{{\color{delim}{\}}}}}{1}
+{[}{{{\color{delim}{[}}}}{1}
+{]}{{{\color{delim}{]}}}}{1},
+}
+
+\lstdefinelanguage{rdf}{
+  basicstyle={\footnotesize\ttfamily},
+  lineskip={-1.0pt},
+  numbers=left,
+  numberstyle=\scriptsize,
+  stepnumber=1,
+  numbersep=8pt,
+  showstringspaces=false,
+  breaklines=true,
+  frame=lines,
+  tabsize=2,
+  backgroundcolor=\color{background},
+  keywordstyle={\bfseries\color{Blue}},
+  commentstyle={\color{Red}\textit},
+  stringstyle=\color{Magenta},
+  morekeywords={ql,rml,rr,schema},
+  moredelim=*[s][\ttfamily]{:}{:}
+}
+
+\lstdefinelanguage{xml}{
+  basicstyle={\footnotesize\ttfamily},
+  lineskip={-1.0pt},
+  numbers=left,
+  tabsize=2,
+  numberstyle=\scriptsize,
+  stepnumber=1,
+  numbersep=8pt,
+  showstringspaces=false,
+  breaklines=true,
+  frame=lines,
+  backgroundcolor=\color{background},
+  keywordstyle={\bfseries\color{Blue}},
+  commentstyle={\color{Red}\textit},
+  stringstyle=\color{Magenta},
+  morekeywords={ServiceProvider,Document,Address,Service,Product,Occupancy,Price},
+  moredelim=*[s][\ttfamily]{:}{:}
+}
+
+\newcommand\tab[1][1cm]{\hspace*{#1}}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  showspaces=false,
+  numbers=left,
+  breaklines=true,
+  showstringspaces=false
+}
+

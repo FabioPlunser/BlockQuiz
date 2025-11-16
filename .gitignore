@@ -1,0 +1,128 @@
+# Core LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.nav
+*.snm
+*.vrb
+*.idx
+*.ilg
+*.ind
+*.glo
+*.gls
+*.glg
+*.ist
+
+# LaTeX packages and tools
+*.acn
+*.acr
+*.alg
+*.glsdefs
+*.xdy
+*.tdo
+*.mw
+
+# PDF/PS/DVI (keep PDFs if you commit them)
+*.ps
+*.dvi
+*.xdv
+
+# Beamer + Presentations
+*.thm
+*.loe
+
+# MetaPost/Asymptote
+*.mp
+*.mpx
+*.asy
+*.pre
+*.eps
+*.eps_tex
+
+# TikZ/PGF externalization
+*.dpth
+*.md5
+*.auxlock
+*-figure*.pdf
+*-figure*.log
+
+# MakeIndex/Glossaries/Nomencl
+*.nlo
+*.nls
+*.nlg
+*.nomenclature
+*.glg
+*.glo
+*.gls
+*.glsdefs
+
+# Bibliography tools
+*.bib.bak
+*.bib.sav
+
+# Latexmk and other build systems
+latexmkrc
+*.latexmain
+*.makefile
+*.mk
+
+# Editors/IDEs
+.#*
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+*.tmp.*
+*.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.code-workspace
+
+# Output/build directories (uncomment the ones you use)
+# build/
+# out/
+# _build/
+# _minted*/
+# dist/
+
+# minted and pygments
+_minted*/
+*.pyg
+
+# arara
+*.arx
+*.logd
+*.lg
+
+# glossaries extra
+*.glstex
+
+# lualatex/xelatex extras
+*.lua
+*.luatexcache
+*.fmt
+
+# Texpad/TexShop/TexpadTex
+*.texpadtmp
+*.texpadlog
+*.tsd
+
+# Texstudio
+*.synctex(busy)
+*.sav
+
+# Subfiles / standalone caches
+*.sta

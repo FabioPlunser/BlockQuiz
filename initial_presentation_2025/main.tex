@@ -1,0 +1,187 @@
+\documentclass[11pt,t,usepdftitle=false,aspectratio=169]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[english]{babel}
+\usepackage[backend=biber,style=numeric-comp,sorting=none]{biblatex}
+\usepackage{xcolor}
+\usepackage{csquotes}
+\usepackage{hyperref}
+
+% Colors for code
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% UIBK theme
+\usetheme[nototalframenumber,foot,logo,nosectiontitlepage]{uibk}
+\headerimage{3}
+
+% Metadata
+\title{BlockQuiz: Web-Based Block Programming Platform with Auto-Grading for students}
+\subtitle{Quality Engineering Research Group}
+\footertext{BlockQuiz: Web-Based Block Programming Platform}
+\author[]{Fabio Plunser\\{\footnotesize Supervisor: Ass. Prof. Dr. Michael Vierhauser}}
+
+% Code listing style (kept)
+\lstdefinestyle{mystyle}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegreen},
+  keywordstyle=\color{magenta},
+  numberstyle=\tiny\color{codegray},
+  stringstyle=\color{codepurple},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2
+}
+\lstset{style=mystyle}
+
+
+\addbibresource{bib.bib}
+\begin{document}
+
+\maketitle
+
+% Agenda
+\begin{frame}{Outline}
+  \begin{enumerate}
+    \item Motivation
+    \item Requirements
+    \item Planned features
+    \item Blockly
+    \item UI Mockup
+    \item Implementation Challenges
+    \item Timeline
+  \end{enumerate}
+\end{frame}
+
+% Motivation
+\begin{frame}{Motivation}
+  Teaching children programming in an engaging way:
+  \begin{itemize}
+    \item \textbf{Problem:} Existing tools (Scratch, Tynker, MakeCode) are too open-ended or game/hardware-bound
+    \item \textbf{Need:} Focused, auto-graded puzzles with clear learning goals per task
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Solution:} A web-based platform with short, constrained programming exercises inspired by Brilliant.org
+\end{frame}
+
+%% Screenshot of brilliant
+
+\begin{frame}{Requirements}
+  \begin{itemize}
+    \item Customizable block based programming examples
+    \item Content management system for courses and exercises
+    \item Easy to use interface for students and teachers
+    \item Auto-graded, grading support for exercises
+    \item Feedback support for students
+  \end{itemize}
+\end{frame}
+
+% Goal
+% \begin{frame}{Goal}
+%   Build a web-based, block-programming learning platform for children aged 8--12:
+%   \begin{itemize}
+%     \item \textbf{Left pane:} Problem statement, examples, hints, feedback
+%     \item \textbf{Right pane:} Blockly workspace with constrained toolbox
+%     \item \textbf{Interaction:} "RUN" to execute code, "CHECK" for auto-grading
+%     \item \textbf{Safety:} Sandboxed execution with timeouts and loop guards
+%     \item \textbf{Languages:} English and German (i18n)
+%   \end{itemize}
+%   \vspace{0.3cm}
+%   \textbf{Deliverables:} 10 curated exercises covering loops, conditionals, variables, and simple functions
+% \end{frame}
+
+% Platform Concept
+\begin{frame}{Planned Features}
+  % \textbf{MVP Features:}
+  \begin{itemize}
+    \item Generated output: Text, code or 2D graphic
+    \item Per-exercise constrained block toolbox (reduces cognitive load)
+    \item Multi-level hints system
+    \item Deterministic auto-grading with public \& hidden test cases
+    \item JSON-based import/export for blocks
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Out of Scope:}
+  \begin{itemize}
+    \item Full classroom management (Kahoot-style)
+    \item Complex simulators beyond 2D turtle graphics
+  \end{itemize}
+\end{frame}
+
+% Blockly
+\begin{frame}{Blockly}
+  Blockly \cite{blockly} is a visual programming editor from Google
+  \begin{itemize}
+    \item Drag-and-drop blocks generate executable code
+    \item Fully customizable: per-exercise toolbox, block definitions, code generators
+    \item Ideal for constrained learning environments
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Why Blockly over MakeCode? \cite{makecode}}
+  \begin{itemize}
+    \item Library vs. platform: full control over UI and grading logic
+    \item Easy integration with SvelteKit and custom CMS
+    \item Flexible for quiz-driven workflows
+  \end{itemize}
+  \begin{figure}[!htb]
+    \centering
+    \includegraphics[width=0.75\linewidth]{./images/Blockly.png}
+  \end{figure}
+\end{frame}
+
+% Exercise Types
+\begin{frame}{Mockup}
+  \centering
+  \includegraphics[width=0.85\linewidth]{./images/mockup.pdf}
+\end{frame}
+
+\begin{frame}{Implementation Challenges}
+  \textbf{Technical:}
+  \begin{itemize}
+    \item Sandboxed execution with loop detection and timeouts
+    \item Deterministic grading with seeded RNG
+    \item Multi-language support (i18n) for content and UI
+  \end{itemize}
+  \vspace{0.3cm}
+  \textbf{Design:}
+  \begin{itemize}
+    \item Defining good exercise criteria (one concept per puzzle, minimal toolbox)
+    \item Effective hint system (scaffolding without spoilers)
+    \item Age-appropriate feedback and error messages
+    \item Balancing expressiveness with cognitive load
+  \end{itemize}
+\end{frame}
+
+% Timeline
+\begin{frame}{Timeline}
+  \includegraphics[width=\linewidth]{images/Gantt-Chart.png}
+\end{frame}
+
+% Thank you
+\begin{frame}{Thank You}
+  \begin{center}
+    \Large Questions?
+  \end{center}
+  \vspace{1cm}
+  \includegraphics[width=0.8\linewidth]{_images/uibk_header1.png}
+\end{frame}
+
+% References
+\begin{frame}[allowframebreaks]
+  \frametitle{References}
+  \printbibliography
+\end{frame}
+
+\end{document}
