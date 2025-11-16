@@ -7,8 +7,13 @@ const config = {
 	// Consult https://svelte.dev/docs/kit/integrations
 	// for more information about preprocessors
 	preprocess: [vitePreprocess(), mdsvex()],
-	kit: { adapter: adapter() },
-	extensions: ['.svelte', '.svx']
+	kit: { experimental: { remoteFunctions: true }, adapter: adapter() },
+	extensions: ['.svelte', '.svx'],
+	compilerOptions: {
+		experimental: {
+			async: true
+		}
+	}
 };
 
 export default config;

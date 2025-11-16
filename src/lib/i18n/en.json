@@ -1,0 +1,23 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"welcome_tagline": "Your journey into programming starts here",
+	"welcome_title": "Welcome to BlockQuiz",
+	"welcome_description": "Practice programming with colorful blocks, bite-sized challenges, and instant feedback. Perfect for digital literacy lessons.",
+	"feature_short_focused": "Short, focused tasks for ages 8–12",
+	"feature_blockly_autograding": "Blockly workspace with secure autograding",
+	"feature_bilingual_ready": "German & English, ready for schools",
+	"login_title": "Login",
+	"login_subtitle": "Use your learning code or school account. Guests can explore the demo below.",
+	"form_email_label": "Email",
+	"form_email_placeholder": "e.g. lea@school.com",
+	"form_password_label": "Password",
+	"form_remember_me": "Keep me logged in",
+	"form_forgot_password": "Forgot password?",
+	"login_submit_button": "Sign In",
+	"or": "or",
+	"explore_as_guest": "Explore as Guest",
+	"privacy_notice_prefix": "By signing in, you confirm that you've read our",
+	"privacy_policy_link": "Privacy Policy",
+	"privacy_notice_suffix": ". In school mode, we only store pseudonymous learning progress.",
+	"hello_world": "Hello, {name} from en!"
+}
