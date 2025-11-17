@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import { login } from './login.remote';
 
-	const features = [
+	const features = $derived([
 		i18n.feature_short_focused,
 		i18n.feature_blockly_autograding,
 		i18n.feature_bilingual_ready
-	];
+	]);
 
-	$inspect(i18n);
+	const issues = $derived(login.fields.allIssues());
+	$inspect(issues);
 </script>
 
 <section class="flex flex-col gap-12 lg:flex-row lg:items-center">
@@ -49,36 +51,32 @@
 				</p>
 			{/if}
 
-			<form method="POST" class="mt-6 space-y-5" action="?/login">
+			<form {...login} class="mt-6 space-y-5">
 				<div class="space-y-2">
 					<label class="text-sm font-medium text-slate-700" for="email"
 						>{i18n.form_email_label}</label
 					>
 					<input
 						class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-sky-400 focus:ring-2 focus:ring-sky-200 focus:outline-none"
-						id="email"
-						name="email"
-						type="email"
-						autoComplete="email"
-						required
-						placeholder={i18n.form_email_placeholder}
+						{...login.fields.email.as('text')}
 					/>
+					{#each login.fields.email.issues() as issue}
+						<span class="text-red-500 opacity-80">{issue.message}</span>
+					{/each}
 				</div>
 				<div class="space-y-2">
 					<label class="text-sm font-medium text-slate-700" for="password"
 						>{i18n.form_password_label}</label
 					>
 					<input
+						{...login.fields.password.as('password')}
 						class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-purple-400 focus:ring-2 focus:ring-purple-200 focus:outline-none"
-						id="password"
-						name="password"
-						type="password"
-						autoComplete="current-password"
-						required
-						placeholder="••••••••"
 					/>
+					{#each login.fields.email.issues() as issue}
+						<span class="text-red-500 opacity-80">{issue.message}</span>
+					{/each}
 				</div>
-				<div class="flex items-center justify-between text-sm text-slate-500">
+				<!-- <div class="flex items-center justify-between text-sm text-slate-500">
 					<label class="inline-flex items-center gap-2">
 						<input
 							class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
@@ -87,13 +85,12 @@
 						/>
 						<span>{i18n.form_remember_me}</span>
 					</label>
-					<a class="font-medium text-sky-600 hover:text-sky-700" href="/reset"
-						>{i18n.form_forgot_password}</a
-					>
-				</div>
+					<button {} class="font-medium text-sky-600 hover:text-sky-700"
+						>{i18n.form_forgot_password}</button
+					> 
+				</div> -->
 				<button
-					type="submit"
-					class="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-sky-500 via-purple-500 to-pink-500 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-sky-200 transition hover:translate-y-0.5 hover:shadow-xl focus:ring-2 focus:ring-sky-300 focus:outline-none"
+					class="flex w-full items-center justify-center rounded-2xl bg-linear-to-r from-sky-500 via-purple-500 to-pink-500 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-sky-200 transition hover:translate-y-0.5 hover:shadow-xl focus:ring-2 focus:ring-sky-300 focus:outline-none"
 				>
 					{i18n.login_submit_button}
 				</button>

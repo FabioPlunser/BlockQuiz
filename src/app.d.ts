@@ -1,21 +1,25 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 
-import type { User as LuciaUser, Session } from "lucia";
-
 // for information about these interfaces
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			session: {
+				id: string;
+				userId: string;
+				expiresAt: Date;
+			} | null;
+			user: {
+				id: string;
+				email: string;
+				username?: string;
+				role: 'student' | 'teacher' | 'author' | 'admin';
+			} | null;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
-
-		interface Locals {
-			user: LuciaUser | null;
-			session: Session | null;
-			locale: 'de' | 'en';
-		}
 	}
 }
 

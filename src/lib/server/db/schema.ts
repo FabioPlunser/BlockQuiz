@@ -6,7 +6,7 @@ const nowMs = () => sql`(unixepoch() * 1000)`;
 
 // Users table
 export const users = sqliteTable('users', {
-	id: text('id').primaryKey(), // use ulid()
+	id: text('id').primaryKey(),
 	email: text('email').notNull().unique(),
 	passwordHash: text('password_hash'),
 	role: text('role', { enum: ['student', 'teacher', 'author', 'admin'] })
