@@ -1,13 +1,27 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1763320782816,
-      "tag": "0000_lean_ultimatum",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1763582438190,
+			"tag": "0000_conscious_multiple_man",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1764085148636,
+			"tag": "0001_serious_gambit",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1764085166239,
+			"tag": "0002_broken_hammerhead",
+			"breakpoints": true
+		}
+	]
 }

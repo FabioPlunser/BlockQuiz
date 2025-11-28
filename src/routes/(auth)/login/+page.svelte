@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import { login } from './login.remote';
+	import { login, register } from '$remote/auth.remote';
 
 	const features = $derived([
 		i18n.feature_short_focused,
@@ -9,8 +9,7 @@
 		i18n.feature_bilingual_ready
 	]);
 
-	const issues = $derived(login.fields.allIssues());
-	$inspect(issues);
+	$inspect(login.fields.allIssues());
 </script>
 
 <section class="flex flex-col gap-12 lg:flex-row lg:items-center">
@@ -28,9 +27,7 @@
 		</p>
 		<ul class="space-y-3 text-base text-slate-700">
 			{#each features as feature}
-				<li
-					class="flex items-start gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-sm shadow-sky-100"
-				>
+				<li class="flex items-start gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-lg">
 					<span class="mt-1 text-lg">✨</span>
 					<span>{feature}</span>
 				</li>
@@ -39,7 +36,7 @@
 	</div>
 
 	<div class="w-full max-w-md">
-		<div class="rounded-3xl bg-white/90 p-8 shadow-2xl shadow-purple-200 backdrop-blur">
+		<div class="rounded-3xl bg-white p-8 shadow-xl shadow-purple-200 backdrop-blur">
 			<h2 class="text-2xl font-semibold text-slate-900">{i18n.login_title}</h2>
 			<p class="mt-1 text-sm text-slate-500">
 				{i18n.login_subtitle}
@@ -60,9 +57,6 @@
 						class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-sky-400 focus:ring-2 focus:ring-sky-200 focus:outline-none"
 						{...login.fields.email.as('text')}
 					/>
-					{#each login.fields.email.issues() as issue}
-						<span class="text-red-500 opacity-80">{issue.message}</span>
-					{/each}
 				</div>
 				<div class="space-y-2">
 					<label class="text-sm font-medium text-slate-700" for="password"
@@ -72,28 +66,20 @@
 						{...login.fields.password.as('password')}
 						class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-purple-400 focus:ring-2 focus:ring-purple-200 focus:outline-none"
 					/>
-					{#each login.fields.email.issues() as issue}
-						<span class="text-red-500 opacity-80">{issue.message}</span>
-					{/each}
 				</div>
-				<!-- <div class="flex items-center justify-between text-sm text-slate-500">
-					<label class="inline-flex items-center gap-2">
-						<input
-							class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
-							type="checkbox"
-							name="remember"
-						/>
-						<span>{i18n.form_remember_me}</span>
-					</label>
-					<button {} class="font-medium text-sky-600 hover:text-sky-700"
-						>{i18n.form_forgot_password}</button
-					> 
-				</div> -->
-				<button
-					class="flex w-full items-center justify-center rounded-2xl bg-linear-to-r from-sky-500 via-purple-500 to-pink-500 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-sky-200 transition hover:translate-y-0.5 hover:shadow-xl focus:ring-2 focus:ring-sky-300 focus:outline-none"
-				>
-					{i18n.login_submit_button}
-				</button>
+				<div class="flex w-full flex-wrap justify-center gap-4">
+					<button class="btn w-full flex-1 btn-primary">
+						{i18n.login_submit_button}
+					</button>
+					<button {...register.buttonProps} class="btn w-full flex-1 btn-secondary">
+						{i18n.register_submit_button}
+					</button>
+				</div>
+				{#each login.fields.allIssues() as issue}
+					{#if issue}
+						<span class="text-red-500 opacity-80">{issue.message}</span>
+					{/if}
+				{/each}
 			</form>
 
 			<div class="mt-6 space-y-4 text-sm text-slate-500">

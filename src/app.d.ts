@@ -1,26 +1,16 @@
-// See https://svelte.dev/docs/kit/types#app.d.ts
+import type { Session, User as BaseUser } from 'better-auth';
 
+// See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
-	namespace App {
-		// interface Error {}
+	declare namespace App {
 		interface Locals {
-			session: {
-				id: string;
-				userId: string;
-				expiresAt: Date;
-			} | null;
-			user: {
-				id: string;
-				email: string;
-				username?: string;
-				role: 'student' | 'teacher' | 'author' | 'admin';
-			} | null;
+			session?: Session;
+			user?: User;
 		}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
+		interface User extends BaseUser {
+			role: string;
+		}
 	}
 }
-
-export { };
+export {};

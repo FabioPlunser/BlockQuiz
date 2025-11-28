@@ -1,6 +1,5 @@
 Compressed realistic timeline
 
-
 - Week 1 (this week): Repo + DB schema + 1 demo exercise running end-to-end (I/O grading works)
 
 - Week 2: Turtle engine + grading
@@ -19,12 +18,11 @@ This week (4 days, assume you're catching up from illness)
 
 Focus: Just get RUN + CHECK working on one I/O task. Nothing else.
 
-
-- [ ]  Clone repo or init fresh SvelteKit project (5min)
+- [ ] Clone repo or init fresh SvelteKit project (5min)
 
 - [ ] Add Drizzle + SQLite, write schema.ts from earlier gist (30min)
 
-- [ ]  Run drizzle-kit push to create DB + seed 1 demo exercise JSON (15min)
+- [ ] Run drizzle-kit push to create DB + seed 1 demo exercise JSON (15min)
 
 - [ ] Create /exercise/[id] route, load exercise from DB (15min)
 
@@ -42,7 +40,6 @@ Next week: Add Turtle, same approach—one task end-to-end.
 
 Scope cuts if you fall behind
 
-
 - Skip accounts entirely; stay guest-mode only.
 
 - CMS can be barebones (no UI; edit JSON manually or basic form).
@@ -56,7 +53,6 @@ Scope cuts if you fall behind
 - Plugin API: document as "future work," don't code.
 
 Starting TODAY
-
 
 1. Set up project in 1 hour.
 

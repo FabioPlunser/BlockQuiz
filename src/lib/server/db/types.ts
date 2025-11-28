@@ -19,24 +19,24 @@ export type NewAuditLog = InferInsertModel<typeof auditLogs>;
 
 // Parsed JSON field types
 export type ExerciseMeta = {
-  difficulty: number;
-  tags: string[];
-  ageBand: string;
-  estimatedTime: number;
+	difficulty: number;
+	tags: string[];
+	ageBand: string;
+	estimatedTime: number;
 };
 
 export type ExerciseContent = {
-  title: { de: string; en: string };
-  description: { de: string; en: string };
-  hints: Array<{ de: string; en: string }>;
+	title: { de: string; en: string };
+	description: { de: string; en: string };
+	hints: Array<{ de: string; en: string }>;
 };
 
 export type GraderConfig = {
-  normalize: boolean;
-  tests: Array<{
-    id: string;
-    input: string;
-    expected: string;
-    visible: boolean;
-  }>;
+	normalize: boolean;
+	tests: Array<{
+		id: string;
+		input: string;
+		expected: string;
+		visible: boolean;
+	}>;
 };
