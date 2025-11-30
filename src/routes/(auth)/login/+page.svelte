@@ -8,8 +8,6 @@
 		i18n.feature_blockly_autograding,
 		i18n.feature_bilingual_ready
 	]);
-
-	$inspect(login.fields.allIssues());
 </script>
 
 <section class="flex flex-col gap-12 lg:flex-row lg:items-center">
@@ -26,7 +24,7 @@
 			{i18n.welcome_description}
 		</p>
 		<ul class="space-y-3 text-base text-slate-700">
-			{#each features as feature}
+			{#each features as feature (feature)}
 				<li class="flex items-start gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-lg">
 					<span class="mt-1 text-lg">✨</span>
 					<span>{feature}</span>

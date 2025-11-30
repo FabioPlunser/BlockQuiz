@@ -3,10 +3,9 @@ import { db } from '$server/db';
 import { user, account } from '$server/db/schema';
 import { eq, like, and, or } from 'drizzle-orm';
 import { userFilterSchema, createUpdateUserSchema } from '$remote/schemas/users';
-import { sleep } from '$lib/utils/sleep';
 import { requireAuth } from '$lib/utils/requireAuth';
-import { Role, ROLES } from '$lib/roles';
-import { error, isRedirect, redirect, invalid } from '@sveltejs/kit';
+import { Role } from '$lib/roles';
+import { error, isRedirect, } from '@sveltejs/kit';
 
 export const getUsers = query(userFilterSchema, async (filters) => {
 	requireAuth(Role.ADMIN);
@@ -42,7 +41,6 @@ export const updateUser = command(createUpdateUserSchema, async (data) => {
 	try {
 		await db.update(user).set(updates).where(eq(user.id, id));
 	} catch (e) {
-		console.log(e);
 		if (isRedirect(e)) {
 			throw e;
 		}
@@ -85,7 +83,6 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 
 		return { success: true };
 	} catch (e) {
-		console.log(e);
 		error(500, `Creating user failed: ${JSON.stringify(e)}`);
 	}
 });
@@ -105,7 +102,6 @@ export const resetPassword = form(createUpdateUserSchema, async (data) => {
 		await db.update(account).set({ password: hashedPassword }).where(eq(account.userId, user.id));
 		return { success: true };
 	} catch (e) {
-		console.log(e);
 		error(500, `Resetting password failed: ${JSON.stringify(e)}`);
 	}
 });

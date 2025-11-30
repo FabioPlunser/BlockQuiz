@@ -15,11 +15,10 @@
 		{ path: '/logs', label: 'Logs', visible: isAdmin },
 		{ path: '/settings', label: i18n.nav_settings, visible: isAdmin }
 	]);
-	$inspect(currentPath);
 </script>
 
 <div class="tabs-box tabs">
-	{#each navItems as item}
+	{#each navItems as item (item.path)}
 		{#if item.visible}
 			<a
 				href={item.path}

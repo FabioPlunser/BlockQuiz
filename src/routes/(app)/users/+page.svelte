@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getUsers, createUser, updateUser, resetPassword } from '$remote/users.remote';
+	import { Debounced } from 'runed';
 	import { ROLES, Role } from '$lib/roles';
 	import Loading from '$cp/Loading.svelte';
 	import Modal from '$cp/Modal.svelte';
@@ -24,6 +25,13 @@
 	let statusFilter = $state<StatusFilter>('all');
 	let resetPasswordModal = $state(false);
 	let createUserModal = $state(false);
+	let search = $state('');
+	//-----------------------------------------------------------------------------
+	//-----------------------------------------------------------------------------
+	const debouncedSearch = new Debounced(() => search, 200);
+	$effect(() => {
+		filters.search = debouncedSearch.current;
+	});
 	//-----------------------------------------------------------------------------
 	//-----------------------------------------------------------------------------
 	function handleStatusChange(value: StatusFilter) {
@@ -57,22 +65,6 @@
 			console.error('Update failed', err);
 		}
 	}
-
-	// async function handleCreateUser() {
-	// 	createError = '';
-	// 	try {
-	// 		const result = await createUser(newUser);
-	// 		if (!result?.success) {
-	// 			createError = result?.message || 'Failed to create user';
-	// 			return;
-	// 		}
-	// 		closeModal();
-	// 		loadUsers();
-	// 	} catch (err) {
-	// 		console.error(err);
-	// 		createError = 'Something went wrong. Please try again.';
-	// 	}
-	// }
 </script>
 
 <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4">
@@ -88,7 +80,7 @@
 						type="text"
 						class="grow"
 						placeholder="Name or email"
-						bind:value={filters.search}
+						bind:value={search}
 					/>
 					<i class="lni lni-search-2"></i>
 				</label>
