@@ -1,7 +1,7 @@
-import * as v from 'valibot';
+import { z } from 'zod';
 
 // For backward compatibility
-export const loginSchema = v.object({
-	email: v.pipe(v.string(), v.nonEmpty(), v.email()),
-	password: v.pipe(v.string(), v.nonEmpty(), v.minLength(8))
+export const loginSchema = z.object({
+	email: z.email(),
+	password: z.string().min(8)
 });

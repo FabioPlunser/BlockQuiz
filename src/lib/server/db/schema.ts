@@ -58,23 +58,33 @@ export const verification = sqliteTable('verification', {
 	updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(nowMs())
 });
 
+
+
+// Courses table
+export const courses = sqliteTable('courses', {
+	id: text('id').primaryKey(),
+	title: text('title').notNull(),
+	description: text('description').notNull(),
+	published: integer('published', { mode: 'boolean' }).notNull().default(false),
+	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
+	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
+});
+
 // Exercises table
 export const exercises = sqliteTable('exercises', {
 	id: text('id').primaryKey(),
-	type: text('type', { enum: ['io', 'turtle'] }).notNull(),
-	metaJson: text('meta_json').notNull(),
-	contentJson: text('content_json').notNull(),
-	toolboxJson: text('toolbox_json').notNull(),
-	starterXml: text('starter_xml'),
-	graderJson: text('grader_json').notNull(),
-	status: text('status', { enum: ['draft', 'published'] })
+	courseId: text('course_id')
 		.notNull()
-		.default('draft'),
-	createdBy: text('created_by'),
-	updatedBy: text('updated_by'),
+		.references(() => courses.id, { onDelete: 'cascade' }),
+	type: text('type', { enum: ['io', 'turtle'] }).notNull(),
+
+	content: text('content', { mode: 'json' }).notNull(),
+	config: text('config', { mode: 'json' }).notNull(),
+	published: integer('published', { mode: 'boolean' }).notNull().default(false),
+	order: integer('order', { mode: 'number' }).notNull().default(0),
+	createdBy: text('created_by').notNull().references(() => user.id),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
-	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs()),
-	archivedAt: integer('archived_at', { mode: 'number' })
+	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
 });
 
 // Exercise versions table

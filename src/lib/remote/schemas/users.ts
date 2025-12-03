@@ -1,18 +1,18 @@
-import * as v from 'valibot';
+import { z } from 'zod';
 import { Role, ROLES } from '$lib/roles';
 
-export const userFilterSchema = v.object({
-	search: v.optional(v.string()),
-	id: v.optional(v.string()),
-	active: v.optional(v.boolean()),
-	email: v.optional(v.pipe(v.string())),
-	role: v.optional(v.picklist(ROLES))
+export const userFilterSchema = z.object({
+	search: z.string().optional(),
+	id: z.string().optional(),
+	active: z.boolean().optional(),
+	email: z.string().optional(),
+	role: z.enum(ROLES as [string, ...string[]]).optional()
 });
 
-export const createUpdateUserSchema = v.object({
-	id: v.optional(v.string()),
-	email: v.optional(v.pipe(v.string(), v.email())),
-	active: v.optional(v.boolean()),
-	password: v.optional(v.pipe(v.string(), v.minLength(8))),
-	role: v.optional(v.picklist(ROLES))
+export const createUpdateUserSchema = z.object({
+	id: z.string().optional(),
+	email: z.email().optional(),
+	active: z.boolean().optional(),
+	password: z.string().min(8).optional(),
+	role: z.enum(ROLES as [string, ...string[]]).optional()
 });

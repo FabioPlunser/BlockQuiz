@@ -3,7 +3,6 @@
 	import { PersistedState } from 'runed';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	// --------------------------------------------------------------------------------
 	// --------------------------------------------------------------------------------
 	let searchParams = $derived(page.url.searchParams);
@@ -29,11 +28,13 @@
 		{ id: 9, name: 'Course 9', description: 'Description 9', exercises: 90 },
 		{ id: 10, name: 'Course 10', description: 'Description 10', exercises: 100 }
 	];
+
+	import TurtleCanvas from '$cp/TurtleCanvas.svelte';
+	let turtleRef;
 </script>
 
 {#if courseId}
 	<div class="flex gap-2 p-2">
-		<div></div>
 		<div class="">
 			<div class="gap-4">
 				<button class="btn btn-primary" onclick={() => goto('?')}>Back</button>
@@ -45,6 +46,9 @@
 					<textarea class="textarea h-24 w-full" placeholder="Bio"></textarea>
 				</fieldset>
 			</div>
+		</div>
+		<div>
+			<TurtleCanvas bind:this={turtleRef} width={500} height={500} />
 		</div>
 	</div>
 {:else if exerciseId}

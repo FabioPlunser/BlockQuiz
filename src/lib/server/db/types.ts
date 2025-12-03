@@ -29,6 +29,12 @@ export type ExerciseContent = {
 	title: { de: string; en: string };
 	description: { de: string; en: string };
 	hints: Array<{ de: string; en: string }>;
+	example?: { 
+		description: {de: string, en: string};
+		starterXml: string; 
+		explanation: {de: string, en: string}; 
+	};
+
 };
 
 export type GraderConfig = {
@@ -40,3 +46,34 @@ export type GraderConfig = {
 		visible: boolean;
 	}>;
 };
+
+export type TurtleGraderConfig = { 
+	type: 'turtle'; 
+	target?: { x: number, y: number; tolerance: number }; 
+	expectedCommands?: string[]; 
+	expectedState?: { x: number, y: number; angle: number; tolerance: number }; 
+	pathOverlay?: {points: Array<{x: number, y: number}>, color: string, width: number};
+	tests: Array<{
+		id: string;
+		description: {de: string, en: string}; 
+		visible: boolean; 
+		type: 'target' | 'commands' | 'state';
+		expected: unknown;
+	}
+	>;
+};
+
+export type IoGradeConfig = { 
+	type: 'io'; 
+	tests: Array<{
+		id: string;
+		description: {de: string, en: string}; 
+		visible: boolean; 
+		type: 'input' | 'output';
+		expected: unknown;
+	}
+	>;
+};
+
+export type GraderConfigUnion = TurtleGraderConfig | IoGradeConfig;
+
