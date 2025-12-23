@@ -3,96 +3,32 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { javascriptGenerator as jG } from 'blockly/javascript';
-	import '$lib/blockly/turtleBlocks';
+	import type { BlocklyToolboxConfig, BlocklyConfig } from '$lib/blockly/types';
+	import { getDefaultConfig } from '$lib/blockly/BlocklyFactory';
 
-	let { toolbox, starterXml = '', readOnly = false } = $props();
+	let {
+		toolboxConfig,
+		starterXml = '',
+		config = getDefaultConfig()
+	}: {
+		toolboxConfig: BlocklyToolboxConfig;
+		starterXml?: string;
+		config?: BlocklyConfig;
+	} = $props();
 	export { getCode, getXml, clear };
+
+	$inspect(toolboxConfig);
 
 	let blocklyDiv: HTMLDivElement;
 	let workspace: Blockly.WorkspaceSvg | null = null;
 
 	onMount(() => {
 		if (!browser) return;
-
-		// Build categories and filter out empty ones
-		const categories = [
-			{
-				kind: 'category',
-				name: 'Turtle',
-				colour: 160,
-				contents: toolbox
-					.filter((b: string) => b.startsWith('turtle_'))
-					.map((type: string) => {
-						if (type === 'turtle_move') {
-							return {
-								kind: 'block',
-								type,
-								inputs: {
-									DISTANCE: {
-										shadow: { type: 'math_number', fields: { NUM: 100 } }
-									}
-								}
-							};
-						}
-						if (type === 'turtle_turn') {
-							return {
-								kind: 'block',
-								type,
-								inputs: {
-									DEGREES: {
-										shadow: { type: 'math_number', fields: { NUM: 90 } }
-									}
-								}
-							};
-						}
-						return { kind: 'block', type };
-					})
-			},
-			{
-				kind: 'category',
-				name: 'Logic',
-				colour: 210,
-				contents: toolbox
-					.filter((b: string) => b.startsWith('controls') || b.startsWith('logic_'))
-					.map((type: string) => ({ kind: 'block', type }))
-			},
-			{
-				kind: 'category',
-				name: 'Math',
-				colour: 230,
-				contents: toolbox
-					.filter((b: string) => b.startsWith('math_'))
-					.map((type: string) => ({ kind: 'block', type }))
-			},
-			{
-				kind: 'category',
-				name: 'Text',
-				colour: 160,
-				contents: toolbox
-					.filter((b: string) => b.startsWith('text_'))
-					.map((type: string) => ({ kind: 'block', type }))
-			}
-		];
-
-		// IMPORTANT: Filter out empty categories!
-		const nonEmptyCategories = categories.filter((cat) => cat.contents.length > 0);
-
-		const toolBoxConfig = {
-			kind: 'categoryToolbox',
-			contents: nonEmptyCategories
-		};
-
-		console.log('Blockly toolbox config:', toolBoxConfig); // Debug
-
 		try {
 			workspace = Blockly.inject(blocklyDiv, {
-				toolbox: toolBoxConfig,
-				grid: { spacing: 20, length: 3, colour: '#ccc', snap: true },
-				trashcan: true,
-				zoom: { controls: true, wheel: true, startScale: 1.0 },
-				readOnly
+				toolbox: toolboxConfig,
+				...config
 			});
-			console.log('Blockly workspace created:', workspace); // Debug
 		} catch (e) {
 			console.error('Blockly inject failed:', e);
 		}

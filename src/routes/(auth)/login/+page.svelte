@@ -24,7 +24,7 @@
 			{i18n.welcome_description}
 		</p>
 		<ul class="space-y-3 text-base text-slate-700">
-			{#each features as feature (feature)}
+			{#each features as feature, i (i)}
 				<li class="flex items-start gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-lg">
 					<span class="mt-1 text-lg">✨</span>
 					<span>{feature}</span>

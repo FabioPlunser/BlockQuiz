@@ -15,7 +15,7 @@ export async function handle({ event, resolve }) {
 		event.locals.user = session.user;
 	}
 
-	const publicRoutes = ['/login'];
+	const publicRoutes = ['/login', '/test', '/demo'];
 
 	const isPublicRoute = publicRoutes.some(
 		(route) => event.url.pathname === route || event.url.pathname.startsWith(route + '/')

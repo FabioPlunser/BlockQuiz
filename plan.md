@@ -72,37 +72,43 @@ src/lib/sandbox/
 **Concepts:** Sequences, loops, angles, coordinates
 **Ages:** 6-12 (adjustable complexity)
 
-| Exercise | Age | Concepts | Description |
-|----------|-----|----------|-------------|
-| Draw a Line | 6-7 | Sequence | Move turtle forward |
-| Draw a Square | 7-8 | Loop | Repeat 4x: move + turn 90° |
-| Draw a Triangle | 8-9 | Loop + Math | Repeat 3x: move + turn 120° |
-| Draw a Star | 9-10 | Loop + Math | Repeat 5x: move + turn 144° |
-| Spiral | 10-12 | Loop + Variable | Increasing move distance |
-| House | 10-12 | Functions | Combine square + triangle |
+| Exercise        | Age   | Concepts        | Description                         |
+| --------------- | ----- | --------------- | ----------------------------------- |
+| Draw a Line     | 6-7   | Sequence        | Move turtle forward                 |
+| Follow the Path | 6-8   | Sequence        | Follow teacher-drawn line on grid (no walls) |
+| Hungry Turtle   | 8-10  | Sequence        | Reach an apple on the grid, turtle "eats" it |
+| Turtle Maze     | 9-11  | Conditionals    | Avoid gray walls, reach the apple safely     |
+| Smart Turtle    | 11-12 | Conditionals    | Choose a safe path using if/else (multiple paths) |
+| Draw a Square   | 7-8   | Loop            | Repeat 4x: move + turn 90°          |
+| Draw a Triangle | 8-9   | Loop + Math     | Repeat 3x: move + turn 120°         |
+| Draw a Star     | 9-10  | Loop + Math     | Repeat 5x: move + turn 144°         |
+| Spiral          | 10-12 | Loop + Variable | Increasing move distance            |
+| House           | 10-12 | Functions       | Combine square + triangle           |
+| Maze Navigation | 10-12 | Conditional     | Navigate around walls to reach goal |
 
 ### Type 2: Grid Robot 🤖 (To Implement)
 **Concepts:** Sequences, loops, conditionals
 **Ages:** 6-10 (simpler than turtle - no angles)
 
-| Exercise | Age | Concepts | Description |
-|----------|-----|----------|-------------|
-| Reach the Goal | 6-7 | Sequence | Navigate 3-4 moves to star |
-| Collect Coins | 7-8 | Sequence | Pick up items on path |
-| Maze Runner | 8-9 | Loop | Repeat until at goal |
-| Hungry Robot | 8-10 | Conditional | IF food nearby THEN eat |
-| Wall Avoider | 9-10 | Conditional | IF wall ahead THEN turn |
-| Smart Collector | 10-12 | Loop + Conditional | Collect all, avoid walls |
+| Exercise        | Age   | Concepts           | Description                |
+| --------------- | ----- | ------------------ | -------------------------- |
+| Reach the Star  | 6-7   | Sequence           | Move on a 5x5 grid to reach a star |
+| Collect Coins   | 7-8   | Sequence           | Pick up all coins on path          |
+| Maze Runner     | 8-9   | Loop               | Repeat moves until at goal         |
+| Hungry Robot    | 8-10  | Conditional        | IF food nearby THEN eat            |
+| Wall Avoider    | 9-10  | Conditional        | IF wall ahead THEN turn            |
+| Smart Collector | 10-12 | Loop + Conditional | Collect all items, avoid walls     |
 
 ### Type 3: I/O Text (Optional)
 **Concepts:** Variables, math, logic
 **Ages:** 10-12
 
-| Exercise | Age | Concepts | Description |
-|----------|-----|----------|-------------|
-| Double It | 10-11 | Variable | Input N, output N*2 |
-| Sum 1 to N | 11-12 | Loop + Accumulator | Calculate sum |
-| Even or Odd | 11-12 | Conditional | Check divisibility |
+| Exercise    | Age   | Concepts           | Description         |
+| ----------- | ----- | ------------------ | ------------------- |
+| Double It   | 10-11 | Variable           | Input N, output N*2 |
+| Sum 1 to N  | 11-12 | Loop + Accumulator | Calculate sum       |
+| Even or Odd | 11-12 | Conditional        | Check divisibility  |
+| Times Table | 11-12 | Loop               | Print multiplication table for N |
 
 ---
 
@@ -133,9 +139,22 @@ exercises (
   description_de, description_en,
   toolbox JSON,           -- Allowed blocks
   starter_xml TEXT,       -- Initial workspace
-  grader_config JSON,     -- Tests, targets, tolerances
+  grader_config JSON,     -- Tests, targets, tolerances, pathOverlay, walls
+                          -- Structure:
+                          -- {
+                          --   type: 'turtle' | 'robot',
+                          --   pathOverlay?: { points: Point[], color: string, width: number },
+                          --   targetPoints?: TargetPoint[],
+                          --   walls?: Point[],
+                          --   tests: Array<{
+                          --     id: string,
+                          --     type: 'target' | 'path' | 'state',
+                          --     expected: { target?: TargetPoint, path?: Point[], state?: Canvas2DState }
+                          --   }>
+                          -- }
   hints JSON,             -- Progressive hints [{de, en}]
   solution_xml TEXT,      -- Reference solution
+  canvas_config JSON,     -- Grid settings, dimensions, overlay config
   age_min, age_max, difficulty,
   created_at, updated_at
 )
@@ -207,8 +226,9 @@ src/
 │   │
 │   ├── components/
 │   │   ├── BlocklyWorkspace.svelte
-│   │   ├── TurtleCanvas.svelte
+│   │   ├── TurtleCanvas.svelte       # Canvas with grid overlay support
 │   │   ├── GridCanvas.svelte
+│   │   ├── Canvas2DEditor.svelte    # Shared editor for all Canvas2D exercises
 │   │   ├── ExerciseEditor.svelte    # Teacher: create/edit
 │   │   ├── ExercisePlayer.svelte    # Student: play
 │   │   ├── CourseEditor.svelte
@@ -273,17 +293,54 @@ src/
 - [ ] TurtleCanvas NaN handling
 - [ ] Grader typos and logic
 
+#### 1.1.1 Unified Canvas2D Blocks Architecture
+**Goal:** One set of blocks (`canvas_move`, `canvas_turn`, etc.) that work with ALL Canvas2D exercises (Turtle, GridRobot, future exercises).
+
+```typescript
+// src/lib/blockly/canvasBlocks.ts
+// Register ONCE - works for all Canvas2D exercises
+export function registerCanvasBlocks() {
+  // Core blocks: move, turn, reset (always available)
+  // Optional blocks: penUp, penDown, color (only if exercise supports)
+}
+
+// Exercise declares supported features
+export interface Canvas2D {
+  getSupportedFeatures(): string[]; // ['pen', 'color'] or []
+}
+```
+
+**Benefits:**
+- No duplicate block definitions
+- Consistent API across exercises
+- Easy to add new exercise types
+
 #### 1.2 Canvas2D Base Class
 ```typescript
 // src/lib/canvas/Canvas2D.svelte.ts
 export class Canvas2D {
-  x = $state(0);
-  y = $state(0);
-  angle = $state(0);
+  state = $state<Canvas2DState>({ x: 0, y: 0, angle: 0 });
   commands = $state<Command[]>([]);
-  path = $state<Point[]>([]);
+  readonly width: number;
+  readonly height: number;
   
-  // Methods for movement, state comparison, etc.
+  // Grid overlay support
+  gridEnabled = $state(false);
+  gridSize = $state(40); // pixels per cell
+  
+  // Teacher-drawn elements (for exercises)
+  pathOverlay = $state<PathOverlay | null>(null);
+  targetPoints = $state<TargetPoint[]>([]);
+  walls = $state<Point[]>([]); // For turtle maze exercises
+  
+  // Core movement methods
+  move(distance: number): void;
+  turn(degrees: number): void;
+  reset(): void;
+  
+  // State comparison for grading
+  compareState(target: Canvas2DState, tolerance: number): ComparisonResult;
+  comparePath(target: Point[], tolerance: number): { score: number; matches: boolean[] };
 }
 ```
 
@@ -292,11 +349,28 @@ export class Canvas2D {
 // src/lib/canvas/Turtle.svelte.ts
 export class Turtle extends Canvas2D {
   penDown = $state(true);
-  color = $state('#000');
-  isVisible = $state(true);
+  color = $state('#000000');
+  visible = $state(true);
+  path = $state<PathSegment[]>([]); // Drawn path segments
   
-  move(distance: number) { /* ... */ }
-  turn(degrees: number) { /* ... */ }
+  // Override move to track path when pen is down
+  override move(distance: number): void {
+    const from = { x: this.state.x, y: this.state.y };
+    super.move(distance);
+    if (this.penDown) {
+      this.path.push({
+        from,
+        to: { x: this.state.x, y: this.state.y },
+        color: this.color,
+        width: 2
+      });
+    }
+  }
+  
+  penUp(): void;
+  penDown(): void;
+  setColor(hex: string): void;
+  goto(x: number, y: number): void;
 }
 ```
 
@@ -362,11 +436,65 @@ Blockly.Blocks['robot_is_happy'] = { /* ... */ };
   
   let { 
     robot = $bindable(new GridRobot(8, 8)),
-    editable = false  // For teacher to place walls/items
+    editable = false,  // For teacher to place walls/items
+    gridEnabled = true, // Grid overlay always on for robot
+    drawingMode = null  // 'wall' | 'item' | 'goal' | null
   } = $props();
 </script>
 
 <!-- Grid rendering with walls, items, robot -->
+```
+
+#### 2.4 Canvas2D Editor Component (Shared)
+```svelte
+<!-- src/lib/components/Canvas2DEditor.svelte -->
+<script lang="ts">
+  import type { Canvas2D } from '$lib/canvas/Canvas2D.svelte';
+  
+  let {
+    engine,
+    editable = false,
+    onPathDrawn,
+    onTargetPlaced,
+    onWallPlaced
+  } = $props();
+  
+  let gridEnabled = $state(false);
+  let drawingMode = $state<'path' | 'target' | 'wall' | null>(null);
+  
+  function handleCanvasClick(e: MouseEvent) {
+    if (!editable || !drawingMode) return;
+    const point = getCanvasPoint(e);
+    
+    if (drawingMode === 'path') {
+      // Add to path overlay
+    } else if (drawingMode === 'target') {
+      onTargetPlaced?.(point);
+    } else if (drawingMode === 'wall') {
+      onWallPlaced?.(point);
+    }
+  }
+</script>
+
+<div class="canvas-editor">
+  <div class="toolbar">
+    <button onclick={() => gridEnabled = !gridEnabled}>
+      {gridEnabled ? 'Hide Grid' : 'Show Grid'}
+    </button>
+    {#if editable}
+      <button onclick={() => drawingMode = drawingMode === 'path' ? null : 'path'}>
+        Draw Path
+      </button>
+      <button onclick={() => drawingMode = drawingMode === 'target' ? null : 'target'}>
+        Place Apple
+      </button>
+      <button onclick={() => drawingMode = drawingMode === 'wall' ? null : 'wall'}>
+        Place Wall
+      </button>
+    {/if}
+  </div>
+  <!-- Canvas component with grid overlay -->
+</div>
 ```
 
 ### Phase 3: CMS - Exercise Editor (Week 2-3)
@@ -396,17 +524,101 @@ export const EXERCISE_TYPES = {
 - [ ] Type selector (turtle/robot)
 - [ ] Title/description with DE/EN tabs
 - [ ] Visual toolbox builder (checkboxes)
-- [ ] **Canvas drawing mode:**
-  - Turtle: Click to draw target path
-  - Robot: Click to place walls, items, goal
+- [ ] **Canvas drawing mode with grid overlay:**
+  - **Grid toggle**: Enable/disable grid overlay (40px cells default)
+  - **Draw Path mode**: Click-and-drag to draw target path for student to follow
+    - Path stored as `PathOverlay` with points array
+    - Visual feedback: dashed line preview
+    - Clear/undo last point buttons
+  - **Place Target mode**: Click to place apple/target point
+    - Each target creates a test case (`type: 'target'`)
+    - Configurable tolerance (default 20px)
+    - Visual indicator: green circle with apple icon
+  - **Place Wall mode** (for maze exercises): Click to place walls
+    - Walls stored as `Point[]` array
+    - Visual indicator: gray rectangles
+    - Can be used for collision detection in advanced exercises
 - [ ] Blockly workspace for solution
-- [ ] Test case editor
+- [ ] Test case editor (target, path, state)
 - [ ] Hint editor (progressive)
 - [ ] Age range selector
 - [ ] Preview mode (play as student)
 - [ ] Save/publish
 
-#### 3.3 Example: "Hungry Robot" Exercise
+#### 3.3 Example: "Follow the Path" Exercise (Turtle)
+```json
+{
+  "type": "turtle",
+  "title": { "de": "Folge dem Pfad", "en": "Follow the Path" },
+  "description": { 
+    "de": "Zeichne den Pfad nach, den der Lehrer gezeichnet hat.",
+    "en": "Trace the path that the teacher has drawn."
+  },
+  "ageRange": { "min": 6, "max": 8 },
+  "canvas_config": {
+    "gridEnabled": true,
+    "gridSize": 40,
+    "width": 400,
+    "height": 400
+  },
+  "grader": {
+    "type": "turtle",
+    "pathOverlay": {
+      "points": [
+        { "x": 200, "y": 200 },
+        { "x": 240, "y": 200 },
+        { "x": 240, "y": 240 },
+        { "x": 280, "y": 240 }
+      ],
+      "color": "#ff0000",
+      "width": 2
+    },
+    "tests": [
+      {
+        "id": "path-match",
+        "type": "path",
+        "expected": {
+          "path": [/* same points as pathOverlay */]
+        }
+      }
+    ]
+  }
+}
+```
+
+#### 3.4 Example: "Reach the Apple" Exercise (Turtle)
+```json
+{
+  "type": "turtle",
+  "title": { "de": "Erreiche den Apfel", "en": "Reach the Apple" },
+  "description": { 
+    "de": "Bewege die Schildkröte zum Apfel.",
+    "en": "Move the turtle to the apple."
+  },
+  "ageRange": { "min": 7, "max": 9 },
+  "canvas_config": {
+    "gridEnabled": true,
+    "gridSize": 40
+  },
+  "grader": {
+    "type": "turtle",
+    "targetPoints": [
+      { "x": 320, "y": 280, "tolerance": 20 }
+    ],
+    "tests": [
+      {
+        "id": "reach-apple",
+        "type": "target",
+        "expected": {
+          "target": { "x": 320, "y": 280, "tolerance": 20 }
+        }
+      }
+    ]
+  }
+}
+```
+
+#### 3.5 Example: "Hungry Robot" Exercise
 ```json
 {
   "type": "robot",
@@ -583,9 +795,16 @@ LLM_API_KEY=                 # If enabled
 
 ### Unit Tests
 - [ ] Canvas2D class methods
+- [ ] Canvas2D grid overlay calculations
+- [ ] Canvas2D path comparison logic
+- [ ] Canvas2D target point distance calculations
 - [ ] Turtle movement calculations
+- [ ] Turtle path tracking (pen up/down)
 - [ ] GridRobot collision detection
 - [ ] Grader logic (turtle, robot)
+  - [ ] Path comparison grading
+  - [ ] Target reaching grading
+  - [ ] State comparison grading
 - [ ] Loop trap detection
 
 ### Integration Tests
@@ -603,15 +822,15 @@ LLM_API_KEY=                 # If enabled
 
 ## 📅 Timeline Summary
 
-| Week | Focus | Deliverables |
-|------|-------|--------------|
-| 1 | Core Engine | Canvas2D, Turtle working, bugs fixed |
-| 2 | Grid Robot + Editor | GridRobot, Exercise Editor, 5 exercises each |
-| 3 | CMS + Courses | Course Editor, assignment, student view |
-| 4 | Polish + Deploy | Sandbox, Docker, documentation |
-| 5-8 | Content + Thesis | 15+ exercises, write thesis chapters |
-| 9-10 | Evaluation | Pilot study, iterations |
-| 11-12 | Thesis Writing | Complete and submit |
+| Week  | Focus               | Deliverables                                 |
+| ----- | ------------------- | -------------------------------------------- |
+| 1     | Core Engine         | Canvas2D, Turtle working, bugs fixed         |
+| 2     | Grid Robot + Editor | GridRobot, Exercise Editor, 5 exercises each |
+| 3     | CMS + Courses       | Course Editor, assignment, student view      |
+| 4     | Polish + Deploy     | Sandbox, Docker, documentation               |
+| 5-8   | Content + Thesis    | 15+ exercises, write thesis chapters         |
+| 9-10  | Evaluation          | Pilot study, iterations                      |
+| 11-12 | Thesis Writing      | Complete and submit                          |
 
 ---
 
@@ -623,15 +842,28 @@ LLM_API_KEY=                 # If enabled
    - [ ] BlocklyWorkspace export functions
 
 2. **Implement Canvas2D base class:**
-   - [ ] Create `src/lib/canvas/Canvas2D.svelte.ts`
+   - [ ] Create `src/lib/canvas/Canvas2D.svelte.ts` with grid support
    - [ ] Create `src/lib/canvas/Turtle.svelte.ts`
    - [ ] Update TurtleCanvas to use new Turtle class
+   - [ ] Add grid overlay rendering to TurtleCanvas
+   - [ ] Add path overlay rendering (teacher-drawn paths)
+   - [ ] Add target point rendering (apples/targets)
 
-3. **Test end-to-end turtle flow:**
+3. **Implement Canvas2D Editor for teachers:**
+   - [ ] Create `src/lib/components/Canvas2DEditor.svelte`
+   - [ ] Grid toggle button
+   - [ ] Drawing mode selector (path/target/wall)
+   - [ ] Click handlers for placing elements
+   - [ ] Visual feedback for drawing
+   - [ ] Save drawn elements to exercise config
+
+4. **Test end-to-end turtle flow:**
    - [ ] Create exercise in demo page
-   - [ ] Draw target path
+   - [ ] Enable grid overlay
+   - [ ] Draw target path (teacher mode)
+   - [ ] Place apple/target point
    - [ ] Student solves with blocks
-   - [ ] Grading works
+   - [ ] Grading works (path comparison + target reaching)
 
 4. **Start GridRobot:**
    - [ ] Create GridRobot class
@@ -645,12 +877,17 @@ LLM_API_KEY=                 # If enabled
 **Must have for thesis demo:**
 - [x] Blockly workspace renders
 - [x] Turtle moves on canvas
-- [ ] Teacher can draw target path
+- [ ] Grid overlay can be enabled/disabled
+- [ ] Teacher can draw target path on grid
+- [ ] Teacher can place apples/targets on grid
+- [ ] Teacher can place walls (for maze exercises)
+- [ ] Path comparison grading works
+- [ ] Target reaching grading works
 - [ ] Exercise saves to database
 - [ ] Student can play exercise
 - [ ] Grading shows pass/fail
 - [ ] Grid Robot type works
-- [ ] 10 example exercises
+- [ ] 10 example exercises (including path following and target reaching)
 - [ ] Docker deployment works
 
 **Nice to have:**
