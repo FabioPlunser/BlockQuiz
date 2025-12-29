@@ -1,7 +1,9 @@
 import { form, query, getRequestEvent } from '$app/server';
-import { loginSchema } from '$remote/schemas/auth';
+import { loginSchema } from '$remote/schemas/authSchema';
 import { redirect, error, invalid } from '@sveltejs/kit';
 import { auth } from '$server/auth';
+import { BetterAuthError } from 'better-auth';
+import { getResetToken, getUser } from '$lib/helper/dbHelper';
 
 export const login = form(loginSchema, async (data, issue) => {
 	const event = getRequestEvent();
@@ -15,17 +17,17 @@ export const login = form(loginSchema, async (data, issue) => {
 		if (!result.user) {
 			invalid(issue.email('User already exists'));
 		}
-	} catch (e: any) {
-		console.error('Login error:', e);
-
-		// Handle Better Auth specific errors
-		invalid(issue.caller(e.body.message));
+	} catch (e) {
+		if (e instanceof BetterAuthError) {
+			console.error('Login error:', e);
+			invalid(issue.caller(e.message));
+		}
 	}
 
 	redirect(303, '/');
 });
 
-export const register = form(loginSchema, async (data) => {
+export const register = form(loginSchema, async (data, issue) => {
 	const event = getRequestEvent();
 
 	try {
@@ -35,17 +37,11 @@ export const register = form(loginSchema, async (data) => {
 		});
 
 		if (!result.user) {
-			return {
-				success: false,
-				message: 'Registration failed'
-			};
+			invalid(issue.email('Email already in use'));
 		}
 	} catch (e) {
-		console.error('Registration error:', e);
-		return {
-			success: false,
-			message: 'Registration failed. Email might already be in use.'
-		};
+		invalid(issue.email('Email already in use'));
+		throw e;
 	}
 
 	redirect(303, '/');
@@ -70,4 +66,41 @@ export const logoutUser = form(async () => {
 export const getCurrentUser = query(async () => {
 	const { locals } = getRequestEvent();
 	return locals.user;
+});
+
+export const resetPassword = form(loginSchema, async (data, issue) => {
+	const event = getRequestEvent();
+	const { email, password } = data;
+
+	try {
+		const _user = await getUser(email);
+		if (!_user) {
+			invalid(issue.email('User not found'));
+		}
+
+		await auth.api.requestPasswordReset({
+			body: { email: _user.email }
+		});
+
+		const token = await getResetToken(_user.email);
+		if (!token) {
+			invalid(issue.caller('Reset token not generated'));
+		}
+
+		const resetResult = await auth.api.resetPassword({
+			headers: event.request.headers,
+			body: { newPassword: password, token }
+		});
+
+		if (!resetResult.user) {
+			invalid(issue.caller('Password reset failed'));
+		}
+	} catch (e) {
+		if (e instanceof BetterAuthError) {
+			invalid(issue.caller(`Error: ${e.message}`));
+		}
+		throw e;
+	}
+
+	redirect(303, '/');
 });

@@ -1,11 +1,20 @@
 import { query, form, command } from '$app/server';
-import { db } from '$server/db';
+import { db } from '$db/client';
 import { user, account } from '$server/db/schema';
 import { eq, like, and, or } from 'drizzle-orm';
-import { userFilterSchema, createUpdateUserSchema } from '$remote/schemas/users';
+import {
+	userFilterSchema,
+	createUpdateUserSchema,
+	resetPasswordSchema
+} from '$remote/schemas/usersSchema';
 import { requireAuth } from '$lib/utils/requireAuth';
 import { Role } from '$lib/roles';
-import { error, isRedirect, } from '@sveltejs/kit';
+import { error, invalid, isRedirect } from '@sveltejs/kit';
+import { getRequestEvent } from '$app/server';
+import { getUser, getResetToken } from '$lib/helper/dbHelper';
+import { auth } from '$server/auth';
+import { redirect } from '@sveltejs/kit';
+import { BetterAuthError } from 'better-auth';
 
 export const getUsers = query(userFilterSchema, async (filters) => {
 	requireAuth(Role.ADMIN);
@@ -50,7 +59,10 @@ export const updateUser = command(createUpdateUserSchema, async (data) => {
 
 export const createUser = form(createUpdateUserSchema, async (data) => {
 	requireAuth(Role.ADMIN);
-	const existingUser = await db.select().from(user).where(eq(user.email, data.email)).get();
+	if (!data?.email) {
+		invalid('Email is required');
+	}
+	const existingUser = await getUser(data.email);
 	if (existingUser) {
 		error(500, 'User alread existst');
 	}
@@ -62,7 +74,7 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 
 		await db.insert(user).values({
 			id: userId,
-			name: data.name,
+			name: data.email,
 			email: data.email,
 			role: data.role,
 			active: data.active,
@@ -87,21 +99,43 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 	}
 });
 
-export const resetPassword = form(createUpdateUserSchema, async (data) => {
-	requireAuth(Role.ADMIN);
-	const user = await db
-		.select()
-		.from(user)
-		.where(eq(user.email, data.email))
-		.get();
-	if (!user) {
-		error(500, 'User not found');
-	}
+export const resetPassword = form(resetPasswordSchema, async (data) => {
+	const event = getRequestEvent();
+	const { email, password } = data;
+
 	try {
-		const hashedPassword = await Bun.password.hash(data.password);
-		await db.update(account).set({ password: hashedPassword }).where(eq(account.userId, user.id));
-		return { success: true };
+		const _user = await getUser(email);
+		if (!_user) {
+			invalid('User not found');
+		}
+
+		const result = await auth.api.requestPasswordReset({
+			body: { email: _user.email }
+		});
+
+		if (!result.status) {
+			invalid('Password reset failed');
+		}
+
+		const token = await getResetToken(_user.email);
+		console.log(token);
+		if (!token) {
+			invalid('Reset token not generated');
+		}
+
+		const resetResult = await auth.api.resetPassword({
+			headers: event.request.headers,
+			body: { newPassword: password, token }
+		});
+
+		if (!resetResult.status) {
+			invalid('Password reset failed');
+		}
 	} catch (e) {
-		error(500, `Resetting password failed: ${JSON.stringify(e)}`);
+		console.error(e);
+		if (e instanceof BetterAuthError) {
+			invalid(`Error: ${e.message}`);
+		}
+		throw e;
 	}
 });

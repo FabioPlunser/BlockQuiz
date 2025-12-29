@@ -4,6 +4,7 @@
 	import { ROLES, Role } from '$lib/roles';
 	import Loading from '$cp/Loading.svelte';
 	import Modal from '$cp/Modal.svelte';
+	import type { User } from '$db/types';
 	//-----------------------------------------------------------------------------
 	//-----------------------------------------------------------------------------
 	type Filters = {
@@ -26,6 +27,7 @@
 	let resetPasswordModal = $state(false);
 	let createUserModal = $state(false);
 	let search = $state('');
+	let selectedUser = $state<User | undefined>(undefined);
 	//-----------------------------------------------------------------------------
 	//-----------------------------------------------------------------------------
 	const debouncedSearch = new Debounced(() => search, 200);
@@ -194,8 +196,12 @@
 									>{new Date(user.createdAt).toLocaleDateString()}</td
 								>
 								<td class="">
-									<button class="btn btn-sm btn-primary" onclick={() => (resetPasswordModal = true)}
-										>Reset PWD</button
+									<button
+										class="btn btn-sm btn-primary"
+										onclick={() => {
+											selectedUser = user;
+											resetPasswordModal = true;
+										}}>Reset PWD</button
 									>
 								</td>
 							</tr>
@@ -210,6 +216,7 @@
 <Modal remoteFunction={resetPassword} bind:open={resetPasswordModal}>
 	<label class="form-control">
 		<span class="label-text text-sm font-semibold">New Password</span>
+		<input {...resetPassword.fields.email.as('text')} value={selectedUser?.email ?? ''} hidden />
 		<input
 			{...resetPassword.fields.password.as('password')}
 			class="input-bordered input"
@@ -222,7 +229,9 @@
 		</div>
 	{/each}
 	{#snippet controls()}
-		<button class="btn btn-primary" type="submit"> Create user </button>
+		<button class="btn btn-primary" type="submit" onclick={(e) => e.stopPropagation()}>
+			Reset Password
+		</button>
 	{/snippet}
 </Modal>
 

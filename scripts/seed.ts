@@ -1,6 +1,6 @@
 // scripts/seed.ts
-import { db } from '$lib/db/client';
-import { exercises, quizzes } from '$lib/db/schema';
+import { db } from '$lib/server/db/client';
+import { exercises, quizzes } from '$lib/server/db/schema';
 import { ulid } from 'ulid';
 
 await db

@@ -28,7 +28,18 @@
 </script>
 
 <dialog bind:this={dialogRef} class="modal" onclick={handleBackdropClick} onclose={handleClose}>
-	<form {...remoteFunction} onsubmit={handleClose}>
+	<form
+		{...remoteFunction.enhance(async ({ form, data, submit }) => {
+			try {
+				await submit();
+				if (!remoteFunction.fields.allIssues()) {
+					handleClose();
+				}
+			} catch (error) {
+				console.error(error);
+			}
+		})}
+	>
 		<div class="modal-box">
 			{#if title}
 				<h3 class="text-lg font-bold">{title}</h3>

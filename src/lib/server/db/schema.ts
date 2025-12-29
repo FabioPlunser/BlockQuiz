@@ -58,8 +58,6 @@ export const verification = sqliteTable('verification', {
 	updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(nowMs())
 });
 
-
-
 // Courses table
 export const courses = sqliteTable('courses', {
 	id: text('id').primaryKey(),
@@ -82,7 +80,9 @@ export const exercises = sqliteTable('exercises', {
 	config: text('config', { mode: 'json' }).notNull(),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
 	order: integer('order', { mode: 'number' }).notNull().default(0),
-	createdBy: text('created_by').notNull().references(() => user.id),
+	createdBy: text('created_by')
+		.notNull()
+		.references(() => user.id),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
 	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
 });

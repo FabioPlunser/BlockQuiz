@@ -1,13 +1,10 @@
-import { query, getRequestEvent } from '$app/server';
+import { query } from '$app/server';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { error, redirect } from '@sveltejs/kit';
 import Fuse from 'fuse.js';
 import type { IFuseOptions } from 'fuse.js';
-import { auditLogQuerySchema, type AuditLogQueryInput } from '$remote/schemas/logs';
-import { sleep } from '$lib/utils/sleep';
+import { auditLogQuerySchema, type AuditLogQueryInput } from '$remote/schemas/logsSchema';
 import { requireAuth } from '$lib/utils/requireAuth';
-import { rawListeners } from 'node:process';
 import { Role } from '$lib/roles';
 
 export interface LogEntry {

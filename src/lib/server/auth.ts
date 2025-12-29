@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { db } from '$db';
+import { db } from '$db/client';
 import { getRequestEvent } from '$app/server';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 export const auth = betterAuth({
@@ -9,7 +9,15 @@ export const auth = betterAuth({
 		provider: 'sqlite'
 	}),
 	emailAndPassword: {
-		enabled: true
+		enabled: true,
+		sendResetPassword: async ({ user, url, token }, request) => {
+			// DON'T send email - just skip it
+			// Token is already saved in database by better-auth
+			console.log(user);
+			console.log(url);
+			console.log(token);
+			console.log(`Reset token created for ${user.email}`);
+		}
 	},
 	user: {
 		additionalFields: {

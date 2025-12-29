@@ -10,6 +10,11 @@
 	import { getCategoryToolBox, getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
 	import type { BlockDef, BlocklyCategoryConfig, BlocklyToolboxConfig } from '$lib/blockly/types';
 	import { BlocklyToolboxKind } from '$lib/blockly/types';
+	import {
+		normalizePathToCells,
+		pathsEqual,
+		evaluateTurtlePositionOnGrid
+	} from '$lib/graders/canvas';
 
 	type EngineKey = 'turtle' | 'robot';
 	type TestMode = 'path' | 'target';
@@ -186,34 +191,16 @@
 
 		// --- Path-based grading (follow the teacher path) ---
 		if (testMode === 'path' && pathOverlay.length > 1) {
-			const toGrid = (p: Point) => ({
-				col: Math.round(p.x / cellSize),
-				row: Math.round(p.y / cellSize)
-			});
-
-			const normalizePath = (points: Point[]) => {
-				const cells = points.map(toGrid);
-				// Remove consecutive duplicates
-				return cells.filter(
-					(c, i) => i === 0 || c.col !== cells[i - 1].col || c.row !== cells[i - 1].row
-				);
-			};
-
-			const teacherCells = normalizePath(pathOverlay);
+			const teacherCells = normalizePathToCells(pathOverlay, cellSize);
 
 			// Build student's path from turtle.path segment endpoints
 			const studentPoints: Point[] = [];
 			for (const seg of turtle.path) {
 				studentPoints.push(seg.from, seg.to);
 			}
-			const studentCells = normalizePath(studentPoints);
+			const studentCells = normalizePathToCells(studentPoints, cellSize);
 
-			let passed = false;
-			if (studentCells.length === teacherCells.length && studentCells.length > 0) {
-				passed = studentCells.every(
-					(c, i) => c.col === teacherCells[i].col && c.row === teacherCells[i].row
-				);
-			}
+			const passed = pathsEqual(teacherCells, studentCells);
 
 			result = {
 				passed,
@@ -226,21 +213,14 @@
 		}
 
 		// --- Target-based grading (apple + walls) ---
-		const wallHit = walls.some((w) => {
-			const wc = Math.round(w.x / cellSize);
-			const wr = Math.round(w.y / cellSize);
-			const dist = Math.hypot(wc - col, wr - row);
-			return dist <= wallTol;
+		const { wallHit, atApple } = evaluateTurtlePositionOnGrid({
+			turtle: { x: turtle.state.x, y: turtle.state.y },
+			walls,
+			apple,
+			cellSize,
+			appleToleranceCells: appleTol,
+			wallToleranceCells: wallTol
 		});
-
-		const atApple =
-			apple &&
-			(() => {
-				const ac = Math.round(apple.x / cellSize);
-				const ar = Math.round(apple.y / cellSize);
-				const dist = Math.hypot(ac - col, ar - row);
-				return dist <= appleTol;
-			})();
 
 		if (wallHit) {
 			result = {
