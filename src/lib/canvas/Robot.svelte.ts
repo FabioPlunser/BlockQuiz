@@ -5,6 +5,8 @@ import { initBlocks } from '$lib/blockly/BlocklyFactory';
 // Simple Grid Robot engine that reuses the shared Canvas2D blocks.
 // You can extend this later with grid-aware movement and sensor blocks.
 export class Robot extends Canvas2D {
+  override readonly engineId = 'robot';
+  
   // Robot-specific blocks (placeholder for now).
   // Example: you might later add "collect", "eat", or sensor blocks here.
   static readonly ROBOT_BLOCKS: BlockDef[] = [];

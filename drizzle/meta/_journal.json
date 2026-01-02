@@ -29,6 +29,13 @@
       "when": 1764667404099,
       "tag": "0003_worried_pepper_potts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1767350759150,
+      "tag": "0004_last_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

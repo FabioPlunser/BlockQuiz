@@ -14,7 +14,8 @@ const config = {
 			$db: 'src/lib/server/db',
 			$server: 'src/lib/server',
 			$remote: 'src/lib/remote',
-			$cp: 'src/lib/components'
+			$cp: 'src/lib/components',
+			$types: 'src/lib/types'
 		}
 	},
 	extensions: ['.svelte', '.svx'],

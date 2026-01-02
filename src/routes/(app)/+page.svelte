@@ -26,7 +26,7 @@
 		<p class="mb-8 text-lg text-slate-600">{i18n.t('welcome_description')}</p>
 
 		<div class="flex flex-col gap-4 sm:flex-row sm:justify-center">
-			<a href="/login" class="btn btn-primary btn-lg">
+			<a href="/login" class="btn btn-lg btn-primary">
 				{i18n.t('login_submit_button')}
 			</a>
 			<a href="/demo" class="btn btn-outline btn-lg">

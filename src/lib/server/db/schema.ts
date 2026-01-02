@@ -61,9 +61,35 @@ export const verification = sqliteTable('verification', {
 // Courses table
 export const courses = sqliteTable('courses', {
 	id: text('id').primaryKey(),
-	title: text('title').notNull(),
-	description: text('description').notNull(),
+	content: text('content', { mode: 'json' }).notNull(),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
+	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
+	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull().default(nowMs()),
+	createdBy: text('createdBy').notNull()
+});
+
+export const courseExercises = sqliteTable('course_exercises', {
+	id: text('id').primaryKey(),
+	courseId: text('course_id')
+		.notNull()
+		.references(() => courses.id, { onDelete: 'cascade' }),
+	exerciseId: text('exercise_id')
+		.notNull()
+		.references(() => exercises.id, { onDelete: 'cascade' }),
+	// Order within this specific course
+	order: integer('order', { mode: 'number' }).notNull().default(0),
+	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
+	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
+});
+
+export const courseUsers = sqliteTable('course_users', {
+	id: text('id').primaryKey(),
+	courseId: text('course_id')
+		.notNull()
+		.references(() => courses.id, { onDelete: 'cascade' }),
+	userId: text('user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
 	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
 });
@@ -74,8 +100,8 @@ export const exercises = sqliteTable('exercises', {
 	courseId: text('course_id')
 		.notNull()
 		.references(() => courses.id, { onDelete: 'cascade' }),
-	type: text('type', { enum: ['io', 'turtle'] }).notNull(),
-
+	type: text('type', { enum: ['io', 'turtle', 'robot'] }).notNull(),
+	image: text('image'),
 	content: text('content', { mode: 'json' }).notNull(),
 	config: text('config', { mode: 'json' }).notNull(),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
@@ -97,17 +123,6 @@ export const exerciseVersions = sqliteTable('exercise_versions', {
 	message: text('message'),
 	createdBy: text('created_by'),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs())
-});
-
-// Quizzes table
-export const quizzes = sqliteTable('quizzes', {
-	id: text('id').primaryKey(),
-	titleJson: text('title_json').notNull(),
-	exercisesJson: text('exercises_json').notNull(),
-	randomize: integer('randomize', { mode: 'boolean' }).notNull().default(false),
-	prerequisitesJson: text('prerequisites_json'),
-	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
-	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
 });
 
 // Attempts table

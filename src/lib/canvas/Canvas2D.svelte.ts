@@ -1,20 +1,28 @@
-import type { Command, Canvas2DState, ICanvas2D } from '$lib/canvas/types';
+import type { Command, PositionState, IPositionEngine, PathSegment } from '$lib/canvas/types';
 import type { BlockDef } from '$lib/blockly/types';
 
-export class Canvas2D implements ICanvas2D {
-	state = $state<Canvas2DState>({ x: 0, y: 0, angle: 0 });
+/**
+ * Base class for position-based 2D canvas engines.
+ * Provides move/turn mechanics and command logging.
+ * Subclasses: Turtle (with pen), Robot (grid-based), etc.
+ */
+export class Canvas2D implements IPositionEngine {
+	state = $state<PositionState>({ x: 0, y: 0, angle: 0 });
 	commands = $state<Command[]>([]);
 
 	readonly width: number = $state(400);
 	readonly height: number = $state(400);
 	gridSize = 50;
 
-	// Core Canvas2D blocks that are shared across all engines (Turtle, Robot, ...)
+	/** Unique identifier for this engine type (used for block prefixing) */
+	readonly engineId: string = 'canvas2d';
+
+	// Core Canvas2D blocks shared across position-based engines
 	protected _blockDefs: BlockDef[] = [
 		{
 			id: 'move',
 			message: 'move %1 steps',
-			args: [{ type: 'number', name: 'DISTANCE', default: 10 }],
+			args: [{ type: 'number', name: 'DISTANCE', default: 1 }],
 			color: 160,
 			method: 'move'
 		},
@@ -27,15 +35,20 @@ export class Canvas2D implements ICanvas2D {
 		}
 	];
 
-	// Public view used by the interface; subclasses can override to extend.
 	get blockDefs(): BlockDef[] {
 		return this._blockDefs;
 	}
+
+	/** Override in subclasses to provide trail/path segments */
+	get path(): PathSegment[] {
+		return [];
+	}
+
 	constructor(width: number, height: number) {
 		this.width = width;
 		this.height = height;
-		this.state.y = height / 2;
 		this.state.x = width / 2;
+		this.state.y = height / 2;
 	}
 
 	protected moveBy(distance: number) {
@@ -50,10 +63,10 @@ export class Canvas2D implements ICanvas2D {
 	}
 
 	protected log(type: string, ...args: (string | number)[]) {
-		// Store args as string[] to satisfy the Command type while keeping numbers readable.
 		this.commands.push({ type, args: args.map((a) => String(a)), timestamp: Date.now() });
 	}
 
+	// Legacy getters for backward compatibility
 	get State() {
 		return this.state;
 	}
@@ -70,7 +83,6 @@ export class Canvas2D implements ICanvas2D {
 	}
 
 	move(cells: number) {
-		// Treat "distance" argument as number of grid cells, not raw pixels.
 		const distancePx = cells * this.gridSize;
 		this.moveBy(distancePx);
 		this.log('move', cells);
@@ -81,6 +93,7 @@ export class Canvas2D implements ICanvas2D {
 		this.log('turn', degrees);
 	}
 
+	// Pen methods (no-op in base class, overridden in Turtle)
 	setPenDown() {
 		this.log('pen', 'down');
 	}
@@ -93,7 +106,7 @@ export class Canvas2D implements ICanvas2D {
 		this.log('color', hex);
 	}
 
-	get api() {
+	get api(): Record<string, (...args: any[]) => void> {
 		return {
 			move: (d: number) => this.move(d),
 			turn: (d: number) => this.turn(d),

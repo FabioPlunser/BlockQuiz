@@ -89,3 +89,27 @@ input:focus-visible {
 	--depth: 1;
 	--noise: 0;
 }
+
+/* Speed up DaisyUI checkbox checkmark animation */
+.checkbox:checked::before,
+.checkbox[aria-checked='true']::before {
+	transition:
+		clip-path 0.1s ease-out,
+		opacity 0.05s ease-out,
+		rotate 0.1s ease-out,
+		translate 0.1s ease-out !important;
+	transition-delay: 0s !important;
+}
+
+.checkbox:indeterminate::before {
+	transition:
+		clip-path 0.1s ease-out,
+		opacity 0.05s ease-out,
+		rotate 0.1s ease-out,
+		translate 0.1s ease-out !important;
+	transition-delay: 0s !important;
+}
+
+.input {
+	outline: none !important;
+}

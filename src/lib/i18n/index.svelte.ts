@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import type { LocalizedString } from '$types/exercise';
 
 type Dictionary = Record<string, any>;
 
@@ -175,3 +176,37 @@ export const getLocaleFromNavigator = (deflt: string) => {
 	// No locale loaded; use the existing one
 	return deflt;
 };
+
+/**
+ * Pure utility function to get localized string with fallback
+ * Can be used client-side or server-side
+ * @param localized - The LocalizedString object with de and en properties
+ * @param locale - Optional locale ('de' | 'en'). If not provided, uses i18n.locale
+ * @param fallbackLocale - Fallback locale if the desired locale is not available or empty
+ */
+export function getLocalized<T extends LocalizedString>(
+	localized: T,
+	locale?: 'de' | 'en',
+	fallbackLocale: 'de' | 'en' = 'en'
+): string {
+	// Use i18n.locale if no locale is provided
+	const requestedLocale =
+		locale || (i18n.locale === 'de' || i18n.locale === 'en' ? i18n.locale : 'en');
+	const validLocale =
+		requestedLocale === 'de' || requestedLocale === 'en' ? requestedLocale : fallbackLocale;
+
+	// Get the value for the requested locale
+	const primaryValue = localized[validLocale];
+
+	// If primary value exists and is not empty, return it
+	if (primaryValue && primaryValue.trim() !== '') {
+		return primaryValue;
+	}
+
+	// Otherwise, try the fallback locale
+	const otherLocale = validLocale === 'de' ? 'en' : 'de';
+	const fallbackValue = localized[otherLocale];
+
+	// Return fallback if it exists, otherwise return empty string
+	return fallbackValue && fallbackValue.trim() !== '' ? fallbackValue : primaryValue || '';
+}

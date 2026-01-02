@@ -4,9 +4,15 @@ import type { PathSegment } from '$lib/canvas/types';
 import { initBlocks } from '$lib/blockly/BlocklyFactory';
 
 export class Turtle extends Canvas2D {
+	override readonly engineId = 'turtle';
+	
 	pen = $state(false);
-	color = $state('#0000');
-	path = $state<PathSegment[]>([]);
+	color = $state('#000000');
+	_path = $state<PathSegment[]>([]);
+	
+	override get path(): PathSegment[] {
+		return this._path;
+	}
 
 	// Turtle-specific blocks that extend the shared Canvas2D blocks.
 	static readonly TURTLE_BLOCKS: BlockDef[] = [
@@ -54,7 +60,7 @@ export class Turtle extends Canvas2D {
 		super.move(distance);
 		if (this.pen) {
 			// Add path segment
-			this.path.push({
+			this._path.push({
 				from,
 				to: { x: this.state.x, y: this.state.y },
 				color: this.color,
@@ -88,7 +94,14 @@ export class Turtle extends Canvas2D {
 		this.log('color', hex);
 	}
 
-	override get api() {
+	override reset(): void {
+		super.reset();
+		this._path = [];
+		this.pen = false;
+		this.color = '#000000';
+	}
+
+	override get api(): Record<string, (...args: any[]) => void> {
 		return {
 			...super.api,
 			penUp: () => this.penUp(),

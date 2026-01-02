@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import BlocklyWorkspace from '$lib/components/BlocklyWorkspace.svelte';
-	import TurtleCanvas from '$lib/components/TurtleCanvas.svelte';
+	import Canvas from '$lib/components/Canvas.svelte';
 	import { gradeTurtle } from '$lib/graders/turtle';
 	import { Turtle } from '$lib/canvas/Turtle.svelte';
 	import { Robot } from '$lib/canvas/Robot.svelte';
-	import type { Point } from '$lib/canvas/types';
+	import type { Point, TargetPoint, DrawMode } from '$lib/canvas/types';
 	import { LOGIC_BLOCKS, LOOP_BLOCKS, MATH_BLOCKS, TEXT_BLOCKS } from '$lib/blockly/presets';
 	import { getCategoryToolBox, getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
 	import type { BlockDef, BlocklyCategoryConfig, BlocklyToolboxConfig } from '$lib/blockly/types';
@@ -22,7 +22,6 @@
 	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 	let blocklyRef: BlocklyWorkspace;
-	let turtleCanvasRef: TurtleCanvas;
 	let result = $state<any | null>(null);
 
 	// Engines
@@ -61,10 +60,17 @@
 	let wallTolerance = $state(0.0); // in cells (0 = exact cell)
 
 	let teacherMode = $state(true);
-	let drawMode: 'path' | 'apple' | 'wall' | null = $state('path');
+	let showGrid = $state(true);
+	let drawMode = $state<DrawMode>('path');
 	let pathOverlay = $state<Point[]>([]);
-	let apple = $state<Point | null>(null);
+	let targets = $state<TargetPoint[]>([]);
 	let walls = $state<Point[]>([]);
+	let simulationSpeed = $state(100);
+
+	// For backward compatibility with grading
+	let apple = $derived<Point | null>(
+		targets.length > 0 ? { x: targets[0].x, y: targets[0].y } : null
+	);
 
 	// Per-engine selection of which custom Canvas2D blocks to show.
 	let selectedBlocks = $state<Record<EngineKey, string[]>>({
@@ -161,7 +167,7 @@
 				} else if (cmd.type === 'turn') {
 					turtle.turn(value);
 				}
-				await sleep(250); // adjust speed here (ms between commands)
+				await sleep(simulationSpeed); // adjust speed here (ms between commands)
 			}
 
 			check();
@@ -327,8 +333,16 @@
 		</select>
 	</div>
 	<div class="form-control">
-		<span class="label-text mb-1 font-semibold">Teacher Drawing</span>
+		<span class="label-text mb-1 font-semibold">Canvas</span>
 		<div class="flex flex-wrap gap-2">
+			<button
+				type="button"
+				class="btn btn-xs"
+				class:btn-primary={showGrid}
+				onclick={() => (showGrid = !showGrid)}
+			>
+				{showGrid ? 'Hide Grid' : 'Show Grid'}
+			</button>
 			<button
 				type="button"
 				class="btn btn-xs"
@@ -340,10 +354,10 @@
 			<button
 				type="button"
 				class="btn btn-xs"
-				class:btn-primary={drawMode === 'apple'}
-				onclick={() => (drawMode = drawMode === 'apple' ? null : 'apple')}
+				class:btn-primary={drawMode === 'target'}
+				onclick={() => (drawMode = drawMode === 'target' ? null : 'target')}
 			>
-				Place Apple
+				Place Target
 			</button>
 			<button
 				type="button"
@@ -355,45 +369,61 @@
 			</button>
 			<button
 				type="button"
-				class="btn btn-xs"
+				class="btn btn-ghost btn-xs"
 				onclick={() => {
 					pathOverlay = [];
-					apple = null;
+					targets = [];
 					walls = [];
 					toolboxVersion += 1;
 				}}
 			>
-				Clear Drawing
+				Clear All
 			</button>
 		</div>
 	</div>
-	<div class="form-control">
-		<span class="label-text mb-1 font-semibold">Tolerance (cells)</span>
-		<div class="flex flex-col gap-1 text-xs">
-			<label class="flex items-center gap-2">
-				<span>Apple</span>
+	<div class="flex flex-col gap-4">
+		<div class="form-control">
+			<span class="label-text mb-1 font-semibold">Speed between steps</span>
+			<label class="felx items-center gap-2">
 				<input
 					type="range"
-					min="0"
-					max="2"
-					step="0.25"
-					bind:value={appleTolerance}
+					min="1"
+					max="1000"
+					step="1"
+					bind:value={simulationSpeed}
 					class="range w-40 range-xs"
 				/>
-				<span>{appleTolerance.toFixed(2)}</span>
+				<span>{simulationSpeed} ms</span>
 			</label>
-			<label class="flex items-center gap-2">
-				<span>Wall</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.25"
-					bind:value={wallTolerance}
-					class="range w-40 range-xs"
-				/>
-				<span>{wallTolerance.toFixed(2)}</span>
-			</label>
+		</div>
+		<div class="form-control">
+			<span class="label-text mb-1 font-semibold">Tolerance (cells)</span>
+			<div class="flex flex-col gap-1 text-xs">
+				<label class="flex items-center gap-2">
+					<span>Apple</span>
+					<input
+						type="range"
+						min="0"
+						max="2"
+						step="0.25"
+						bind:value={appleTolerance}
+						class="range w-40 range-xs"
+					/>
+					<span>{appleTolerance.toFixed(2)}</span>
+				</label>
+				<label class="flex items-center gap-2">
+					<span>Wall</span>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.25"
+						bind:value={wallTolerance}
+						class="range w-40 range-xs"
+					/>
+					<span>{wallTolerance.toFixed(2)}</span>
+				</label>
+			</div>
 		</div>
 	</div>
 </div>
@@ -416,11 +446,11 @@
 
 				<!-- Block picker: Canvas2D engine blocks -->
 				<div class="mb-2 flex flex-wrap gap-3">
-					{#each getEngine().blockDefs as block}
+					{#each getEngine().blockDefs as block (block.id)}
 						<label class="label cursor-pointer gap-2">
 							<input
 								type="checkbox"
-								class="checkbox checkbox-sm"
+								class="checkbox checkbox-sm checkbox-primary"
 								checked={(selectedBlocks[currentEngine] ?? []).includes(block.id)}
 								onchange={(e) =>
 									toggleBlock(
@@ -436,11 +466,11 @@
 
 				<!-- Block picker: built-in Blockly blocks -->
 				<div class="mb-4 flex flex-wrap gap-3 border-t border-base-300 pt-2">
-					{#each ALL_BUILTIN as id}
+					{#each ALL_BUILTIN as id (id)}
 						<label class="label cursor-pointer gap-2">
 							<input
 								type="checkbox"
-								class="checkbox checkbox-xs"
+								class="checkbox checkbox-xs checkbox-primary"
 								checked={selectedBuiltin.includes(id)}
 								onchange={(e) => toggleBuiltin(id, (e.currentTarget as HTMLInputElement).checked)}
 							/>
@@ -459,33 +489,23 @@
 		<div class="card bg-base-200">
 			<div class="card-body">
 				<h2 class="card-title">
-					{#if currentEngine === 'turtle'}
-						Turtle Canvas
-					{:else}
-						Robot State
-					{/if}
+					{currentEngine === 'turtle' ? 'Turtle' : 'Robot'} Canvas
 				</h2>
 
-				{#if currentEngine === 'turtle'}
-					<TurtleCanvas
-						bind:turtle
-						bind:this={turtleCanvasRef}
-						editable={teacherMode}
-						{drawMode}
-						{pathOverlay}
-						{apple}
-						{walls}
-						onPathChange={(points) => (pathOverlay = points)}
-						onAppleChange={(p) => (apple = p)}
-						onWallsChange={(w) => (walls = w)}
-					/>
-				{:else}
-					<div class="mt-2 space-y-1">
-						<p>X: {robot.state.x.toFixed(1)}</p>
-						<p>Y: {robot.state.y.toFixed(1)}</p>
-						<p>Angle: {robot.state.angle.toFixed(1)}</p>
-					</div>
-				{/if}
+				<!-- Generic Canvas with built-in actor types -->
+				<Canvas
+					engine={getEngine()}
+					actorType={currentEngine}
+					editable={teacherMode}
+					{showGrid}
+					{drawMode}
+					{pathOverlay}
+					{targets}
+					{walls}
+					onPathChange={(points) => (pathOverlay = points)}
+					onTargetChange={(t) => (targets = t)}
+					onWallsChange={(w) => (walls = w)}
+				/>
 
 				<!-- Controls -->
 				<div class="mt-4 flex flex-wrap gap-2">
