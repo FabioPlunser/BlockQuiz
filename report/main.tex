@@ -1,0 +1,55 @@
+\documentclass[bachelor]{qethesis}
+%           or master (bachelor or master is required)
+
+% These two packages are highly recommended:
+\usepackage[T1]{fontenc} % make non-ASCII characters cut&pastable in PDF
+\usepackage{lmodern}     % easiest way to get outline fonts with T1 encoding
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% \usepackage[ngerman]{babel}     % if the thesis is written in German
+
+\title[BlockQuiz]{Web-Based Block Programming Platform
+with Auto-Grading for students}
+\author{Fabio Plunser}
+\supervisor{Ass. Prof. Dr. Michael Vierhauser}
+%\supervisor{Firstname1 Lastname1\\ Firstname2 Lastname2}
+
+
+\begin{document}
+\maketitle
+
+\chapternn{Abstract}
+\input{sections/abstract.tex}
+
+\chapternn{Acknowledgments}
+\input{sections/ack.tex}
+
+\tableofcontents
+\listoffigures
+\listoftables
+\uibkdeclaration
+\label{chap:declare}
+
+\mainmatter
+
+\chapter{Introduction}
+\label{chap:introduction}
+\input{sections/introduction.tex}
+
+
+\bibliography{refs}
+
+\appendix
+
+% \chapter{Proof}
+% Cubum autem in duos cubos, aut quadratoquadratum in duos quadratoquadratos,
+% et generaliter nullam in infinitum ultra quadratum potestatem in duos eiusdem nominis fas
+% est dividere cuius rei demonstrationem mirabilem sane detexi. Hanc marginis exiguitas non caperet\ldots
+
+% \chapter{Algebra}
+% L'alg\`ebre n'est qu'une g\'eom\'etrie \'ecrite; la g\'eom\'etrie n'est qu'une alg\`ebre figur\'ee.
+
+% \hfill Sophie Germain
+
+\end{document}

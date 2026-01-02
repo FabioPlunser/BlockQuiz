@@ -1,0 +1,24 @@
+This thesis presents the design and implementation of BlockQuiz, a web-based block programming learning platform with
+automated grading capabilities, specifically designed for children aged 8-12 years.
+As computational thinking becomes increasingly integrated into educational curricula,
+notably through Austria's mandatory ``Digitale Grundbildung'' subject introduced in 2022,
+there is a growing need for accessible, teacher-friendly programming tools that provide immediate feedback
+without requiring extensive technical expertise from educators.
+
+Unlike existing platforms such as Scratch, Tynker, or Microsoft MakeCode, which tend toward
+open-ended creative projects or hardware-specific applications, BlockQuiz focuses on short,
+tightly constrained programming puzzles with clear learning objectives.
+The platform implements two primary exercise types: Input/Output puzzles for algorithmic
+thinking and 2D Graphics exercises for visual reasoning and geometry concepts.
+Each exercise features a constrained block toolbox, reducing cognitive load while guiding learners toward solutions.
+
+The technical implementation leverages modern web technologies including SvelteKit,
+Google Blockly for the visual programming interface, and a privacy-first architecture
+enabling self-hosted deployment via Docker. Key contributions include a secure client-side
+code execution sandbox with timeout protection, a flexible auto-grading system supporting multiple
+validation strategies, and a teacher-oriented content management system for exercise authoring without programming knowledge.
+
+The platform supports internationalization (German and English), implements progressive hint systems,
+and captures learning analytics for educational research. An evaluation with target users demonstrates
+the platform's usability and effectiveness in teaching core programming concepts including sequences,
+loops, conditionals, and simple functions.
