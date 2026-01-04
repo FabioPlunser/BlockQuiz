@@ -1,0 +1,165 @@
+\documentclass[11pt,t,usepdftitle=false,aspectratio=169]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[english]{babel}
+\usepackage[backend=biber,style=numeric-comp,sorting=none]{biblatex}
+\usepackage{filecontents}
+\usepackage{xcolor}
+\usepackage{multimedia}
+\usepackage{animate}
+
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\usetheme[nototalframenumber,foot,logo,nosectiontitlepage]{uibk}
+\headerimage{3}
+
+\title{Simulation und Schnittstelle mit einer physikalischenn Codeumgebung durch Blockly}
+\subtitle{Abetilung für Forschungsgruppe Quality Engineering }
+\footertext{Simulation und Schnittstelle mit einer physikalischenn Codeumgebung durch Blockly}
+
+\author[]{Fabio Plunser\\{\footnotesize Betreuer: Michael Vierhauser \& Tobias Antensteiner}}
+
+
+\addbibresource{bib.bib}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Inhalt}
+    \begin{enumerate}
+        \item Motivation
+        \item Ziel 
+        \item Physische Blöcke
+        \item Blockly
+        \item Zeitplan
+    \end{enumerate}
+\end{frame}
+
+
+\begin{frame}{Motivation}
+    Kindern programmieren näher bringen:
+    \begin{itemize}
+        \item Verknüpfung der physischen Welt mit der digitalen Wert 
+        \item Programmieren greifbar machen 
+        \item Programmieren durch spielen lernen
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Ziel}
+    \begin{itemize}
+        \item Blöcke werden live auf Webseite dargestellt 
+        \item Webseite simuliert den Code
+        \item Blöcke haben vorgefertigte funktionen 
+        \item Blöcke können von der Webseite Programmiert werden  
+    \end{itemize}
+    % \begin{center}
+    %     \animategraphics[width=0.8\textwidth, loop, autoplay]{15}%frame rate
+    %     {turtle/Turtle-}%path to figures
+    %     {0}%start index
+    %     {58}%end index
+    % \end{center}
+\end{frame}
+
+    
+\begin{frame}{Physische Blöcke}
+    Entwickelt von David Rieser in seiner Bachelorarbeit
+    \begin{itemize}
+        \item Sollen so einfach und günstig wie möglich sein 
+        \item Einfacher komplett dynamischer Anschluss mit Magneten 
+        \item Sollen programmierbar sein und eine einfache und ausführliche Schnittstelle bereitstellen
+    \end{itemize}
+    \begin{center}
+        \begin{figure}
+            \includegraphics[width=0.45\linewidth]{images/bloks.jpg}
+            \cite{project_blocks}
+        \end{figure}
+    \end{center}
+\end{frame}
+
+
+\begin{frame}{Physische Blöcke Challenges}
+   \begin{itemize}
+     \item Korrekte Programmierung der Blöcke 
+     \item Korrekte Interpretation des Blockbaumes 
+     \item Korrekte Darstellung der Blöcke in Blocky
+     \item Echtzeit Darsetllung der Blöcke
+   \end{itemize} 
+   Schnittstelle wird kollaborativ mit David Rieser Entwickelt. 
+   Über WebUSB
+\end{frame}
+
+
+\begin{frame}{Blockly}
+    Blockly is ein visueller Editor von Google. Per drag-and-drop programmieren mit Codegenerierung
+    \cite{blockly}.
+
+    \begin{figure}[!htb]
+        \centering
+        \includegraphics[width=\linewidth]{./images/Blockly.png}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Blockly - Challenges}
+    \begin{itemize}
+        \item Dynamische Block Zusammenstellung basierend auf den physischen Blöcken
+        \item Korrektes generieren des Codes, der physischen Blöcke 
+        \item Interaktion mit Code beispielen wie Turtle Darstellung 
+        \item Gute vordefinierte Blöcke um guten Code zu generieren 
+        \item Korrekte ausführung Codes um die Blöcke zu "simulieren"
+        \item Einfaches Interface für Nutzer 
+    \end{itemize}
+\end{frame}
+
+
+\section{Time Table}
+\begin{frame}{Zeitplan}
+    \includegraphics[width=\linewidth]{images/Gantt-Chart.pdf}
+\end{frame}
+
+\begin{frame}{Danke für die Aufmerksamkeit}
+    \includegraphics[width=\linewidth]{_images/uibk_header1.png}
+\end{frame}
+
+% \begin{frame}{Verwandte Arbeit}
+%     \begin{enumerate}
+%         \item Project Bloks\footfullcite{project_blocks}
+%         \item Blockly \footfullcite{blockly}
+%     \end{enumerate}
+% \end{frame}
+
+\begin{frame}[allowframebreaks]
+        \frametitle{References}
+%        \bibliographystyle{amsalpha}
+\printbibliography
+%        \bibliography{bib2.bib}
+\end{frame}
+
+\end{document}
