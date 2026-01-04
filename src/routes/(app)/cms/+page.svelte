@@ -10,7 +10,6 @@
 	let Page = $derived.by(() => {
 		return possiblePages.find((page) => page.name === selectedPage.current)?.component;
 	});
-	$inspect(Page);
 </script>
 
 <div class="p-4">

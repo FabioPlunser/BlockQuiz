@@ -3,7 +3,7 @@
 	import LocalizedInput from '$cp/editor/LocalizedInput.svelte';
 	import TypeModeSelector from '$cp/editor/TypeModeSelector.svelte';
 	import BlockPicker from '$cp/editor/BlockPicker.svelte';
-	import type { ExerciseFormData } from '$types/exercise';
+	import type { ExerciseFormData, TestCase } from '$types/exercise';
 	import { MoveLeft } from '@lucide/svelte';
 
 	import {
@@ -16,7 +16,12 @@
 		Brush,
 		Apple,
 		BrickWall,
-		Trash
+		Trash,
+		Target,
+		Route,
+		ChevronDown,
+		ChevronRight,
+		Grid3X3
 	} from '@lucide/svelte';
 	import { createDefaultExerciseFormData } from '$types/exercise';
 	import BlocklyWorkspace from '$cp/BlocklyWorkspace.svelte';
@@ -29,9 +34,9 @@
 	import { watch } from 'runed';
 	import Canvas from '$cp/Canvas.svelte';
 	import type { DrawMode, Point, TargetPoint } from '$lib/canvas/types';
-	import ToleranceSettings from '$cp/editor/ToleranceSettings.svelte';
 	import TestCaseEditor from '$cp/editor/TestCaseEditor.svelte';
 	import HintEditor from '$cp/editor/HintEditor.svelte';
+	import AutoTestsPanel from '$cp/editor/AutoTestsPanel.svelte';
 	import { createExercise, updateExercise } from '$remote/exercises.remote';
 
 	// ---------------------------------------------------
@@ -61,10 +66,17 @@
 	let drawMode = $state<DrawMode>(null);
 	let blocklyRef: BlocklyWorkspace;
 	let toolboxVersion = $state(0);
+	let showManualTests = $state(false);
 
 	let pathOverlay = $derived(exercise.config.canvas.pathOverlay);
 	let targets = $derived(exercise.config.canvas.targets);
 	let walls = $derived(exercise.config.canvas.walls);
+	
+	// Derived counts for UI feedback
+	let targetCount = $derived(targets.length);
+	let pathPointCount = $derived(pathOverlay.length);
+	let hasPath = $derived(pathOverlay.length > 1);
+	let autoTestCount = $derived(targetCount + (hasPath ? 1 : 0));
 
 	function updatePath(points: Point[]) {
 		exercise.config.canvas.pathOverlay = points;
@@ -81,8 +93,7 @@
 	const sections = [
 		{ id: 'basics', label: 'Basic Information', icon: Info },
 		{ id: 'blocks', label: 'Blocks', icon: Blocks },
-		{ id: 'canvas', label: 'Canvas', icon: Palette },
-		{ id: 'tests', label: 'Tests', icon: FlaskConical },
+		{ id: 'canvas', label: 'Canvas & Tests', icon: Palette },
 		{ id: 'hints', label: 'Hints', icon: Lightbulb },
 		{ id: 'preview', label: 'Preview', icon: Eye }
 	];
@@ -164,6 +175,97 @@
 		exercise.config.canvas.targets = [];
 		exercise.config.canvas.walls = [];
 	}
+
+	// ---------------------------------------------------
+	// Auto-sync Canvas → Test Cases
+	// ---------------------------------------------------
+	
+	/**
+	 * Sync canvas targets to test cases.
+	 * Clears all existing 'target' type test cases and creates new ones from canvas targets.
+	 */
+	function syncTargetsToTests() {
+		const tolerance = exercise.config.grader.appleTolerance ?? 10;
+		const canvasTargets = exercise.config.canvas.targets;
+		
+		// Remove all existing target-type test cases
+		const nonTargetTests = exercise.config.grader.testCases.filter(t => t.type !== 'target');
+		
+		// Create new target test cases from canvas targets
+		const targetTests: TestCase[] = canvasTargets.map((target, index) => ({
+			id: `target-${target.x}-${target.y}`,
+			description: {
+				de: `Erreiche Ziel bei (${target.x}, ${target.y})`,
+				en: `Reach target at (${target.x}, ${target.y})`
+			},
+			visible: true,
+			type: 'target' as const,
+			message: {
+				de: `Ziel ${index + 1} erreicht!`,
+				en: `Target ${index + 1} reached!`
+			},
+			expected: {
+				target: {
+					x: target.x,
+					y: target.y,
+					tolerance: target.tolerance ?? tolerance
+				}
+			}
+		}));
+		
+		exercise.config.grader.testCases = [...nonTargetTests, ...targetTests];
+	}
+	
+	/**
+	 * Sync canvas path overlay to test case.
+	 * Clears all existing 'path' type test cases and creates one from canvas path.
+	 */
+	function syncPathToTest() {
+		const pathPoints = exercise.config.canvas.pathOverlay;
+		
+		// Remove all existing path-type test cases
+		const nonPathTests = exercise.config.grader.testCases.filter(t => t.type !== 'path');
+		
+		// If there's a path, create a path test case
+		if (pathPoints.length > 1) {
+			const pathTest: TestCase = {
+				id: 'path-follow',
+				description: {
+					de: `Folge dem gezeichneten Pfad (${pathPoints.length} Punkte)`,
+					en: `Follow the drawn path (${pathPoints.length} points)`
+				},
+				visible: true,
+				type: 'path' as const,
+				message: {
+					de: 'Pfad erfolgreich verfolgt!',
+					en: 'Path followed successfully!'
+				},
+				expected: {
+					path: pathPoints.map(p => ({ x: p.x, y: p.y }))
+				}
+			};
+			
+			exercise.config.grader.testCases = [...nonPathTests, pathTest];
+		} else {
+			exercise.config.grader.testCases = nonPathTests;
+		}
+	}
+	
+	// Watch canvas targets and sync to tests
+	watch(
+		() => exercise.config.canvas.targets,
+		() => {
+			syncTargetsToTests();
+		}
+	);
+	
+	// Watch canvas path and sync to tests
+	watch(
+		() => exercise.config.canvas.pathOverlay,
+		() => {
+			syncPathToTest();
+		}
+	);
 	// ---------------------------------------------------
 	// ---------------------------------------------------
 
@@ -341,96 +443,148 @@
 		{/if}
 
 		{#if activeSection === 'canvas'}
-			<div class="divider"></div>
-			<h2 class="font-bold">Canvas Setup</h2>
-			<p class="text-sm text-base-content/60">
-				Draw paths, place targets, and walls for the exercise
+			<h2 class="font-bold">Canvas & Tests</h2>
+			<p class="mb-4 text-sm text-base-content/60">
+				Draw paths and place targets to create test cases automatically
 			</p>
-			<div class="mb-4 flex flex-wrap gap-2">
+			
+			<!-- Toolbar -->
+			<div class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-base-300 p-2">
 				<button
 					type="button"
-					class="btn btn-sm"
+					class="btn btn-sm gap-1"
 					class:btn-primary={showGrid}
 					onclick={() => (showGrid = !showGrid)}
 				>
+					<Grid3X3 size="16" />
 					{showGrid ? 'Hide Grid' : 'Show Grid'}
 				</button>
+				
+				<div class="divider divider-horizontal mx-1"></div>
+				
 				<button
 					type="button"
-					class="btn btn-sm"
+					class="btn btn-sm gap-1"
 					class:btn-primary={drawMode === 'path'}
 					onclick={() => (drawMode = drawMode === 'path' ? null : 'path')}
 				>
-					<div class="flex items-center gap-4">
-						<Brush />
-						Draw Path
-					</div>
+					<Brush size="16" />
+					Path
+					{#if pathPointCount > 0}
+						<span class="badge badge-xs badge-success">{pathPointCount}</span>
+					{/if}
 				</button>
 				<button
 					type="button"
-					class="btn btn-sm"
-					class:btn-primary={drawMode === 'target'}
+					class="btn btn-sm gap-1"
+					class:btn-error={drawMode === 'target'}
 					onclick={() => (drawMode = drawMode === 'target' ? null : 'target')}
 				>
-					<div class="flex items-center gap-4">
-						<Apple />
-						Place Target
-					</div>
+					<Apple size="16" />
+					Target
+					{#if targetCount > 0}
+						<span class="badge badge-xs badge-success">{targetCount}</span>
+					{/if}
 				</button>
 				<button
 					type="button"
-					class="btn btn-sm"
-					class:btn-primary={drawMode === 'wall'}
+					class="btn btn-sm gap-1"
+					class:btn-neutral={drawMode === 'wall'}
 					onclick={() => (drawMode = drawMode === 'wall' ? null : 'wall')}
 				>
-					<div class="flex items-center gap-4">
-						<BrickWall />
-						Place Wall
-					</div>
+					<BrickWall size="16" />
+					Wall
+					{#if walls.length > 0}
+						<span class="badge badge-xs">{walls.length}</span>
+					{/if}
 				</button>
-				<button type="button" class="btn btn-sm" onclick={clearCanvas}>
-					<div class="flex items-center gap-4">
-						<Trash />
-						Clear All
-					</div>
+				
+				<div class="flex-1"></div>
+				
+				<button type="button" class="btn btn-ghost btn-sm gap-1" onclick={clearCanvas}>
+					<Trash size="16" />
+					Clear
 				</button>
 			</div>
-			<div class="flex justify-center">
-				<Canvas
-					engine={getEngine()}
-					actorType={exercise.type === 'turtle' ? 'turtle' : 'robot'}
-					editable={true}
-					{showGrid}
-					{drawMode}
-					{pathOverlay}
-					{targets}
-					{walls}
-					onPathChange={updatePath}
-					onTargetChange={updateTargets}
-					onWallsChange={updateWalls}
-				/>
-			</div>
-			<div class="divider"></div>
-
-			<!-- Tolerance Settings -->
-			<ToleranceSettings
-				bind:appleTolerance={exercise.config.grader.appleTolerance}
-				bind:wallTolerance={exercise.config.grader.wallTolerance}
-				exerciseMode={exercise.config.mode}
-			/>
-		{/if}
-
-		{#if activeSection === 'tests'}
-			<div class="card bg-base-200">
-				<div class="card-body">
-					<h2 class="card-title">Test Cases</h2>
-
-					<TestCaseEditor
-						bind:testCases={exercise.config.grader.testCases}
-						exerciseType={exercise.type}
-						exerciseMode={exercise.config.mode}
+			
+			<!-- Draw Mode Instructions -->
+			{#if drawMode}
+				<div class="mb-4 alert alert-info py-2">
+					<span class="text-sm">
+						{#if drawMode === 'path'}
+							<Brush class="mr-1 inline h-4 w-4" />
+							Click to draw waypoints. This creates a <strong>path test</strong> automatically.
+						{:else if drawMode === 'target'}
+							<Apple class="mr-1 inline h-4 w-4" />
+							Click to place targets. Each creates a <strong>target test</strong> automatically.
+						{:else if drawMode === 'wall'}
+							<BrickWall class="mr-1 inline h-4 w-4" />
+							Click to place walls. These are obstacles the student must avoid.
+						{/if}
+					</span>
+				</div>
+			{/if}
+			
+			<!-- Two-column layout: Canvas (left) + Tests Panel (right) -->
+			<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+				<!-- Canvas (takes 2 columns on large screens) -->
+				<div class="lg:col-span-2">
+					<div class="flex justify-center rounded-lg border border-base-300 bg-base-100 p-4">
+						<Canvas
+							engine={getEngine()}
+							actorType={exercise.type === 'turtle' ? 'turtle' : 'robot'}
+							editable={true}
+							{showGrid}
+							{drawMode}
+							{pathOverlay}
+							{targets}
+							{walls}
+							onPathChange={updatePath}
+							onTargetChange={updateTargets}
+							onWallsChange={updateWalls}
+						/>
+					</div>
+				</div>
+				
+				<!-- Auto-generated Tests Panel (right sidebar) -->
+				<div class="lg:col-span-1">
+					<AutoTestsPanel
+						{targets}
+						{pathOverlay}
+						testCases={exercise.config.grader.testCases}
+						appleTolerance={exercise.config.grader.appleTolerance}
+						wallTolerance={exercise.config.grader.wallTolerance}
+						onAppleToleranceChange={(v) => (exercise.config.grader.appleTolerance = v)}
+						onWallToleranceChange={(v) => (exercise.config.grader.wallTolerance = v)}
 					/>
 				</div>
+			</div>
+			
+			<!-- Collapsed Additional Tests Section -->
+			<div class="mt-6">
+				<button
+					type="button"
+					class="flex w-full items-center gap-2 rounded-lg bg-base-300 px-4 py-3 text-left hover:bg-base-200"
+					onclick={() => (showManualTests = !showManualTests)}
+				>
+					{#if showManualTests}
+						<ChevronDown size="20" />
+					{:else}
+						<ChevronRight size="20" />
+					{/if}
+					<span class="font-medium">Additional Tests</span>
+					<span class="text-sm text-base-content/60">(optional manual tests)</span>
+				</button>
+				
+				{#if showManualTests}
+					<div class="mt-2 rounded-lg border border-base-300 p-4">
+						<TestCaseEditor
+							bind:testCases={exercise.config.grader.testCases}
+							exerciseType={exercise.type}
+							exerciseMode={exercise.config.mode}
+						/>
+					</div>
+				{/if}
 			</div>
 		{/if}
 

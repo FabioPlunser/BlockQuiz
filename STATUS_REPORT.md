@@ -6,15 +6,15 @@
 
 ## ✅ Code MVP Status
 
-| Item | Status | Notes |
-|------|--------|-------|
-| 1. Blockly workspace renders | ✅ **DONE** | `BlocklyWorkspace.svelte` exists with `getCode()`, `getXml()`, `clear()` exports |
-| 2. Turtle moves on canvas | ✅ **DONE** | `Turtle.svelte.ts` and `TurtleCanvas.svelte` implemented |
-| 3. Teacher can create/save exercises | ✅ **DONE** | `ExerciseEditor.svelte` + routes for create/edit exist |
-| 4. Student can play and solve exercises | ⚠️ **PARTIAL** | `TurtlePlayer.svelte` exists but is empty. No student route found |
-| 5. Grading shows pass/fail | ✅ **DONE** | `gradeTurtle()` function exists in `graders/turtle.ts` |
-| 6. 5-10 example exercises | ❌ **NOT DONE** | `seed.ts` only has 1 I/O exercise, no Turtle exercises |
-| 7. Docker deployment works | ❌ **NOT DONE** | No Dockerfile or docker-compose.yml found |
+| Item                                    | Status         | Notes                                                                            |
+| --------------------------------------- | -------------- | -------------------------------------------------------------------------------- |
+| 1. Blockly workspace renders            | ✅ **DONE**     | `BlocklyWorkspace.svelte` exists with `getCode()`, `getXml()`, `clear()` exports |
+| 2. Turtle moves on canvas               | ✅ **DONE**     | `Turtle.svelte.ts` and `TurtleCanvas.svelte` implemented                         |
+| 3. Teacher can create/save exercises    | ✅ **DONE**     | `ExerciseEditor.svelte` + routes for create/edit exist                           |
+| 4. Student can play and solve exercises | ⚠️ **PARTIAL**  | `TurtlePlayer.svelte` exists but is empty. No student route found                |
+| 5. Grading shows pass/fail              | ✅ **DONE**     | `gradeTurtle()` function exists in `graders/turtle.ts`                           |
+| 6. 5-10 example exercises               | ❌ **NOT DONE** | `seed.ts` only has 1 I/O exercise, no Turtle exercises                           |
+| 7. Docker deployment works              | ❌ **NOT DONE** | No Dockerfile or docker-compose.yml found                                        |
 
 ---
 
@@ -22,13 +22,13 @@
 
 ### Day 1 - Sun, Dec 29: Core Bug Fixes & Turtle Polish
 
-| Task | Status | Notes |
-|------|--------|-------|
-| Fix TurtleCanvas NaN handling in `$effect` | ✅ **DONE** | Canvas.svelte has NaN guards (lines 76-87) |
-| Fix grader typos in `turtle.ts` | ✅ **DONE** | No typos found in grader code |
-| Ensure BlocklyWorkspace export functions work | ✅ **DONE** | `getCode()`, `getXml()`, `clear()` exported |
-| Test complete Turtle flow | ⚠️ **UNKNOWN** | Code exists but no tests found |
-| Review Canvas2D and Turtle state | ✅ **DONE** | Both files exist and look complete |
+| Task                                          | Status        | Notes                                       |
+| --------------------------------------------- | ------------- | ------------------------------------------- |
+| Fix TurtleCanvas NaN handling in `$effect`    | ✅ **DONE**    | Canvas.svelte has NaN guards (lines 76-87)  |
+| Fix grader typos in `turtle.ts`               | ✅ **DONE**    | No typos found in grader code               |
+| Ensure BlocklyWorkspace export functions work | ✅ **DONE**    | `getCode()`, `getXml()`, `clear()` exported |
+| Test complete Turtle flow                     | ⚠️ **UNKNOWN** | Code exists but no tests found              |
+| Review Canvas2D and Turtle state              | ✅ **DONE**    | Both files exist and look complete          |
 
 **Day 1 Status:** ✅ **MOSTLY COMPLETE** (testing unknown)
 
@@ -36,12 +36,12 @@
 
 ### Day 2 - Mon, Dec 30: Grid Overlay & Path Drawing
 
-| Task | Status | Notes |
-|------|--------|-------|
-| Add grid overlay toggle to TurtleCanvas | ✅ **DONE** | Canvas.svelte has `showGrid` prop and rendering |
-| Implement path overlay rendering | ✅ **DONE** | `pathOverlay` prop exists, rendering implemented |
-| Add target point rendering | ✅ **DONE** | `targets` prop with icons (apple, etc.) supported |
-| Create drawing mode selector | ✅ **DONE** | `drawMode` prop with 'path', 'target', 'wall' modes |
+| Task                                    | Status     | Notes                                               |
+| --------------------------------------- | ---------- | --------------------------------------------------- |
+| Add grid overlay toggle to TurtleCanvas | ✅ **DONE** | Canvas.svelte has `showGrid` prop and rendering     |
+| Implement path overlay rendering        | ✅ **DONE** | `pathOverlay` prop exists, rendering implemented    |
+| Add target point rendering              | ✅ **DONE** | `targets` prop with icons (apple, etc.) supported   |
+| Create drawing mode selector            | ✅ **DONE** | `drawMode` prop with 'path', 'target', 'wall' modes |
 
 **Day 2 Status:** ✅ **COMPLETE**
 
@@ -49,13 +49,13 @@
 
 ### Day 3 - Tue, Dec 31: Exercise Editor (CMS)
 
-| Task | Status | Notes |
-|------|--------|-------|
+| Task                                     | Status     | Notes                                                |
+| ---------------------------------------- | ---------- | ---------------------------------------------------- |
 | Create ExerciseEditor with type selector | ✅ **DONE** | `ExerciseEditor.svelte` exists with TypeModeSelector |
-| Add title/description with DE/EN tabs | ✅ **DONE** | LocalizedInput and LocalizedRichText components used |
-| Implement visual toolbox builder | ✅ **DONE** | BlockPicker component exists |
-| Add hint editor (progressive hints) | ✅ **DONE** | HintEditor component exists |
-| Connect to database save/load | ✅ **DONE** | `createExercise()` and `updateExercise()` in remote |
+| Add title/description with DE/EN tabs    | ✅ **DONE** | LocalizedInput and LocalizedRichText components used |
+| Implement visual toolbox builder         | ✅ **DONE** | BlockPicker component exists                         |
+| Add hint editor (progressive hints)      | ✅ **DONE** | HintEditor component exists                          |
+| Connect to database save/load            | ✅ **DONE** | `createExercise()` and `updateExercise()` in remote  |
 
 **Day 3 Status:** ✅ **COMPLETE**
 
@@ -63,13 +63,13 @@
 
 ### Day 4 - Wed, Jan 1: Exercise Player (Student View)
 
-| Task | Status | Notes |
-|------|--------|-------|
-| Polish ExercisePlayer component | ❌ **NOT DONE** | `TurtlePlayer.svelte` exists but is empty (only script tag) |
-| Implement hint reveal system | ❌ **NOT DONE** | No hint UI found in player |
-| Add success celebration | ❌ **NOT DONE** | No celebration UI found |
-| Add "Next Exercise" navigation | ❌ **NOT DONE** | No student route found: `/courses/[courseId]/[exerciseId]/+page.svelte` missing |
-| Polish result display | ❌ **NOT DONE** | No result display found |
+| Task                            | Status         | Notes                                                                           |
+| ------------------------------- | -------------- | ------------------------------------------------------------------------------- |
+| Polish ExercisePlayer component | ❌ **NOT DONE** | `TurtlePlayer.svelte` exists but is empty (only script tag)                     |
+| Implement hint reveal system    | ❌ **NOT DONE** | No hint UI found in player                                                      |
+| Add success celebration         | ❌ **NOT DONE** | No celebration UI found                                                         |
+| Add "Next Exercise" navigation  | ❌ **NOT DONE** | No student route found: `/courses/[courseId]/[exerciseId]/+page.svelte` missing |
+| Polish result display           | ❌ **NOT DONE** | No result display found                                                         |
 
 **Day 4 Status:** ❌ **NOT STARTED**
 
@@ -77,13 +77,13 @@
 
 ### Day 5 - Thu, Jan 2: Sandbox Execution & Security
 
-| Task | Status | Notes |
-|------|--------|-------|
+| Task                                      | Status         | Notes                                 |
+| ----------------------------------------- | -------------- | ------------------------------------- |
 | Implement proper iframe sandbox execution | ❌ **NOT DONE** | No `src/lib/sandbox/` directory found |
-| Add loop trap injection | ❌ **NOT DONE** | No loop-trap.ts found |
-| Create API whitelist for student code | ❌ **NOT DONE** | No restricted-api.ts found |
-| Add timeout protection (max 2s) | ❌ **NOT DONE** | No sandbox implementation |
-| Add command counter (max 10,000 commands) | ❌ **NOT DONE** | No sandbox implementation |
+| Add loop trap injection                   | ❌ **NOT DONE** | No loop-trap.ts found                 |
+| Create API whitelist for student code     | ❌ **NOT DONE** | No restricted-api.ts found            |
+| Add timeout protection (max 2s)           | ❌ **NOT DONE** | No sandbox implementation             |
+| Add command counter (max 10,000 commands) | ❌ **NOT DONE** | No sandbox implementation             |
 
 **Day 5 Status:** ❌ **NOT STARTED**
 
@@ -91,15 +91,15 @@
 
 ### Day 6 - Fri, Jan 3: Create Example Exercises (Turtle)
 
-| Task | Status | Notes |
-|------|--------|-------|
-| Exercise 1: Draw a Line (age 6-7) | ❌ **NOT DONE** | seed.ts only has 1 I/O exercise |
-| Exercise 2: Draw a Square (age 7-8) | ❌ **NOT DONE** | |
-| Exercise 3: Draw a Triangle (age 8-9) | ❌ **NOT DONE** | |
-| Exercise 4: Follow the Path (age 6-8) | ❌ **NOT DONE** | |
-| Exercise 5: Reach the Apple (age 7-9) | ❌ **NOT DONE** | |
-| Exercise 6: Draw a Star (age 9-10) | ❌ **NOT DONE** | |
-| Seed database with exercises | ⚠️ **PARTIAL** | seed.ts exists but only has 1 I/O exercise, no Turtle exercises |
+| Task                                  | Status         | Notes                                                           |
+| ------------------------------------- | -------------- | --------------------------------------------------------------- |
+| Exercise 1: Draw a Line (age 6-7)     | ❌ **NOT DONE** | seed.ts only has 1 I/O exercise                                 |
+| Exercise 2: Draw a Square (age 7-8)   | ❌ **NOT DONE** |                                                                 |
+| Exercise 3: Draw a Triangle (age 8-9) | ❌ **NOT DONE** |                                                                 |
+| Exercise 4: Follow the Path (age 6-8) | ❌ **NOT DONE** |                                                                 |
+| Exercise 5: Reach the Apple (age 7-9) | ❌ **NOT DONE** |                                                                 |
+| Exercise 6: Draw a Star (age 9-10)    | ❌ **NOT DONE** |                                                                 |
+| Seed database with exercises          | ⚠️ **PARTIAL**  | seed.ts exists but only has 1 I/O exercise, no Turtle exercises |
 
 **Day 6 Status:** ❌ **NOT STARTED**
 
@@ -107,13 +107,13 @@
 
 ### Day 7 - Sat, Jan 4: Course Management & Progress
 
-| Task | Status | Notes |
-|------|--------|-------|
-| Implement Course Editor (create/edit courses) | ⚠️ **PARTIAL** | `courses.remote.ts` exists but incomplete (syntax errors), no editor UI |
-| Add exercise ordering within courses | ✅ **DONE** | `order` field exists in exercises schema |
-| Implement student progress tracking | ❌ **NOT DONE** | No progress tracking schema or logic found |
-| Create course browser for students | ⚠️ **PARTIAL** | `/courses/+page.svelte` exists but only has `<h1>Courses</h1>` |
-| Add course assignment to classes | ❌ **NOT DONE** | No class assignment logic found |
+| Task                                          | Status         | Notes                                                                   |
+| --------------------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Implement Course Editor (create/edit courses) | ⚠️ **PARTIAL**  | `courses.remote.ts` exists but incomplete (syntax errors), no editor UI |
+| Add exercise ordering within courses          | ✅ **DONE**     | `order` field exists in exercises schema                                |
+| Implement student progress tracking           | ❌ **NOT DONE** | No progress tracking schema or logic found                              |
+| Create course browser for students            | ⚠️ **PARTIAL**  | `/courses/+page.svelte` exists but only has `<h1>Courses</h1>`          |
+| Add course assignment to classes              | ❌ **NOT DONE** | No class assignment logic found                                         |
 
 **Day 7 Status:** ⚠️ **PARTIALLY STARTED**
 
@@ -121,13 +121,13 @@
 
 ### Day 8 - Sun, Jan 5: Docker & Deployment + Testing
 
-| Task | Status | Notes |
-|------|--------|-------|
-| Create Dockerfile | ❌ **NOT DONE** | No Dockerfile found |
-| Create docker-compose.yml | ❌ **NOT DONE** | No docker-compose.yml found |
-| Test full deployment locally | ❌ **NOT DONE** | |
+| Task                               | Status         | Notes                              |
+| ---------------------------------- | -------------- | ---------------------------------- |
+| Create Dockerfile                  | ❌ **NOT DONE** | No Dockerfile found                |
+| Create docker-compose.yml          | ❌ **NOT DONE** | No docker-compose.yml found        |
+| Test full deployment locally       | ❌ **NOT DONE** |                                    |
 | Write basic E2E tests (Playwright) | ❌ **NOT DONE** | No tests/ directory with E2E tests |
-| Fix any remaining bugs | ⚠️ **ONGOING** | |
+| Fix any remaining bugs             | ⚠️ **ONGOING**  |                                    |
 
 **Day 8 Status:** ❌ **NOT STARTED**
 
@@ -137,16 +137,16 @@
 
 ### Week 1 Implementation Status
 
-| Day | Focus | Status | Completion |
-|-----|-------|--------|------------|
-| Day 1 | Core Bug Fixes & Turtle Polish | ✅ Mostly Complete | ~90% |
-| Day 2 | Grid Overlay & Path Drawing | ✅ Complete | 100% |
-| Day 3 | Exercise Editor (CMS) | ✅ Complete | 100% |
-| Day 4 | Exercise Player (Student View) | ❌ Not Started | 0% |
-| Day 5 | Sandbox Execution & Security | ❌ Not Started | 0% |
-| Day 6 | Create Example Exercises | ❌ Not Started | 0% |
-| Day 7 | Course Management & Progress | ⚠️ Partial | ~30% |
-| Day 8 | Docker & Deployment + Testing | ❌ Not Started | 0% |
+| Day   | Focus                          | Status            | Completion |
+| ----- | ------------------------------ | ----------------- | ---------- |
+| Day 1 | Core Bug Fixes & Turtle Polish | ✅ Mostly Complete | ~90%       |
+| Day 2 | Grid Overlay & Path Drawing    | ✅ Complete        | 100%       |
+| Day 3 | Exercise Editor (CMS)          | ✅ Complete        | 100%       |
+| Day 4 | Exercise Player (Student View) | ❌ Not Started     | 0%         |
+| Day 5 | Sandbox Execution & Security   | ❌ Not Started     | 0%         |
+| Day 6 | Create Example Exercises       | ❌ Not Started     | 0%         |
+| Day 7 | Course Management & Progress   | ⚠️ Partial         | ~30%       |
+| Day 8 | Docker & Deployment + Testing  | ❌ Not Started     | 0%         |
 
 **Week 1 Overall:** ~40% Complete
 

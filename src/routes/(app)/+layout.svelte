@@ -1,8 +1,13 @@
 <script lang="ts">
 	import Header from '$cp/Header.svelte';
-	import Navigation from '$cp/Navigation.svelte';
+	import favicon from '$lib/assets/Favicon.png';
 	let { children } = $props();
 </script>
+
+<svelte:head>
+	<title>BlockQuiz</title>
+	<link rel="icon" href={favicon} />
+</svelte:head>
 
 <div class="mx-auto flex min-h-screen w-full flex-col px-4 py-10 sm:px-6 lg:px-8">
 	<Header />

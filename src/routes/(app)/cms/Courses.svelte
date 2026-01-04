@@ -112,7 +112,7 @@
 </script>
 
 {#snippet courseCard(course: Course)}
-	<div class="card bg-base-300 shadow-xl">
+	<div class="card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
 		{#if course.content?.image}
 			<figure>
 				<img src={course.content.image} alt="Course" class="max-h-48 w-full object-cover" />

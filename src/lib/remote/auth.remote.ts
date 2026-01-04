@@ -1,9 +1,16 @@
-import { form, query, getRequestEvent } from '$app/server';
+import { form, query, getRequestEvent, command } from '$app/server';
 import { loginSchema } from '$remote/schemas/authSchema';
 import { redirect, error, invalid } from '@sveltejs/kit';
 import { auth } from '$server/auth';
 import { BetterAuthError } from 'better-auth';
 import { getResetToken, getUser } from '$lib/helper/dbHelper';
+import { logger } from '$lib/logs/logger';
+import { z } from 'zod';
+import { db } from '$db/client';
+import { user, user } from '$db/schema';
+import { eq } from 'drizzle-orm';
+import { tryCatch } from '$lib/utils/tryCatch';
+import { resolve } from '$app/paths';
 
 export const login = form(loginSchema, async (data, issue) => {
 	const event = getRequestEvent();
@@ -15,16 +22,15 @@ export const login = form(loginSchema, async (data, issue) => {
 		});
 
 		if (!result.user) {
-			invalid(issue.email('User already exists'));
+			logger.error('Login failed', { email: data.email });
+			invalid('User already exists');
 		}
+		redirect(303, resolve('/(app)'));
 	} catch (e) {
-		if (e instanceof BetterAuthError) {
-			console.error('Login error:', e);
-			invalid(issue.caller(e.message));
+		if (e instanceof Error) {
+			invalid(e);
 		}
 	}
-
-	redirect(303, '/');
 });
 
 export const register = form(loginSchema, async (data, issue) => {
@@ -37,14 +43,30 @@ export const register = form(loginSchema, async (data, issue) => {
 		});
 
 		if (!result.user) {
-			invalid(issue.email('Email already in use'));
+			invalid('Email already in use');
 		}
+		redirect(303, resolve('/(app)'));
 	} catch (e) {
-		invalid(issue.email('Email already in use'));
-		throw e;
+		if (e instanceof Error) {
+			console.log(e);
+			invalid(e);
+		}
 	}
+});
 
-	redirect(303, '/');
+export const userExists = query(z.string(), async (email) => {
+	try {
+		await getUser(email);
+		return {
+			exists: true
+		};
+	} catch (e) {
+		console.error(e);
+		return {
+			exists: false,
+			error: 'User does not exist'
+		};
+	}
 });
 
 export const logoutUser = form(async () => {
@@ -56,11 +78,12 @@ export const logoutUser = form(async () => {
 		});
 		event.locals.user = undefined;
 		event.locals.session = undefined;
+		redirect(303, resolve('/(auth)/login'));
 	} catch (e) {
-		console.error('Logout failed');
+		if (e instanceof Error) {
+			console.error(e);
+		}
 	}
-
-	redirect(303, '/');
 });
 
 export const getCurrentUser = query(async () => {
@@ -68,14 +91,13 @@ export const getCurrentUser = query(async () => {
 	return locals.user;
 });
 
-export const resetPassword = form(loginSchema, async (data, issue) => {
-	const event = getRequestEvent();
+export const resetPassword = form(loginSchema, async (data) => {
 	const { email, password } = data;
 
 	try {
 		const _user = await getUser(email);
 		if (!_user) {
-			invalid(issue.email('User not found'));
+			invalid('User not found');
 		}
 
 		await auth.api.requestPasswordReset({
@@ -84,23 +106,21 @@ export const resetPassword = form(loginSchema, async (data, issue) => {
 
 		const token = await getResetToken(_user.email);
 		if (!token) {
-			invalid(issue.caller('Reset token not generated'));
+			invalid('Reset token not generated');
 		}
 
 		const resetResult = await auth.api.resetPassword({
-			headers: event.request.headers,
 			body: { newPassword: password, token }
 		});
 
-		if (!resetResult.user) {
-			invalid(issue.caller('Password reset failed'));
+		if (!resetResult) {
+			invalid('Password reset failed');
 		}
+		logger.info('Successfully reset password for ', { email: _user.email });
+		redirect(303, resolve('/(auth)/login'));
 	} catch (e) {
-		if (e instanceof BetterAuthError) {
-			invalid(issue.caller(`Error: ${e.message}`));
+		if (e instanceof Error) {
+			invalid(e);
 		}
-		throw e;
 	}
-
-	redirect(303, '/');
 });

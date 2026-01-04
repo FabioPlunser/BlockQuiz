@@ -164,7 +164,7 @@
 {/snippet}
 
 {#snippet exerciseCard(exercise: Exercise)}
-	<div class="card-compact card bg-base-300 shadow-xl">
+	<div class="card-compact card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
 		{#if exercise.content?.image}
 			<figure class="p-4">
 				<img
