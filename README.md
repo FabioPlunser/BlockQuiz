@@ -4,7 +4,7 @@ Web-based, block-programming learning platform for kids (8–12) with auto-gradi
 
 ## Why
 
-- Aligns with “Digitale Grundbildung” (AT) for early programming.
+- Aligns with "Digitale Grundbildung" (AT) for early programming.
 - Existing tools are too open/complex for short, goal-oriented tasks.
 - Privacy-first, on-prem friendly (Docker, SQLite), easy classroom deployment.
 
@@ -21,84 +21,183 @@ Web-based, block-programming learning platform for kids (8–12) with auto-gradi
 ## Tech Stack
 
 - SvelteKit (Svelte 5, Tailwind, typography)
+- Bun (runtime and package manager)
 - Blockly
 - SQLite + Drizzle ORM (migrations)
 - Paraglide i18n (UI strings), exercise content DE/EN in JSON/DB
 - Playwright (E2E), Vitest (unit)
 - Docker Compose
 
-## Repo Structure (proposed)
+## Quick Start
 
-- src/routes/exercise/[id]/ — learner UI
-- src/routes/admin/ — CMS views
-- src/lib/blockly/ — workspace setup, generators
-- src/lib/sandbox/ — iframe, API, loop-trap
-- src/lib/grader/ — io, turtle graders
-- src/lib/i18n/ — Paraglide config
-- src/lib/db/ — Drizzle schema, migrations, seeds
-- exercises/ — static JSON samples (if used)
-- docker/ — compose, nginx/CSP, scripts
+### Prerequisites
 
-## Roadmap (High-level)
+- [Bun](https://bun.sh/) (v1.0+) for local development
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) for containerized deployment
 
-1. Core loop: load exercise → build blocks → run in sandbox → grade
-2. Turtle engine + grader
-3. Minimal CMS CRUD + linter + translation editor
-4. Content: 10 exercises DE/EN, quiz assembly
-5. Tests (unit/E2E), accessibility, performance polish
-6. Pilot (4–6 kids), analysis, iteration
-7. Thesis figures, screenshots, final polish
+### Local Development (without Docker)
 
-## Weekend Starter Checklist
+```bash
+# Install dependencies
+bun install
 
-- [ ] Repo hygiene: ESLint, Prettier, GitHub Actions (lint/build), .env
-- [ ] ENV flags: PRIVACY_MODE, AUTH, ANALYTICS, LOG_LEVEL
-- [ ] Drizzle + SQLite: tables (exercises, quizzes, attempts, audit_logs)
-- [ ] Exercise/Quiz TypeScript types + JSON-Schema
-- [ ] Paraglide setup (de/en); locale store + fallback
-- [ ] Route /exercise/[id] loads demo exercise and displays metadata
-- [ ] Sandbox skeleton: iframe, postMessage (run/result/error), 2s timeout
-- [ ] Blockly minimal: workspace, per-exercise toolbox, starter XML, JS generation
-- [ ] RUN button → sandbox; capture output/log
-- [ ] I/O grader: normalization, tests, pass/fail UI; CHECK end-to-end on “Sum 1..N”
+# Set up environment variables
+cp .env.example .env
+# Edit .env as needed (DATABASE_URL is required)
 
-## Implementation Milestones
+# Run database migrations
+DATABASE_URL=file:./data/dev.db bun run db:push
 
-- [ ] Sandbox safety: loop-trap, seeded RNG, restricted API, CSP
-- [ ] I/O grader robust: visible/hidden tests, diffs, deterministic results
-- [ ] Turtle engine: move/turn/pen, command log, end-state grading, overlay
-- [ ] CMS minimal:
-  - [ ] CRUD for exercises/quizzes
-  - [ ] Linter: required fields, DE/EN keys, hidden test present, toolbox/starter consistency
-  - [ ] Side-by-side translation editor; “Machine translate” button (provider behind flag)
-- [ ] Content: 10 exercises with hints and DE/EN
-- [ ] i18n: Paraglide for UI; content fallback to default
-- [ ] Analytics (local, pseudonymous) and export (CSV/JSON, no PII)
-- [ ] Tests: unit (grader/normalization), E2E (solve I/O, Turtle, quiz), basic visual for Turtle
-- [ ] Accessibility: keyboard nav, focus, ARIA; WCAG AA contrast
-- [ ] Performance: lazy-load Blockly, TTI < 2s on reference device
-- [ ] Docker Compose: persistent SQLite volume; WAL mode; backup scripts
+# Start the development server (uses Bun runtime for bun:sqlite)
+bun --bun run dev
+```
 
-## Non-Goals (MVP)
+The dev server will be available at `http://localhost:5173`.
 
-- Full class management/SSO
-- Broad plugin marketplace (document API only)
-- Complex simulators beyond Turtle/2D
-- Cloud dependencies without privacy-safe fallback
+> **Important:** Use `bun --bun run dev` instead of `bun run dev` to ensure the Bun runtime is used for `bun:sqlite` database access.
 
-## Scripts (suggested)
+## Docker Deployment
 
-- dev: start SvelteKit
-- db:migrate / db:seed
-- test / test:e2e
-- lint / format
-- docker:up / docker:down / docker:backup
+### Development with Docker (Hot Reloading)
+
+Use Docker Compose for development with hot reloading enabled:
+
+```bash
+# Start the development container
+docker compose -f docker-compose.dev.yml up
+
+# Or run in detached mode
+docker compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker compose -f docker-compose.dev.yml logs -f
+
+# Stop the container
+docker compose -f docker-compose.dev.yml down
+```
+
+The development server will be available at `http://localhost:5173`.
+
+**Features:**
+- Hot reloading via volume mounts
+- Source code changes are reflected immediately
+- Database persisted in `./data/dev.db`
+- Node modules cached in a named volume
+
+### Production Deployment
+
+Build and run the production container:
+
+```bash
+# Build and start the production container
+docker compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# Stop the container
+docker compose -f docker-compose.prod.yml down
+
+# Rebuild after code changes
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+The production server will be available at `http://localhost:3000`.
+
+**Features:**
+- Optimized multi-stage build
+- Automatic restart on failure
+- Health checks enabled
+- Database persisted in `./data/prod.db`
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | SQLite database path (format: `file:./data/[name].db`) | Required |
+| `NODE_ENV` | Environment (`development` or `production`) | `development` |
+| `PORT` | Server port (production only) | `3000` |
+| `AUTH_SECRET` | Session secret for authentication | Optional |
+
+### Database Management
+
+The SQLite database is stored in the `./data/` directory and persisted via Docker volumes.
+
+```bash
+# Run migrations (development)
+docker compose -f docker-compose.dev.yml exec app bun run db:push
+
+# Run migrations (production - before first start)
+DATABASE_URL=file:./data/prod.db bun run db:push
+
+# Open Drizzle Studio (local only)
+DATABASE_URL=file:./data/dev.db bun run db:studio
+```
+
+### Database Backup
+
+```bash
+# Create a backup
+cp ./data/prod.db ./data/prod.db.backup
+
+# Restore from backup
+cp ./data/prod.db.backup ./data/prod.db
+```
+
+### Troubleshooting
+
+**Container won't start:**
+- Check logs: `docker compose -f docker-compose.[dev|prod].yml logs`
+- Ensure `./data/` directory exists and is writable
+- Verify environment variables are set correctly
+
+**Database errors:**
+- Ensure `DATABASE_URL` points to a valid path
+- Run migrations if the database is new
+- Check file permissions on `./data/` directory
+
+**Hot reloading not working (dev):**
+- Ensure you're using `docker-compose.dev.yml`
+- Check that volume mounts are correct
+- Try restarting the container
+
+**Port conflicts:**
+- Change the port mapping in the compose file (e.g., `"8080:3000"`)
+
+## Repo Structure
+
+- `src/routes/` — SvelteKit routes (learner UI, CMS)
+- `src/lib/blockly/` — workspace setup, generators
+- `src/lib/canvas/` — Turtle and Robot engines
+- `src/lib/graders/` — I/O and Turtle graders
+- `src/lib/components/` — Svelte components
+- `src/lib/server/db/` — Drizzle schema and client
+- `drizzle/` — database migrations
+- `data/` — SQLite database files
+- `static/` — static assets
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `bun --bun run dev` | Start development server (with Bun runtime) |
+| `bun run build` | Build for production |
+| `bun run preview` | Preview production build |
+| `bun run check` | Type-check the codebase |
+| `bun run lint` | Lint and format check |
+| `bun run format` | Format code with Prettier |
+| `bun run test` | Run unit tests |
+| `bun run db:push` | Push schema changes to database |
+| `bun run db:generate` | Generate migrations |
+| `bun run db:migrate` | Run migrations |
+| `bun run db:studio` | Open Drizzle Studio |
 
 ## Security & Privacy
 
 - Sandbox iframe with strict CSP; no network from learner code
 - Privacy-by-default mode (no PII, local analytics only, no external calls)
 - Logs short retention, anonymized if enabled
+- Self-hosted deployment for full data control
 
 ## License and Contributions
 
@@ -107,4 +206,4 @@ Web-based, block-programming learning platform for kids (8–12) with auto-gradi
 
 ## Status
 
-- Initial scaffolding underway. See checklist above; update as you complete items.
+- Initial scaffolding underway. See PROJECT_STATUS.md for detailed progress.

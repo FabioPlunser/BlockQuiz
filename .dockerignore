@@ -1,0 +1,56 @@
+# Dependencies
+node_modules
+
+# Build output
+build
+.output
+.svelte-kit
+
+# Version control
+.git
+.gitignore
+
+# Environment files (use docker-compose env instead)
+.env
+.env.*
+!.env.example
+
+# Database files (mounted as volume)
+data/*.db
+*.db
+
+# Logs
+logs/
+
+# IDE and OS
+.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test files
+tests/
+*.spec.ts
+*.test.ts
+vitest-setup-client.ts
+
+# Documentation
+*.md
+!README.md
+
+# Deployment configs (not needed in image)
+docker-compose*.yml
+
+# Vercel/Netlify
+.vercel
+.netlify
+.wrangler
+
+# Cache
+.cache
+.turbo
+
+# Old/archived files
+old/
+
