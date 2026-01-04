@@ -11,6 +11,7 @@
 	import { PersistedState } from 'runed';
 	import { fly } from 'svelte/transition';
 	import { getLocalized } from '$lib/i18n/index.svelte';
+	import { handleServerResult } from '$lib/utils/toast';
 
 	// -------------------------------------------------------------------
 	// State
@@ -126,10 +127,15 @@
 		if (!confirm('Are you sure you want to delete this exercise?')) return;
 
 		try {
-			await deleteExercise(exercise.id).updates(exercises);
+			const result = await deleteExercise(exercise.id).updates(exercises);
+			handleServerResult(result, 'Exercise deleted successfully', 'Failed to delete exercise');
 		} catch (error) {
 			console.error('Failed to delete exercise:', error);
-			alert('Failed to delete exercise');
+			handleServerResult(
+				{ success: false, error: 'Failed to delete exercise' },
+				'',
+				'Failed to delete exercise'
+			);
 		}
 	}
 

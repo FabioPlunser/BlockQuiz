@@ -1,9 +1,12 @@
 <script lang="ts">
+	import { showSuccess, showError } from '$lib/utils/toast';
+
 	let {
 		open = $bindable(),
 		remoteFunction,
 		onClose = () => {},
 		title = '',
+		successMessage = 'Action completed successfully',
 		children,
 		controls
 	} = $props();
@@ -32,11 +35,16 @@
 		{...remoteFunction.enhance(async ({ form, data, submit }) => {
 			try {
 				await submit();
-				if (!remoteFunction.fields.allIssues()) {
+				const issues = remoteFunction.fields.allIssues();
+				if (!issues || issues.length === 0) {
+					showSuccess(successMessage);
 					handleClose();
+				} else {
+					showError(issues[0].message);
 				}
 			} catch (error) {
 				console.error(error);
+				showError('An error occurred');
 			}
 		})}
 	>

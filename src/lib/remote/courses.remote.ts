@@ -133,8 +133,8 @@ export const getUserCourses = query('unchecked', async () => {
  * Only returns published exercises, ordered by their order field.
  */
 export const getCourseExercises = query(
-	z.object({ courseId: z.string() }),
-	async ({ courseId }) => {
+  z.string(),
+	async (courseId) => {
 		const user = requireAuth();
 
 		// Verify user has access to this course
@@ -290,47 +290,55 @@ export const createCourse = command(createCourseSchema, async (data) => {
 	const id = crypto.randomUUID();
 	const now = Date.now();
 
-	// Insert course
-	await db.insert(courses).values({
-		id,
-		content,
-		published: published ?? false,
-		createdAt: now,
-		updatedAt: new Date(now),
-		createdBy: user.email ?? ''
-	});
+	try {
+		// Insert course
+		await db.insert(courses).values({
+			id,
+			content,
+			published: published ?? false,
+			createdAt: now,
+			updatedAt: new Date(now),
+			createdBy: user.email ?? ''
+		});
 
-	// Insert course-exercise relationships
-	if (exerciseIds && exerciseIds.length > 0) {
-		await db.insert(courseExercises).values(
-			exerciseIds.map((exerciseId, index) => ({
-				id: crypto.randomUUID(),
-				courseId: id,
-				exerciseId,
-				order: index,
-				createdAt: now,
-				updatedAt: now
-			}))
-		);
+		// Insert course-exercise relationships
+		if (exerciseIds && exerciseIds.length > 0) {
+			await db.insert(courseExercises).values(
+				exerciseIds.map((exerciseId, index) => ({
+					id: crypto.randomUUID(),
+					courseId: id,
+					exerciseId,
+					order: index,
+					createdAt: now,
+					updatedAt: now
+				}))
+			);
+		}
+
+		// Insert course-user relationships
+		if (userIds && userIds.length > 0) {
+			await db.insert(courseUsers).values(
+				userIds.map((userId) => ({
+					id: crypto.randomUUID(),
+					courseId: id,
+					userId,
+					createdAt: now,
+					updatedAt: now
+				}))
+			);
+		}
+
+		return {
+			success: true as const,
+			id
+		};
+	} catch (e) {
+		console.error('Error creating course:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to create course'
+		};
 	}
-
-	// Insert course-user relationships
-	if (userIds && userIds.length > 0) {
-		await db.insert(courseUsers).values(
-			userIds.map((userId) => ({
-				id: crypto.randomUUID(),
-				courseId: id,
-				userId,
-				createdAt: now,
-				updatedAt: now
-			}))
-		);
-	}
-
-	return {
-		success: true,
-		id
-	};
 });
 
 export const updateCourse = command(updateCourseSchema, async (data) => {
@@ -339,73 +347,95 @@ export const updateCourse = command(updateCourseSchema, async (data) => {
 
 	const now = Date.now();
 
-	// Check if course exists
-	const existing = await db.select().from(courses).where(eq(courses.id, id));
-	if (existing.length === 0) {
-		error(404, 'Course not found');
+	try {
+		// Check if course exists
+		const existing = await db.select().from(courses).where(eq(courses.id, id));
+		if (existing.length === 0) {
+			return {
+				success: false as const,
+				error: 'Course not found'
+			};
+		}
+
+		// Update course
+		await db
+			.update(courses)
+			.set({
+				content,
+				published: published ?? false,
+				updatedAt: new Date(now)
+			})
+			.where(eq(courses.id, id));
+
+		// Delete existing course-exercise relationships
+		await db.delete(courseExercises).where(eq(courseExercises.courseId, id));
+
+		// Insert new course-exercise relationships
+		if (exerciseIds && exerciseIds.length > 0) {
+			await db.insert(courseExercises).values(
+				exerciseIds.map((exerciseId, index) => ({
+					id: crypto.randomUUID(),
+					courseId: id,
+					exerciseId,
+					order: index,
+					createdAt: now,
+					updatedAt: now
+				}))
+			);
+		}
+
+		// Delete existing course-user relationships
+		await db.delete(courseUsers).where(eq(courseUsers.courseId, id));
+
+		// Insert new course-user relationships
+		if (userIds && userIds.length > 0) {
+			await db.insert(courseUsers).values(
+				userIds.map((userId) => ({
+					id: crypto.randomUUID(),
+					courseId: id,
+					userId,
+					createdAt: now,
+					updatedAt: now
+				}))
+			);
+		}
+
+		return {
+			success: true as const,
+			id
+		};
+	} catch (e) {
+		console.error('Error updating course:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to update course'
+		};
 	}
-
-	// Update course
-	await db
-		.update(courses)
-		.set({
-			content,
-			published: published ?? false,
-			updatedAt: new Date(now)
-		})
-		.where(eq(courses.id, id));
-
-	// Delete existing course-exercise relationships
-	await db.delete(courseExercises).where(eq(courseExercises.courseId, id));
-
-	// Insert new course-exercise relationships
-	if (exerciseIds && exerciseIds.length > 0) {
-		await db.insert(courseExercises).values(
-			exerciseIds.map((exerciseId, index) => ({
-				id: crypto.randomUUID(),
-				courseId: id,
-				exerciseId,
-				order: index,
-				createdAt: now,
-				updatedAt: now
-			}))
-		);
-	}
-
-	// Delete existing course-user relationships
-	await db.delete(courseUsers).where(eq(courseUsers.courseId, id));
-
-	// Insert new course-user relationships
-	if (userIds && userIds.length > 0) {
-		await db.insert(courseUsers).values(
-			userIds.map((userId) => ({
-				id: crypto.randomUUID(),
-				courseId: id,
-				userId,
-				createdAt: now,
-				updatedAt: now
-			}))
-		);
-	}
-
-	return {
-		success: true,
-		id
-	};
 });
 
 export const deleteCourse = command(z.string(), async (id) => {
 	requireTeacherOrAdmin();
 
-	const existing = await db.select().from(courses).where(eq(courses.id, id));
-	if (existing.length === 0) {
-		error(404, 'Course not found');
+	try {
+		const existing = await db.select().from(courses).where(eq(courses.id, id));
+		if (existing.length === 0) {
+			return {
+				success: false as const,
+				error: 'Course not found'
+			};
+		}
+
+		// Delete the course (cascade will delete related courseExercises and courseUsers)
+		await db.delete(courses).where(eq(courses.id, id));
+
+		return {
+			success: true as const
+		};
+	} catch (e) {
+		console.error('Error deleting course:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to delete course'
+		};
 	}
-
-	// Delete the course (cascade will delete related courseExercises and courseUsers)
-	await db.delete(courses).where(eq(courses.id, id));
-
-	return {
-		success: true
-	};
 });

@@ -5,6 +5,7 @@
 	import Loading from '$cp/Loading.svelte';
 	import Modal from '$cp/Modal.svelte';
 	import type { User } from '$db/types';
+	import { handleServerResult } from '$lib/utils/toast';
 	//-----------------------------------------------------------------------------
 	//-----------------------------------------------------------------------------
 	type Filters = {
@@ -62,9 +63,15 @@
 		value: HTMLInputElement['value'] | HTMLInputElement['checked']
 	) {
 		try {
-			await updateUser({ id, [field]: value }).updates(getUsers(filters));
+			const result = await updateUser({ id, [field]: value }).updates(getUsers(filters));
+			handleServerResult(result, 'User updated successfully', 'Failed to update user');
 		} catch (err) {
 			console.error('Update failed', err);
+			handleServerResult(
+				{ success: false, error: 'Update failed' },
+				'',
+				'Failed to update user'
+			);
 		}
 	}
 </script>

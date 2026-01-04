@@ -10,6 +10,7 @@
 	import { fly } from 'svelte/transition';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import { handleServerResult } from '$lib/utils/toast';
 
 	// --------------------------------------------------------------------
 	// State
@@ -92,12 +93,14 @@
 
 		try {
 			let result = await deleteCourse(course.id).updates(courses);
-			if (!result.success) {
-				alert('Failed to delete course');
-			}
+			handleServerResult(result, 'Course deleted successfully', 'Failed to delete course');
 		} catch (error) {
 			console.error(error);
-			alert('An error occurred while deleting the course');
+			handleServerResult(
+				{ success: false, error: 'An error occurred' },
+				'',
+				'An error occurred while deleting the course'
+			);
 		}
 	}
 

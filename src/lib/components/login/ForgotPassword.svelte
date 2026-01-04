@@ -4,6 +4,7 @@
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { resetPassword } from '$remote/auth.remote';
 	import { onMount } from 'svelte';
+	import { showSuccess, showError } from '$lib/utils/toast';
 
 	let { forgot = $bindable() } = $props();
 	let mounted = $state(false);
@@ -44,12 +45,18 @@
 			<button
 				class="btn btn-primary"
 				{...resetPassword.buttonProps.enhance(async ({ submit }) => {
-					console.log('testing');
 					try {
 						await submit();
-						forgot = false;
+						const issues = resetPassword.fields.allIssues();
+						if (issues && issues.length > 0) {
+							showError(issues[0].message);
+						} else {
+							showSuccess('Password reset successfully');
+							forgot = false;
+						}
 					} catch (e) {
 						console.error(e);
+						showError('Password reset failed');
 					}
 				})}>Reset</button
 			>

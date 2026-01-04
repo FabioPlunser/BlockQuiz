@@ -38,6 +38,7 @@
 	import HintEditor from '$cp/editor/HintEditor.svelte';
 	import AutoTestsPanel from '$cp/editor/AutoTestsPanel.svelte';
 	import { createExercise, updateExercise } from '$remote/exercises.remote';
+	import { handleServerResult } from '$lib/utils/toast';
 
 	// ---------------------------------------------------
 	// ---------------------------------------------------
@@ -279,9 +280,17 @@
 					courseId: exercise.courseId,
 					published: exercise.published
 				}).updates(remote);
-				console.log(result);
+				handleServerResult(result, 'Exercise created successfully', 'Failed to create exercise');
+				if (result.success) {
+					onSave?.();
+				}
 			} catch (error) {
 				console.error(error);
+				handleServerResult(
+					{ success: false, error: 'An error occurred' },
+					'',
+					'An error occurred while creating the exercise'
+				);
 			}
 		} else {
 			try {
@@ -293,12 +302,19 @@
 					courseId: exercise.courseId,
 					published: exercise.published
 				}).updates(remote);
-				console.log(result);
+				handleServerResult(result, 'Exercise updated successfully', 'Failed to update exercise');
+				if (result.success) {
+					onSave?.();
+				}
 			} catch (error) {
 				console.error(error);
+				handleServerResult(
+					{ success: false, error: 'An error occurred' },
+					'',
+					'An error occurred while updating the exercise'
+				);
 			}
 		}
-		onSave?.();
 	}
 
 	let imagePreview = $derived(exercise.content.image ?? '');

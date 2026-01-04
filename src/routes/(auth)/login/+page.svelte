@@ -8,6 +8,7 @@
 	import { fly } from 'svelte/transition';
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { showSuccess, showError } from '$lib/utils/toast';
 
 	const features = $derived([
 		i18n.feature_short_focused,
@@ -90,9 +91,16 @@
 								{...login.buttonProps.enhance(async ({ submit }) => {
 									try {
 										await submit();
-										goto(resolve('/(app)'));
+										const issues = login.fields.allIssues();
+										if (issues && issues.length > 0) {
+											showError(issues[0].message);
+										} else {
+											showSuccess('Login successful');
+											goto(resolve('/(app)'));
+										}
 									} catch (e) {
 										console.error(e);
+										showError('Login failed');
 									}
 								})}
 								class="btn w-full flex-1 btn-primary"
@@ -103,9 +111,16 @@
 								{...register.buttonProps.enhance(async ({ submit }) => {
 									try {
 										await submit();
-										goto(resolve('/(app)/courses'));
+										const issues = register.fields.allIssues();
+										if (issues && issues.length > 0) {
+											showError(issues[0].message);
+										} else {
+											showSuccess('Registration successful');
+											goto(resolve('/(app)/courses'));
+										}
 									} catch (e) {
 										console.error(e);
+										showError('Registration failed');
 									}
 								})}
 								class="btn w-full flex-1 btn-secondary"

@@ -49,11 +49,16 @@ export const updateUser = command(createUpdateUserSchema, async (data) => {
 	const { id, password, ...updates } = data;
 	try {
 		await db.update(user).set(updates).where(eq(user.id, id));
+		return { success: true as const, id };
 	} catch (e) {
 		if (isRedirect(e)) {
 			throw e;
 		}
-		error(500, 'Error updating user');
+		console.error('Error updating user:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to update user'
+		};
 	}
 });
 
@@ -61,10 +66,12 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 	requireAuth(Role.ADMIN);
 	if (!data?.email) {
 		invalid('Email is required');
+		return { success: false as const, error: 'Email is required' };
 	}
 	const existingUser = await getUser(data.email);
 	if (existingUser) {
-		error(500, 'User alread existst');
+		invalid('User already exists');
+		return { success: false as const, error: 'User already exists' };
 	}
 
 	try {
@@ -93,9 +100,13 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 			updatedAt: now
 		});
 
-		return { success: true };
+		return { success: true as const, id: userId };
 	} catch (e) {
-		error(500, `Creating user failed: ${JSON.stringify(e)}`);
+		console.error('Error creating user:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to create user'
+		};
 	}
 });
 

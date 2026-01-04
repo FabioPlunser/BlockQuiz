@@ -189,56 +189,88 @@ export const createExercise = command(createExerciseSchema, async (data) => {
 	const id = crypto.randomUUID();
 	const now = Date.now();
 
-	await db.insert(exercises).values({
-		id,
-		courseId: data.courseId,
-		type: data.type,
-		content: data.content as unknown as ExerciseContent,
-		config: data.config as unknown as ExerciseConfig,
-		published: data.published ?? false,
-		order: data.order ?? 0,
-		createdBy: user?.email ?? 'system',
-		createdAt: now,
-		updatedAt: now
-	});
+	try {
+		await db.insert(exercises).values({
+			id,
+			courseId: data.courseId,
+			type: data.type,
+			content: data.content as unknown as ExerciseContent,
+			config: data.config as unknown as ExerciseConfig,
+			published: data.published ?? false,
+			order: data.order ?? 0,
+			createdBy: user?.email ?? 'system',
+			createdAt: now,
+			updatedAt: now
+		});
 
-	return { id };
+		return { success: true as const, id };
+	} catch (e) {
+		console.error('Error creating exercise:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to create exercise'
+		};
+	}
 });
 
 export const updateExercise = command(updateExerciseSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-	const existing = await db.select().from(exercises).where(eq(exercises.id, data.id));
 
-	if (existing.length === 0) {
-		error(404, 'Exercise not found');
+	try {
+		const existing = await db.select().from(exercises).where(eq(exercises.id, data.id));
+
+		if (existing.length === 0) {
+			return {
+				success: false as const,
+				error: 'Exercise not found'
+			};
+		}
+
+		const updates: Record<string, unknown> = {
+			updatedAt: Date.now(),
+			updatedBy: user?.email ?? 'system'
+		};
+
+		if (data.courseId !== undefined) updates.courseId = data.courseId;
+		if (data.type !== undefined) updates.type = data.type;
+		if (data.content !== undefined) updates.content = data.content;
+		if (data.config !== undefined) updates.config = data.config;
+		if (data.published !== undefined) updates.published = data.published;
+		if (data.order !== undefined) updates.order = data.order;
+
+		await db.update(exercises).set(updates).where(eq(exercises.id, data.id));
+
+		return { success: true as const, id: data.id };
+	} catch (e) {
+		console.error('Error updating exercise:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to update exercise'
+		};
 	}
-
-	const updates: Record<string, unknown> = {
-		updatedAt: Date.now(),
-		updatedBy: user?.email ?? 'system'
-	};
-
-	if (data.courseId !== undefined) updates.courseId = data.courseId;
-	if (data.type !== undefined) updates.type = data.type;
-	if (data.content !== undefined) updates.content = data.content;
-	if (data.config !== undefined) updates.config = data.config;
-	if (data.published !== undefined) updates.published = data.published;
-	if (data.order !== undefined) updates.order = data.order;
-
-	await db.update(exercises).set(updates).where(eq(exercises.id, data.id));
-
-	return { id: data.id };
 });
 
 export const deleteExercise = command(z.string(), async (id) => {
 	requireTeacherOrAdmin();
-	const existing = await db.select().from(exercises).where(eq(exercises.id, id));
 
-	if (existing.length === 0) {
-		error(404, 'Exercise not found');
+	try {
+		const existing = await db.select().from(exercises).where(eq(exercises.id, id));
+
+		if (existing.length === 0) {
+			return {
+				success: false as const,
+				error: 'Exercise not found'
+			};
+		}
+
+		await db.delete(exercises).where(eq(exercises.id, id));
+
+		return { success: true as const };
+	} catch (e) {
+		console.error('Error deleting exercise:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to delete exercise'
+		};
 	}
-
-	await db.delete(exercises).where(eq(exercises.id, id));
-
-	return { success: true };
 });

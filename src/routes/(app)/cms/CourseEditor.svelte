@@ -16,6 +16,7 @@
 	import { createCourse, updateCourse } from '$lib/remote/courses.remote';
 	import { createDefaultCourseFormData } from '$types/course';
 	import { createLocalizedFuzzySearch } from '$lib/utils/fuzzySearch';
+	import { handleServerResult } from '$lib/utils/toast';
 
 	// ---------------------------------------------------
 	// Props
@@ -209,10 +210,9 @@
 					userIds: formData.userIds
 				}).updates(remote);
 
+				handleServerResult(result, 'Course created successfully', 'Failed to create course');
 				if (result.success) {
 					onSave?.();
-				} else {
-					alert('Failed to create course');
 				}
 			} else {
 				const result = await updateCourse({
@@ -223,15 +223,18 @@
 					userIds: formData.userIds
 				}).updates(remote);
 
+				handleServerResult(result, 'Course updated successfully', 'Failed to update course');
 				if (result.success) {
 					onSave?.();
-				} else {
-					alert('Failed to update course');
 				}
 			}
 		} catch (error) {
 			console.error(error);
-			alert('An error occurred while saving the course');
+			handleServerResult(
+				{ success: false, error: 'An error occurred while saving the course' },
+				'',
+				'An error occurred while saving the course'
+			);
 		}
 	}
 </script>

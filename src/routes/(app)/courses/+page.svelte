@@ -4,7 +4,7 @@
 	import Boundary from '$cp/Boundary.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import CoursePlayerModal from '$lib/components/player/CoursePlayerModal.svelte';
-	import { PersistedState } from 'runed';
+	import { PersistedState, watch } from 'runed';
 	import {
 		getUserCourses,
 		getCourseExercises,
@@ -12,8 +12,9 @@
 	} from '$lib/remote/courses.remote';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { BookOpen, Play, CircleCheckBig } from '@lucide/svelte';
-	import { Icon } from 'lineicons-svelte';
+	import toast from '$lib/toaster';
 
 	// --------------------------------------------------------------------
 	// State
@@ -22,18 +23,16 @@
 	let viewMode = new PersistedState<'cards' | 'table'>('studentCoursesViewMode', 'cards');
 
 	let courses = $derived(getUserCourses({}));
+	$inspect(courses.current);
 
 	// Modal state
 	let showPlayerModal = $state(false);
 	let selectedCourse = $state<Course | null>(null);
 	let selectedExercises = $state<Exercise[]>([]);
 	let isLoadingExercises = $state(false);
-	let loadError = $state<string | null>(null);
 
 	// Course progress cache
-	let courseProgress = $state<Map<string, { completedCount: number; totalCount: number }>>(
-		new Map()
-	);
+	let courseProgress = new SvelteMap<string, { completedCount: number; totalCount: number }>();
 
 	// --------------------------------------------------------------------
 	// Filtered items
@@ -95,16 +94,15 @@
 	// --------------------------------------------------------------------
 	async function handlePlayCourse(course: Course) {
 		isLoadingExercises = true;
-		loadError = null;
 		selectedCourse = course;
 
 		try {
 			// Load exercises for this course
-			const result = await getCourseExercises({ courseId: course.id });
-			selectedExercises = result.current as Exercise[];
+			const result = await getCourseExercises(course.id);
+			selectedExercises = result;
 
 			if (selectedExercises.length === 0) {
-				loadError = 'This course has no exercises yet.';
+				toast.error('This course has no exerciess yet');
 				isLoadingExercises = false;
 				return;
 			}
@@ -112,20 +110,20 @@
 			showPlayerModal = true;
 		} catch (err) {
 			console.error('Failed to load exercises:', err);
-			loadError = 'Failed to load course exercises. Please try again.';
+			toast.error('Failed to load course exercises. Please try again.');
 		} finally {
 			isLoadingExercises = false;
 		}
 	}
 
-	function handleCloseModal() {
-		showPlayerModal = false;
-		selectedCourse = null;
-		selectedExercises = [];
+	// function handleCloseModal() {
+	// 	showPlayerModal = false;
+	// 	selectedCourse = null;
+	// 	selectedExercises = [];
 
-		// Refresh progress after playing
-		loadCourseProgress();
-	}
+	// 	// Refresh progress after playing
+	// 	loadCourseProgress();
+	// }
 
 	// Load progress for all courses
 	async function loadCourseProgress() {
@@ -133,12 +131,12 @@
 		for (const course of allCourses) {
 			try {
 				const progress = await getCourseProgress({ courseId: course.id });
-				if (progress.current) {
+				if (progress) {
 					courseProgress.set(course.id, {
-						completedCount: progress.current.completedCount,
-						totalCount: progress.current.exerciseCount
+						completedCount: progress.completedCount,
+						totalCount: progress.exerciseCount
 					});
-					courseProgress = new Map(courseProgress);
+					courseProgress = new SvelteMap(courseProgress);
 				}
 			} catch (err) {
 				console.error('Failed to load progress for course:', course.id, err);
@@ -147,10 +145,8 @@
 	}
 
 	// Load progress when courses are loaded
-	$effect(() => {
-		if (courses.current && !courses.loading) {
-			loadCourseProgress();
-		}
+	watch([() => courses.current, () => !courses.loading], () => {
+		loadCourseProgress();
 	});
 
 	function getProgressForCourse(courseId: string): {
@@ -240,10 +236,16 @@
 
 			<div class="mt-2 flex flex-wrap gap-1">
 				{#if course.exerciseIds?.length}
-					<span class="badge badge-sm badge-secondary">
+					<span class="badge badge-sm badge-primary">
 						{course.exerciseIds.length} Exercises
 					</span>
 				{/if}
+				<span class="badge badge-sm badge-primary">
+					{course.createdBy}
+				</span>
+				<span class="badge badge-sm badge-primary">
+					{new Date(course.createdAt).toLocaleDateString('de-De')}
+				</span>
 				{#if progress.percent === 100}
 					<span class="badge gap-1 badge-sm badge-success">
 						<CircleCheckBig class="h-3 w-3" />
@@ -261,7 +263,7 @@
 					{#if isLoadingExercises && selectedCourse?.id === course.id}
 						<span class="loading loading-xs loading-spinner"></span>
 					{:else}
-						<Icon name="play" class="h-4 w-4" />
+						<Play />
 					{/if}
 					{progress.percent === 100 ? 'Review' : progress.percent > 0 ? 'Continue' : 'Start'}
 				</button>
@@ -286,7 +288,7 @@
 	</button>
 {/snippet}
 
-<!-- Error Toast -->
+<!-- --
 {#if loadError}
 	<div class="toast toast-end toast-top z-50">
 		<div class="alert alert-error">
@@ -294,7 +296,7 @@
 			<button class="btn btn-ghost btn-xs" onclick={() => (loadError = null)}>✕</button>
 		</div>
 	</div>
-{/if}
+{/if} -->
 
 <!-- Course Player Modal -->
 {#if showPlayerModal && selectedCourse}
