@@ -2,6 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import { Search } from '@lucide/svelte';
+	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 
 	type Props = {
 		viewMode?: 'cards' | 'table';
@@ -9,6 +11,9 @@
 		searchPlaceholder?: string;
 		showViewToggle?: boolean;
 		showSearch?: boolean;
+		showColumnPicker?: boolean;
+		columns?: Column<any>[];
+		visibleColumns?: string[];
 		createButtonLabel?: string;
 		onCreate?: () => void;
 		filters?: Snippet;
@@ -21,6 +26,9 @@
 		searchPlaceholder = 'Search...',
 		showViewToggle = true,
 		showSearch = true,
+		showColumnPicker = false,
+		columns = [],
+		visibleColumns = $bindable([]),
 		createButtonLabel = 'Add Item',
 		onCreate,
 		filters,
@@ -61,6 +69,11 @@
 				bind:value={searchQuery}
 			/>
 		</label>
+	{/if}
+
+	<!-- Column Picker (only shown in table view) -->
+	{#if showColumnPicker && viewMode === 'table' && columns.length > 0}
+		<ColumnPicker {columns} bind:visibleColumns />
 	{/if}
 
 	<!-- Additional Filters -->

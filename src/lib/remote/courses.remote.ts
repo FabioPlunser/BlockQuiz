@@ -132,53 +132,49 @@ export const getUserCourses = query('unchecked', async () => {
  * Get all exercises for a course (for students playing the course).
  * Only returns published exercises, ordered by their order field.
  */
-export const getCourseExercises = query(
-  z.string(),
-	async (courseId) => {
-		const user = requireAuth();
+export const getCourseExercises = query(z.string(), async (courseId) => {
+	const user = requireAuth();
 
-		// Verify user has access to this course
-		const userCourseAccess = await db
-			.select()
-			.from(courseUsers)
-			.where(and(eq(courseUsers.courseId, courseId), eq(courseUsers.userId, user.id)));
+	// Verify user has access to this course
+	const userCourseAccess = await db
+		.select()
+		.from(courseUsers)
+		.where(and(eq(courseUsers.courseId, courseId), eq(courseUsers.userId, user.id)));
 
-		if (userCourseAccess.length === 0) {
-			error(403, 'You do not have access to this course');
-		}
-
-		// Get the course to verify it's published
-		const course = await db.select().from(courses).where(eq(courses.id, courseId));
-		if (course.length === 0) {
-			error(404, 'Course not found');
-		}
-		if (!course[0].published) {
-			error(403, 'This course is not published');
-		}
-
-		// Get exercise IDs for this course in order
-		const courseExerciseRelations = await db
-			.select()
-			.from(courseExercises)
-			.where(eq(courseExercises.courseId, courseId))
-			.orderBy(courseExercises.order);
-
-		if (courseExerciseRelations.length === 0) {
-			return [];
-		}
-
-		// Get the actual exercises
-		const exerciseIds = courseExerciseRelations.map((r) => r.exerciseId);
-		const allExercises = await db.select().from(exercises);
-
-		// Filter and order exercises according to course order
-		const courseExercisesList = exerciseIds
-			.map((id) => allExercises.find((e) => e.id === id))
-			.filter((e): e is typeof allExercises[0] => e !== undefined && e.published);
-
-		return courseExercisesList as Exercise[];
+	if (userCourseAccess.length === 0) {
+		error(403, 'You do not have access to this course');
 	}
-);
+
+	// Get the course to verify it's published
+	const course = await db.select().from(courses).where(eq(courses.id, courseId));
+	if (course.length === 0) {
+		error(404, 'Course not found');
+	}
+	if (!course[0].published) {
+		error(403, 'This course is not published');
+	}
+
+	// Get exercise IDs for this course in order
+	const courseExerciseRelations = await db
+		.select()
+		.from(courseExercises)
+		.where(eq(courseExercises.courseId, courseId))
+		.orderBy(courseExercises.order);
+
+	if (courseExerciseRelations.length === 0) {
+		return [];
+	}
+
+	// Get the actual exercises
+	const exerciseIds = courseExerciseRelations.map((r) => r.exerciseId);
+	const courseExerciseList = [];
+	for (const id of exerciseIds) {
+		const exercise = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
+		courseExerciseList.push(exercise[0]);
+	}
+
+	return courseExerciseList as Exercise[];
+});
 
 /**
  * Submit an attempt for an exercise.
@@ -219,65 +215,62 @@ export const submitAttempt = command(
  * Get user's progress for a course.
  * Returns the best attempt for each exercise and overall course progress.
  */
-export const getCourseProgress = query(
-	z.object({ courseId: z.string() }),
-	async ({ courseId }) => {
-		const user = requireAuth();
+export const getCourseProgress = query(z.object({ courseId: z.string() }), async ({ courseId }) => {
+	const user = requireAuth();
 
-		// Get exercise IDs for this course
-		const courseExerciseRelations = await db
-			.select()
-			.from(courseExercises)
-			.where(eq(courseExercises.courseId, courseId))
-			.orderBy(courseExercises.order);
+	// Get exercise IDs for this course
+	const courseExerciseRelations = await db
+		.select()
+		.from(courseExercises)
+		.where(eq(courseExercises.courseId, courseId))
+		.orderBy(courseExercises.order);
 
-		const exerciseIds = courseExerciseRelations.map((r) => r.exerciseId);
+	const exerciseIds = courseExerciseRelations.map((r) => r.exerciseId);
 
-		if (exerciseIds.length === 0) {
-			return {
-				exerciseCount: 0,
-				completedCount: 0,
-				progress: 0,
-				exerciseProgress: {}
-			};
-		}
-
-		// Get all attempts by this user for exercises in this course
-		const userAttempts = await db
-			.select()
-			.from(attempts)
-			.where(eq(attempts.userId, user.id))
-			.orderBy(desc(attempts.createdAt));
-
-		// Build progress map - best attempt per exercise
-		const exerciseProgress: Record<
-			string,
-			{ passed: boolean; bestScore: number; attemptCount: number }
-		> = {};
-
-		for (const exerciseId of exerciseIds) {
-			const exerciseAttempts = userAttempts.filter((a) => a.exerciseId === exerciseId);
-			if (exerciseAttempts.length > 0) {
-				const bestScore = Math.max(...exerciseAttempts.map((a) => a.score ?? 0));
-				const hasPassed = exerciseAttempts.some((a) => a.passed);
-				exerciseProgress[exerciseId] = {
-					passed: hasPassed,
-					bestScore,
-					attemptCount: exerciseAttempts.length
-				};
-			}
-		}
-
-		const completedCount = Object.values(exerciseProgress).filter((p) => p.passed).length;
-
+	if (exerciseIds.length === 0) {
 		return {
-			exerciseCount: exerciseIds.length,
-			completedCount,
-			progress: exerciseIds.length > 0 ? (completedCount / exerciseIds.length) * 100 : 0,
-			exerciseProgress
+			exerciseCount: 0,
+			completedCount: 0,
+			progress: 0,
+			exerciseProgress: {}
 		};
 	}
-);
+
+	// Get all attempts by this user for exercises in this course
+	const userAttempts = await db
+		.select()
+		.from(attempts)
+		.where(eq(attempts.userId, user.id))
+		.orderBy(desc(attempts.createdAt));
+
+	// Build progress map - best attempt per exercise
+	const exerciseProgress: Record<
+		string,
+		{ passed: boolean; bestScore: number; attemptCount: number }
+	> = {};
+
+	for (const exerciseId of exerciseIds) {
+		const exerciseAttempts = userAttempts.filter((a) => a.exerciseId === exerciseId);
+		if (exerciseAttempts.length > 0) {
+			const bestScore = Math.max(...exerciseAttempts.map((a) => a.score ?? 0));
+			const hasPassed = exerciseAttempts.some((a) => a.passed);
+			exerciseProgress[exerciseId] = {
+				passed: hasPassed,
+				bestScore,
+				attemptCount: exerciseAttempts.length
+			};
+		}
+	}
+
+	const completedCount = Object.values(exerciseProgress).filter((p) => p.passed).length;
+
+	return {
+		exerciseCount: exerciseIds.length,
+		completedCount,
+		progress: exerciseIds.length > 0 ? (completedCount / exerciseIds.length) * 100 : 0,
+		exerciseProgress
+	};
+});
 
 // =============================================================================
 // Command Functions

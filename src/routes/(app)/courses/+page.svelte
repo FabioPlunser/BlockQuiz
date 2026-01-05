@@ -3,7 +3,7 @@
 	import type { Exercise } from '$lib/types/exercise';
 	import Boundary from '$cp/Boundary.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
-	import CoursePlayerModal from '$lib/components/player/CoursePlayerModal.svelte';
+	import CoursePlayer from '$lib/components/player/CoursePlayer.svelte';
 	import { PersistedState, watch } from 'runed';
 	import {
 		getUserCourses,
@@ -26,7 +26,6 @@
 	$inspect(courses.current);
 
 	// Modal state
-	let showPlayerModal = $state(false);
 	let selectedCourse = $state<Course | null>(null);
 	let selectedExercises = $state<Exercise[]>([]);
 	let isLoadingExercises = $state(false);
@@ -92,6 +91,7 @@
 	// --------------------------------------------------------------------
 	// Handlers
 	// --------------------------------------------------------------------
+	//
 	async function handlePlayCourse(course: Course) {
 		isLoadingExercises = true;
 		selectedCourse = course;
@@ -99,6 +99,7 @@
 		try {
 			// Load exercises for this course
 			const result = await getCourseExercises(course.id);
+			console.log('Course exercies', result);
 			selectedExercises = result;
 
 			if (selectedExercises.length === 0) {
@@ -106,8 +107,6 @@
 				isLoadingExercises = false;
 				return;
 			}
-
-			showPlayerModal = true;
 		} catch (err) {
 			console.error('Failed to load exercises:', err);
 			toast.error('Failed to load course exercises. Please try again.');
@@ -116,14 +115,13 @@
 		}
 	}
 
-	// function handleCloseModal() {
-	// 	showPlayerModal = false;
-	// 	selectedCourse = null;
-	// 	selectedExercises = [];
+	function handleBack() {
+		selectedCourse = null;
+		selectedExercises = [];
 
-	// 	// Refresh progress after playing
-	// 	loadCourseProgress();
-	// }
+		// Refresh progress after playing
+		loadCourseProgress();
+	}
 
 	// Load progress for all courses
 	async function loadCourseProgress() {
@@ -167,40 +165,42 @@
 	}
 </script>
 
-<div class="p-4">
-	<Boundary loading={courses.loading}>
-		<div class="mb-4">
-			<h1 class="text-2xl font-bold">My Courses</h1>
-			<p class="text-base-content/60">Courses assigned to you</p>
-		</div>
-
-		<CMSToolbar
-			bind:viewMode={viewMode.current}
-			bind:searchQuery
-			searchPlaceholder="Search courses..."
-			showViewToggle={true}
-			showSearch={true}
-		/>
-
-		{#if filteredCourses.length === 0}
-			<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
-				<BookOpen class="mx-auto h-12 w-12 text-base-content/40" />
-				<h3 class="mt-4 text-lg font-medium">No courses found</h3>
-				<p class="mt-1 text-base-content/60">
-					{#if searchQuery}
-						No courses match your search.
-					{:else}
-						You haven't been assigned to any courses yet.
-					{/if}
-				</p>
+{#if !selectedCourse}
+	<div class="p-4">
+		<Boundary loading={courses.loading}>
+			<div class="mb-4">
+				<h1 class="text-2xl font-bold">My Courses</h1>
+				<p class="text-base-content/60">Courses assigned to you</p>
 			</div>
-		{:else if viewMode.current === 'cards'}
-			<CMSCardView items={filteredCourses} card={courseCard} gridCols={3} />
-		{:else}
-			<CMSTableView items={filteredCourses} columns={tableColumns} actions={courseActions} />
-		{/if}
-	</Boundary>
-</div>
+
+			<CMSToolbar
+				bind:viewMode={viewMode.current}
+				bind:searchQuery
+				searchPlaceholder="Search courses..."
+				showViewToggle={true}
+				showSearch={true}
+			/>
+
+			{#if filteredCourses.length === 0}
+				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
+					<BookOpen class="mx-auto h-12 w-12 text-base-content/40" />
+					<h3 class="mt-4 text-lg font-medium">No courses found</h3>
+					<p class="mt-1 text-base-content/60">
+						{#if searchQuery}
+							No courses match your search.
+						{:else}
+							You haven't been assigned to any courses yet.
+						{/if}
+					</p>
+				</div>
+			{:else if viewMode.current === 'cards'}
+				<CMSCardView items={filteredCourses} card={courseCard} gridCols={3} />
+			{:else}
+				<CMSTableView items={filteredCourses} columns={tableColumns} actions={courseActions} />
+			{/if}
+		</Boundary>
+	</div>
+{/if}
 
 {#snippet courseCard(course: Course)}
 	{@const progress = getProgressForCourse(course.id)}
@@ -223,27 +223,21 @@
 						<span class="text-base-content/60">Progress</span>
 						<span class="font-medium">{progress.completed}/{progress.total}</span>
 					</div>
-					<div class="h-2 overflow-hidden rounded-full bg-base-100">
-						<div
-							class="h-full transition-all duration-300"
-							class:bg-success={progress.percent === 100}
-							class:bg-primary={progress.percent < 100}
-							style="width: {progress.percent}%"
-						></div>
-					</div>
+					<progress class="progress w-full progress-primary" value={progress.percent} max="100"
+					></progress>
 				</div>
 			{/if}
 
 			<div class="mt-2 flex flex-wrap gap-1">
 				{#if course.exerciseIds?.length}
-					<span class="badge badge-sm badge-primary">
+					<span class="badge badge-sm badge-accent">
 						{course.exerciseIds.length} Exercises
 					</span>
 				{/if}
-				<span class="badge badge-sm badge-primary">
+				<span class="badge badge-sm badge-accent">
 					{course.createdBy}
 				</span>
-				<span class="badge badge-sm badge-primary">
+				<span class="badge badge-sm badge-accent">
 					{new Date(course.createdAt).toLocaleDateString('de-De')}
 				</span>
 				{#if progress.percent === 100}
@@ -288,21 +282,7 @@
 	</button>
 {/snippet}
 
-<!-- --
-{#if loadError}
-	<div class="toast toast-end toast-top z-50">
-		<div class="alert alert-error">
-			<span>{loadError}</span>
-			<button class="btn btn-ghost btn-xs" onclick={() => (loadError = null)}>✕</button>
-		</div>
-	</div>
-{/if} -->
-
-<!-- Course Player Modal -->
-{#if showPlayerModal && selectedCourse}
-	<CoursePlayerModal
-		course={selectedCourse}
-		exercises={selectedExercises}
-		onClose={handleCloseModal}
-	/>
+<!-- Course Player -->
+{#if selectedCourse}
+	<CoursePlayer course={selectedCourse} exercises={selectedExercises} onBack={handleBack} />
 {/if}

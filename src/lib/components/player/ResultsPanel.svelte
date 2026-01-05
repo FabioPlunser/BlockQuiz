@@ -17,7 +17,7 @@
 	let hiddenCount = $derived((result?.testResults.length ?? 0) - visibleResults.length);
 </script>
 
-<div class="rounded-lg border border-base-300 bg-base-200 p-4">
+<div class="rounded-lg border border-base-300 bg-base-300 p-4 shadow-md">
 	{#if isSubmitting}
 		<!-- Loading State -->
 		<div class="flex items-center justify-center gap-3 py-8">

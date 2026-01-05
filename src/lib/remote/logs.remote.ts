@@ -6,6 +6,7 @@ import type { IFuseOptions } from 'fuse.js';
 import { auditLogQuerySchema, type AuditLogQueryInput } from '$remote/schemas/logsSchema';
 import { requireAuth } from '$lib/utils/requireAuth';
 import { Role } from '$lib/roles';
+import { sleep } from '$lib/utils/sleep';
 
 export interface LogEntry {
 	timestamp: string;

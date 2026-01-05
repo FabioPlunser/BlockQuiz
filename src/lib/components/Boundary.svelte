@@ -22,6 +22,7 @@
 		<div class="flex w-full justify-center">
 			<span class="loading loading-xl loading-bars text-4xl text-primary"></span>.
 		</div>
+	{:else}
+		{@render children?.()}
 	{/if}
-	{@render children?.()}
 </svelte:boundary>

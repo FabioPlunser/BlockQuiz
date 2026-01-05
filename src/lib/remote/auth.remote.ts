@@ -97,6 +97,7 @@ export const resetPassword = form(loginSchema, async (data) => {
 	try {
 		const _user = await getUser(email);
 		if (!_user) {
+			logger.error(`ResetPassword: user not found ${email}`);
 			invalid('User not found');
 		}
 
@@ -106,6 +107,7 @@ export const resetPassword = form(loginSchema, async (data) => {
 
 		const token = await getResetToken(_user.email);
 		if (!token) {
+			logger.error(`ResetPassword: Reset token not generated ${_user.email}`);
 			invalid('Reset token not generated');
 		}
 
@@ -116,7 +118,9 @@ export const resetPassword = form(loginSchema, async (data) => {
 		if (!resetResult) {
 			invalid('Password reset failed');
 		}
-		logger.info('Successfully reset password for ', { email: _user.email });
+		logger.info(`ResetPassword: Successfully reset password for ${_user.email}`, {
+			email: _user.email
+		});
 		redirect(303, resolve('/(auth)/login'));
 	} catch (e) {
 		if (e instanceof Error) {

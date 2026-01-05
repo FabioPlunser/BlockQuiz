@@ -4,6 +4,7 @@
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { Lightbulb, ChevronRight, Clock, Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	type Props = {
 		exercise: Exercise;
@@ -32,7 +33,7 @@
 				if (hint.trigger === 'time' && hint.delaySeconds) {
 					const timer = setTimeout(() => {
 						revealedHints.add(hint.id);
-						revealedHints = new Set(revealedHints);
+						revealedHints = new SvelteSet(revealedHints);
 					}, hint.delaySeconds * 1000);
 					hintTimers.set(hint.id, timer);
 				}
@@ -46,7 +47,7 @@
 
 	function revealHint(hintId: string) {
 		revealedHints.add(hintId);
-		revealedHints = new Set(revealedHints);
+		revealedHints = new SvelteSet(revealedHints);
 	}
 
 	function getAvailableHints(): ExerciseHint[] {
@@ -66,19 +67,19 @@
 	let availableHints = $derived(getAvailableHints());
 </script>
 
-<div class="flex h-full flex-col gap-4 overflow-y-auto bg-base-200 p-4">
+<div class="flex flex-col gap-4 overflow-y-auto rounded-xl bg-base-300 p-4 shadow-md">
 	<!-- Progress Indicator -->
 	<div class="flex items-center justify-between">
 		<span class="text-sm font-medium text-base-content/60">
 			Exercise {currentIndex + 1} of {totalExercises}
 		</span>
 		<div class="flex gap-1">
-			{#each Array(totalExercises) as _, i}
+			{#each Array(totalExercises) as _, i (i)}
 				<div
 					class="h-2 w-6 rounded-full transition-colors"
 					class:bg-primary={i === currentIndex}
 					class:bg-success={i < currentIndex}
-					class:bg-base-300={i > currentIndex}
+					class:bg-gray-400={i > currentIndex}
 				></div>
 			{/each}
 		</div>
@@ -100,17 +101,17 @@
 		{getLocalized(exercise.content.title)}
 	</h2>
 
-	<!-- Description -->
-	<div class="prose prose-sm max-w-none text-base-content/80">
-		{@html sanitizeHtml(getLocalized(exercise.content.description))}
-	</div>
-
 	<!-- Exercise Type Badge -->
 	<div class="flex gap-2">
 		<span class="badge badge-outline capitalize">{exercise.type}</span>
 		{#if exercise.config.mode !== 'default'}
 			<span class="badge capitalize badge-secondary">{exercise.config.mode} mode</span>
 		{/if}
+	</div>
+
+	<!-- Description -->
+	<div class="prose prose-sm max-w-none text-base-content/80">
+		{@html sanitizeHtml(getLocalized(exercise.content.description))}
 	</div>
 
 	<!-- Hints Section -->

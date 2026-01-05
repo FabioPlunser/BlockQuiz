@@ -10,10 +10,11 @@ export const userFilterSchema = z.object({
 });
 
 export const createUpdateUserSchema = z.object({
+	id: z.string(),
 	email: z.email(),
-	active: z.boolean(),
-	password: z.string().min(8),
-	role: z.enum(ROLES as [string, ...string[]])
+	password: z.string().optional(),
+	active: z.boolean().optional(),
+	role: z.enum(ROLES as [string, ...string[]]).optional()
 });
 
 export const resetPasswordSchema = z.object({

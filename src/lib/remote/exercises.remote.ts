@@ -2,13 +2,9 @@ import { z } from 'zod';
 import { error } from '@sveltejs/kit';
 import { query, command } from '$app/server';
 import { db } from '$lib/server/db/client';
-import { exercises, courses } from '$lib/server/db/schema';
+import { exercises, courses, courseExercises } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import {
-	type ExerciseContent,
-	type ExerciseConfig,
-	dbExerciseTypes
-} from '$lib/types/exercise';
+import { type ExerciseContent, type ExerciseConfig, dbExerciseTypes } from '$lib/types/exercise';
 import { requireTeacherOrAdmin } from '$lib/utils/requireAuth';
 import type { Exercise } from '$lib/types/exercise';
 
@@ -264,6 +260,8 @@ export const deleteExercise = command(z.string(), async (id) => {
 		}
 
 		await db.delete(exercises).where(eq(exercises.id, id));
+
+		await db.delete(courseExercises).where(eq(courseExercises.exerciseId, id));
 
 		return { success: true as const };
 	} catch (e) {

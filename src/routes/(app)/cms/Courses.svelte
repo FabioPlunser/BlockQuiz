@@ -1,16 +1,21 @@
 <script lang="ts">
 	import type { Course } from '$types/course';
+	import type { Exercise, ExerciseFormData } from '$types/exercise';
 
 	import Boundary from '$cp/Boundary.svelte';
 	import CourseEditor from './CourseEditor.svelte';
+	import ExerciseEditor from './ExerciseEditor.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
+	import type { Column } from '$lib/components/DataTable.svelte';
 
 	import { PersistedState } from 'runed';
 	import { deleteCourse, getCourses } from '$lib/remote/courses.remote';
+	import { getExercises } from '$lib/remote/exercises.remote';
 	import { fly } from 'svelte/transition';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { handleServerResult } from '$lib/utils/toast';
+	import { BookOpen, Eye, Pencil, Trash2 } from '@lucide/svelte';
 
 	// --------------------------------------------------------------------
 	// State
@@ -21,7 +26,22 @@
 	let searchQuery = $state('');
 	let viewMode = new PersistedState<'cards' | 'table'>('coursesViewMode', 'cards');
 
+	// Exercise editing state
+	let editExercise = $state(false);
+	let selectedExercise: (Exercise & { id: string }) | undefined = $state(undefined);
+	let viewingCourseExercises: Course | undefined = $state(undefined);
+
+	// Column visibility state
+	let visibleColumns = new PersistedState<string[]>('coursesVisibleColumns', [
+		'title',
+		'description',
+		'status',
+		'exercises',
+		'users'
+	]);
+
 	let courses = $derived(getCourses({}));
+	let exercises = $derived(getExercises({}));
 
 	// --------------------------------------------------------------------
 	// Filtered items
@@ -44,14 +64,23 @@
 		});
 	});
 
+	// Get exercises for the currently viewed course
+	let courseExercises = $derived.by(() => {
+		if (!viewingCourseExercises) return [];
+		const allExercises = (exercises.current as Exercise[]) ?? [];
+		const courseExerciseIds = viewingCourseExercises.exerciseIds ?? [];
+		return allExercises.filter((e) => courseExerciseIds.includes(e.id));
+	});
+
 	// --------------------------------------------------------------------
 	// Table columns
 	// --------------------------------------------------------------------
-	const tableColumns = [
+	const tableColumns: Column<Course>[] = [
 		{
 			key: 'title',
 			label: 'Title',
-			render: (c: Course) => c.content?.title
+			render: (c: Course) => c.content?.title,
+			sortable: true
 		},
 		{
 			key: 'description',
@@ -65,17 +94,50 @@
 		{
 			key: 'status',
 			label: 'Status',
-			render: (c: Course) => (c.published ? '✓ Published' : '○ Draft')
+			render: (c: Course) => (c.published ? '✓ Published' : '○ Draft'),
+			sortable: true
 		},
 		{
 			key: 'exercises',
 			label: 'Exercises',
-			render: (c: Course) => String(c.exerciseIds?.length ?? 0)
+			render: (c: Course) => String(c.exerciseIds?.length ?? 0),
+			sortable: true
 		},
 		{
 			key: 'users',
 			label: 'Users',
-			render: (c: Course) => String(c.userIds?.length ?? 0)
+			render: (c: Course) => String(c.userIds?.length ?? 0),
+			sortable: true
+		},
+		{
+			key: 'createdAt',
+			label: 'Created',
+			render: (c: Course) => new Date(c.createdAt).toLocaleDateString(),
+			sortable: true
+		}
+	];
+
+	// Filter columns by visibility
+	let displayColumns = $derived.by(() => {
+		return tableColumns.filter((c) => visibleColumns.current.includes(c.key));
+	});
+
+	// Exercise table columns
+	const exerciseColumns: Column<Exercise>[] = [
+		{
+			key: 'title',
+			label: 'Title',
+			render: (e: Exercise) => e.content?.title
+		},
+		{
+			key: 'type',
+			label: 'Type',
+			render: (e: Exercise) => e.type
+		},
+		{
+			key: 'status',
+			label: 'Status',
+			render: (e: Exercise) => (e.published ? '✓ Published' : '○ Draft')
 		}
 	];
 
@@ -86,6 +148,18 @@
 		newCourse = false;
 		editCourse = false;
 		selectedCourse = undefined;
+	}
+
+	function handleExerciseCancel() {
+		editExercise = false;
+		selectedExercise = undefined;
+		// Go back to viewing exercises if we were doing that
+	}
+
+	function handleBackFromExercises() {
+		viewingCourseExercises = undefined;
+		editExercise = false;
+		selectedExercise = undefined;
 	}
 
 	async function handleDelete(course: Course) {
@@ -111,6 +185,28 @@
 
 	function handleCreate() {
 		newCourse = true;
+	}
+
+	function handleViewExercises(course: Course) {
+		viewingCourseExercises = course;
+	}
+
+	function handleEditExercise(exercise: Exercise) {
+		selectedExercise = exercise;
+		editExercise = true;
+	}
+
+	// Convert Exercise to ExerciseFormData for the editor
+	function exerciseToFormData(exercise: Exercise): ExerciseFormData & { id: string } {
+		return {
+			id: exercise.id,
+			courseId: exercise.courseId,
+			type: exercise.type,
+			content: exercise.content,
+			config: exercise.config,
+			published: exercise.published,
+			order: exercise.order
+		};
 	}
 </script>
 
@@ -142,6 +238,16 @@
 				{/if}
 			</div>
 			<div class="mt-4 card-actions justify-end">
+				{#if course.exerciseIds?.length}
+					<button
+						class="btn btn-ghost btn-sm"
+						onclick={() => handleViewExercises(course)}
+						title="View Exercises"
+					>
+						<Eye class="h-4 w-4" />
+						Exercises
+					</button>
+				{/if}
 				<button class="btn btn-sm btn-error" onclick={() => handleDelete(course)}>Delete</button>
 				<button class="btn btn-sm btn-primary" onclick={() => handleEdit(course)}>Edit</button>
 			</div>
@@ -151,28 +257,53 @@
 
 {#snippet courseActions(course: Course)}
 	<div class="flex gap-1">
+		{#if course.exerciseIds?.length}
+			<button
+				class="btn btn-ghost btn-xs"
+				onclick={() => handleViewExercises(course)}
+				title="View Exercises"
+			>
+				<Eye class="h-3 w-3" />
+			</button>
+		{/if}
 		<button class="btn btn-ghost btn-xs" onclick={() => handleEdit(course)} title="Edit">
-			✏️
+			<Pencil class="h-3 w-3" />
 		</button>
 		<button
 			class="btn text-error btn-ghost btn-xs"
 			onclick={() => handleDelete(course)}
 			title="Delete"
 		>
-			🗑️
+			<Trash2 class="h-3 w-3" />
+		</button>
+	</div>
+{/snippet}
+
+{#snippet exerciseActions(exercise: Exercise)}
+	<div class="flex gap-1">
+		<button
+			class="btn btn-ghost btn-xs"
+			onclick={() => handleEditExercise(exercise)}
+			title="Edit Exercise"
+		>
+			<Pencil class="h-3 w-3" />
 		</button>
 	</div>
 {/snippet}
 
 <div class="p-4">
 	<Boundary loading={courses.loading}>
-		{#if !newCourse && !editCourse}
+		<!-- Main Course List View -->
+		{#if !newCourse && !editCourse && !viewingCourseExercises && !editExercise}
 			<CMSToolbar
 				bind:viewMode={viewMode.current}
 				bind:searchQuery
 				searchPlaceholder="Search courses..."
 				createButtonLabel="Add Course"
 				onCreate={handleCreate}
+				showColumnPicker={true}
+				columns={tableColumns}
+				bind:visibleColumns={visibleColumns.current}
 			/>
 
 			{#if filteredCourses.length === 0}
@@ -184,7 +315,7 @@
 			{:else if viewMode.current === 'cards'}
 				<CMSCardView items={filteredCourses} card={courseCard} gridCols={3} />
 			{:else}
-				<CMSTableView items={filteredCourses} columns={tableColumns} actions={courseActions} />
+				<CMSTableView items={filteredCourses} columns={displayColumns} actions={courseActions} />
 			{/if}
 		{/if}
 
@@ -197,6 +328,50 @@
 					isNew={newCourse}
 					onCancel={handleCancel}
 					onSave={handleCancel}
+				/>
+			</div>
+		{/if}
+
+		<!-- View Exercises for a Course -->
+		{#if viewingCourseExercises && !editExercise}
+			<div in:fly={{ y: -100, duration: 300 }}>
+				<div class="card bg-base-200 p-4 shadow-xl">
+					<div class="flex items-center gap-4">
+						<button class="btn btn-ghost btn-sm" onclick={handleBackFromExercises}>
+							← Back to Courses
+						</button>
+						<h2 class="text-xl font-bold">
+							Exercises in: {getLocalized(viewingCourseExercises.content?.title)}
+						</h2>
+					</div>
+
+					<div class="mt-4">
+						{#if courseExercises.length === 0}
+							<div class="rounded-lg border-2 border-dashed border-base-300 p-8 text-center">
+								<BookOpen class="mx-auto h-8 w-8 text-base-content/40" />
+								<p class="mt-2 text-base-content/60">No exercises in this course yet.</p>
+							</div>
+						{:else}
+							<CMSTableView
+								items={courseExercises}
+								columns={exerciseColumns}
+								actions={exerciseActions}
+							/>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Exercise Editor (inline) -->
+		{#if editExercise && selectedExercise}
+			<div in:fly={{ y: -100, duration: 300 }}>
+				<ExerciseEditor
+					exercise={exerciseToFormData(selectedExercise)}
+					remote={exercises}
+					isNew={false}
+					onCancel={handleExerciseCancel}
+					onSave={handleExerciseCancel}
 				/>
 			</div>
 		{/if}

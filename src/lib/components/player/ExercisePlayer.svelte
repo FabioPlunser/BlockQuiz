@@ -10,6 +10,8 @@
 	import { Robot } from '$lib/canvas/Robot.svelte';
 	import { getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
 	import { LOGIC_BLOCKS, LOOP_BLOCKS, MATH_BLOCKS, TEXT_BLOCKS } from '$lib/blockly/presets';
+	import ResultsPanel from './ResultsPanel.svelte';
+	import { getExecutionState } from './execution.svelte';
 
 	type Props = {
 		exercise: Exercise;
@@ -20,7 +22,15 @@
 		hasNextExercise: boolean;
 	};
 
-	let { exercise, currentIndex, totalExercises, onSubmit, onNext, hasNextExercise }: Props = $props();
+	let { exercise, currentIndex, totalExercises, onSubmit, onNext, hasNextExercise }: Props =
+		$props();
+
+	// Get singleton state
+	const state = getExecutionState();
+
+	// Reactive access to shared state
+	let result = $derived(state.result);
+	let isSubmitting = $derived(state.isSubmitting);
 
 	let blocklyRef: BlocklyWorkspace;
 
@@ -85,18 +95,22 @@
 	function handleSubmit(result: GradingResult) {
 		onSubmit(result);
 	}
+
+	function handleRetry() {
+		state.handleRetry();
+	}
 </script>
 
-<div class="flex h-full gap-4">
+<div class="flex h-[90vh] w-full gap-4">
 	<!-- Left Sidebar: Exercise Info -->
-	<div class="w-80 shrink-0 overflow-hidden rounded-lg border border-base-300">
+	<div class="flex w-1/3 flex-col gap-4">
 		<ExerciseInfoPanel {exercise} {currentIndex} {totalExercises} />
+		<ResultsPanel {result} {isSubmitting} {hasNextExercise} onRetry={handleRetry} {onNext} />
 	</div>
 
 	<!-- Right Main Area: Blockly + Execution -->
-	<div class="flex flex-1 flex-col gap-4 overflow-hidden">
-		<!-- Blockly Workspace -->
-		<div class="flex-1 overflow-hidden rounded-lg border border-base-300">
+	<div class="flex flex-1 gap-4">
+		<div class="min-w-0 flex-1">
 			{#key exercise.id}
 				<BlocklyWorkspace
 					bind:this={blocklyRef}
@@ -105,16 +119,8 @@
 				/>
 			{/key}
 		</div>
-
-		<!-- Execution Area: Canvas + Controls + Results -->
-		<div class="shrink-0">
-			<ExecutionArea
-				{exercise}
-				{getCode}
-				{hasNextExercise}
-				onSubmit={handleSubmit}
-				{onNext}
-			/>
+		<div>
+			<ExecutionArea {exercise} {getCode} {hasNextExercise} onSubmit={handleSubmit} {onNext} />
 		</div>
 	</div>
 </div>
@@ -125,4 +131,3 @@
 		height: 100% !important;
 	}
 </style>
-

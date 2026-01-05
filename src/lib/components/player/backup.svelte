@@ -5,15 +5,23 @@
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { submitAttempt } from '$lib/remote/courses.remote';
 	import ExercisePlayer from './ExercisePlayer.svelte';
-	import { X, ChevronLeft, ChevronRight, SkipForward, Trophy, CheckCircle } from '@lucide/svelte';
+	import {
+		X,
+		ChevronLeft,
+		ChevronRight,
+		SkipForward,
+		Trophy,
+		CheckCircle,
+		MoveLeft
+	} from '@lucide/svelte';
 
 	type Props = {
 		course: Course;
 		exercises: Exercise[];
-		onClose: () => void;
+		onBack: () => void;
 	};
 
-	let { course, exercises, onClose }: Props = $props();
+	let { course, exercises, onBack }: Props = $props();
 
 	// State
 	let currentExerciseIndex = $state(0);
@@ -96,25 +104,19 @@
 		currentExerciseIndex = index;
 		startTime = Date.now();
 	}
-
-	// Handle ESC key to close
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			onClose();
-		}
-	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 <!-- Modal Backdrop -->
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+<div class="flex items-center justify-center">
 	<!-- Modal Container -->
-	<div
-		class="flex h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl bg-base-100 shadow-2xl"
-	>
+	<div class="">
 		<!-- Header -->
 		<div class="flex items-center justify-between border-b border-base-300 px-4 py-3">
+			<div>
+				<button class="btn btn-ghost btn-sm" onclick={() => onBack()}>
+					<MoveLeft size="32" />
+				</button>
+			</div>
 			<div class="flex items-center gap-4">
 				<h2 class="text-lg font-bold">{getLocalized(course.content?.title)}</h2>
 				<div class="badge badge-primary">

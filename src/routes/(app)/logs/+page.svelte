@@ -1,21 +1,42 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import Loading from '$cp/Loading.svelte';
 	import { getAuditLogs, type LogEntry, type LogLevelFilter } from '$remote/logs.remote';
-	import { onMount, onDestroy, getAbortSignal } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { PersistedState } from 'runed';
+	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
+	import { Debounced } from 'runed';
+	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
+	import { Search, RefreshCw } from '@lucide/svelte';
+	import Boundary from '$cp/Boundary.svelte';
 
+	//-----------------------------------------------------------------------------
+	// State
+	//-----------------------------------------------------------------------------
 	const pageSize = 25;
 
 	let searchQuery = $state('');
 	let selectedLevel = $state<LogLevelFilter>('all');
 	let currentPage = $state(1);
+	const debouncedQuery = new Debounced(() => searchQuery.trim(), 200);
 
-	function goToPage(page: number, totalPages: number) {
-		const target = Math.min(Math.max(page, 1), totalPages);
-		currentPage = target;
-	}
+	let logs = $derived(
+		getAuditLogs({
+			page: currentPage,
+			pageSize,
+			level: selectedLevel,
+			search: debouncedQuery.current
+		})
+	);
 
+	// Column visibility
+	let visibleColumns = new PersistedState<string[]>('logsVisibleColumns', [
+		'timestamp',
+		'level',
+		'message',
+		'details'
+	]);
+
+	//-----------------------------------------------------------------------------
+	// Helpers
+	//-----------------------------------------------------------------------------
 	function getLevelBadgeClass(level: string) {
 		switch (level) {
 			case 'info':
@@ -29,29 +50,78 @@
 		}
 	}
 
-	async function getLogs() {
-		return getAuditLogs({
-			page: currentPage,
-			pageSize,
-			level: selectedLevel,
-			search: searchQuery.trim()
-		});
+	function handlePageChange(page: number) {
+		currentPage = page;
 	}
+
+	//-----------------------------------------------------------------------------
+	// Table columns definition
+	//-----------------------------------------------------------------------------
+	type LogWithId = LogEntry & { id: string };
+
+	const tableColumns: Column<LogWithId>[] = [
+		{
+			key: 'timestamp',
+			label: 'Timestamp',
+			sortable: true,
+			class: 'whitespace-nowrap',
+			cellSnippet: 'timestamp' // Reference by key
+		},
+		{
+			key: 'level',
+			label: 'Level',
+			sortable: true,
+			cellSnippet: 'level' // Reference by key
+		},
+		{
+			key: 'message',
+			label: 'Message',
+			sortable: true,
+			class: 'font-medium'
+			// No cellSnippet - will use defaultCell
+		},
+		{
+			key: 'details',
+			label: 'Details',
+			cellSnippet: 'details' // Reference by key
+		}
+	];
 </script>
 
-<div class="container mx-auto space-y-6 p-6">
+<!-- Define snippets in template - these will be passed as props -->
+{#snippet levelCell(log: LogWithId)}
+	<div class="badge {getLevelBadgeClass(log.level)} gap-2 text-xs font-bold uppercase">
+		{log.level}
+	</div>
+{/snippet}
+
+{#snippet detailsCell(log: LogWithId)}
+	<div class="collapse-arrow collapse rounded-box bg-base-300">
+		<input type="checkbox" />
+		<div class="collapse-title min-h-0 py-2 font-mono text-xs">View JSON</div>
+		<div class="collapse-content">
+			<pre class="overflow-x-auto p-2 text-xs"><code>{JSON.stringify(log, null, 2)}</code></pre>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet timestampCell(log: LogWithId)}
+	<span class="font-mono text-xs whitespace-nowrap opacity-70">
+		{new Date(log.timestamp).toLocaleString()}
+	</span>
+{/snippet}
+
+<div class="mx-auto w-full space-y-6 p-6">
+	<!-- Toolbar -->
 	<div
-		class="flex flex-col gap-6 rounded-box bg-base-200/50 p-4 text-sm text-base-content/80 shadow-sm md:flex-row md:items-center md:gap-8"
+		class="flex flex-row items-center gap-6 rounded-box bg-base-200/50 p-4 text-sm text-base-content/80 shadow-sm"
 	>
 		<!-- Search + Filter (Left) -->
 		<div class="flex w-full flex-col gap-2 md:max-w-md">
-			<span class="text-xs font-semibold tracking-wide text-base-content/60 uppercase"
-				>Search & Filter</span
-			>
 			<div class="flex flex-col gap-2 sm:flex-row">
 				<label class="input-bordered input flex w-full items-center gap-2">
 					<input type="text" class="grow" placeholder="Search logs..." bind:value={searchQuery} />
-					<i class="lni lni-search-2"></i>
+					<Search class="h-4 w-4 opacity-60" />
 				</label>
 				<select class="select-bordered select w-full sm:w-40" bind:value={selectedLevel}>
 					<option value="all">All Levels</option>
@@ -62,109 +132,56 @@
 			</div>
 		</div>
 
-		<svelte:boundary>
-			{#snippet pending()}
-				<Loading />
-			{/snippet}
-			{@const logs = await getLogs()}
-			<!-- Pagination (Center) -->
-			<div class="flex w-full flex-col items-center gap-3 text-xs md:flex-1">
-				<span class="text-xs font-semibold tracking-wide text-base-content/60 uppercase"
-					>Pagination</span
-				>
-				<div class="join">
-					<button
-						class="btn join-item btn-sm"
-						disabled={currentPage === 1}
-						onclick={() => goToPage(currentPage - 1, logs.totalPages)}
-					>
-						Prev
-					</button>
-					<button class="btn join-item btn-sm" disabled>
-						Page {currentPage}
-					</button>
-					<button
-						class="btn join-item btn-sm"
-						disabled={currentPage === logs.totalPages}
-						onclick={() => goToPage(currentPage + 1, logs.totalPages)}
-					>
-						Next
-					</button>
-				</div>
-				<div class="text-[0.85rem] text-base-content/70">
-					Showing page {currentPage} of {logs.totalPages} · {logs.totalFiltered} matching / {logs
-						.logs.length} total
-				</div>
-			</div>
+		<div class="flex items-center">
+			<!-- Column Picker -->
+			<ColumnPicker columns={tableColumns} bind:visibleColumns={visibleColumns.current} />
+		</div>
 
-			<!-- Refresh (Right) -->
-			<div class="flex w-full flex-col gap-2 md:w-auto md:items-end">
-				<span class="text-xs font-semibold tracking-wide text-base-content/60 uppercase"
-					>Refresh</span
-				>
-				<button
-					class="btn w-full btn-sm btn-primary md:w-auto"
-					onclick={() => logs.refresh()}
-					disabled={logs.loading}
-				>
-					{logs.loading ? 'Refreshing…' : 'Refresh now'}
-				</button>
-			</div>
-		</svelte:boundary>
+		<Boundary loading={logs.loading}>
+			{@const _logs = logs.current}
+			{#if _logs}
+				<!-- Refresh (Right) -->
+				<div class="flex w-full flex-col gap-2 md:ml-auto md:w-auto md:items-end">
+					<button
+						class="btn w-full btn-sm btn-primary md:w-auto"
+						onclick={() => logs.refresh()}
+						disabled={logs.loading}
+					>
+						<RefreshCw class="h-4 w-4 {logs.loading ? 'animate-spin' : ''}" />
+						{logs.loading ? 'Refreshing…' : 'Refresh now'}
+					</button>
+				</div>
+			{/if}
+		</Boundary>
 	</div>
 
-	<svelte:boundary>
-		{#snippet pending()}
-			<Loading />
-		{/snippet}
-		{@const logs = await getLogs()}
-		<div class="rounded-box bg-base-100 shadow">
-			<div class="max-h-[60vh] overflow-auto">
-				<table class="table table-zebra">
-					<thead>
-						<tr>
-							<th>Timestamp</th>
-							<th>Level</th>
-							<th>Message</th>
-							<th>Details</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each logs.logs as log, index (index)}
-							<tr transition:fade>
-								<td class="font-mono text-xs whitespace-nowrap opacity-70">
-									{new Date(log.timestamp).toLocaleString()}
-								</td>
-								<td>
-									<div
-										class="badge {getLevelBadgeClass(log.level)} gap-2 text-xs font-bold uppercase"
-									>
-										{log.level}
-									</div>
-								</td>
-								<td class="font-medium">{log.message}</td>
-								<td>
-									<div class="collapse-arrow collapse rounded-box bg-base-300">
-										<input type="checkbox" />
-										<div class="collapse-title min-h-0 py-2 font-mono text-xs">View JSON</div>
-										<div class="collapse-content">
-											<pre class="overflow-x-auto p-2 text-xs"><code
-													>{JSON.stringify(log, null, 2)}</code
-												></pre>
-										</div>
-									</div>
-								</td>
-							</tr>
-						{:else}
-							<tr>
-								<td colspan="4" class="text-center py-8 opacity-50">
-									No logs found matching your criteria.
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+	<!-- Logs Table -->
+	<Boundary loading={logs.loading}>
+		{@const _logs = logs.current}
+		{#if _logs}
+			<div class="rounded-box border border-base-300 bg-base-100 shadow">
+				<div class="max-h-[60vh] overflow-auto">
+					<DataTable
+						items={_logs.logs.map((log) => ({ ...log, id: log.__key ?? String(log.timestamp) }))}
+						columns={tableColumns}
+						bind:visibleColumns={visibleColumns.current}
+						showSearch={false}
+						showPagination={true}
+						{pageSize}
+						bind:currentPage
+						totalItems={_logs.totalFiltered}
+						serverSidePagination={true}
+						onPageChange={handlePageChange}
+						emptyMessage="No logs found matching your criteria."
+						tableClass="[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10"
+						cellSnippets={{
+							timestamp: timestampCell,
+							level: levelCell,
+							details: detailsCell
+						}}
+					/>
+				</div>
 			</div>
-		</div>
-	</svelte:boundary>
+		{/if}
+	</Boundary>
 </div>

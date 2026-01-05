@@ -9,11 +9,10 @@ import {
 } from '$remote/schemas/usersSchema';
 import { requireAuth } from '$lib/utils/requireAuth';
 import { Role } from '$lib/roles';
-import { error, invalid, isRedirect } from '@sveltejs/kit';
+import { invalid, isRedirect } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 import { getUser, getResetToken } from '$lib/helper/dbHelper';
 import { auth } from '$server/auth';
-import { redirect } from '@sveltejs/kit';
 import { BetterAuthError } from 'better-auth';
 
 export const getUsers = query(userFilterSchema, async (filters) => {
@@ -44,34 +43,20 @@ export const getUsers = query(userFilterSchema, async (filters) => {
 		.where(and(...conditions));
 });
 
-export const updateUser = command(createUpdateUserSchema, async (data) => {
-	requireAuth(Role.ADMIN);
-	const { id, password, ...updates } = data;
-	try {
-		await db.update(user).set(updates).where(eq(user.id, id));
-		return { success: true as const, id };
-	} catch (e) {
-		if (isRedirect(e)) {
-			throw e;
-		}
-		console.error('Error updating user:', e);
-		return {
-			success: false as const,
-			error: e instanceof Error ? e.message : 'Failed to update user'
-		};
-	}
-});
-
 export const createUser = form(createUpdateUserSchema, async (data) => {
 	requireAuth(Role.ADMIN);
 	if (!data?.email) {
 		invalid('Email is required');
 		return { success: false as const, error: 'Email is required' };
 	}
-	const existingUser = await getUser(data.email);
-	if (existingUser) {
-		invalid('User already exists');
-		return { success: false as const, error: 'User already exists' };
+	try {
+		const existingUser = await getUser(data.email);
+		if (existingUser) {
+			invalid('User already exists');
+			return { success: false as const, error: 'User already exists' };
+		}
+	} catch (e) {
+		console.error(e);
 	}
 
 	try {
@@ -106,6 +91,29 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 		return {
 			success: false as const,
 			error: e instanceof Error ? e.message : 'Failed to create user'
+		};
+	}
+});
+
+export const updateUser = command(createUpdateUserSchema, async (data) => {
+	requireAuth(Role.ADMIN);
+	const { id, email, role, active } = data;
+	try {
+		await db
+			.update(user)
+			.set({
+				...data
+			})
+			.where(eq(user.id, id));
+		return { success: true as const, id };
+	} catch (e) {
+		if (isRedirect(e)) {
+			throw e;
+		}
+		console.error('Error updating user:', e);
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to update user'
 		};
 	}
 });
