@@ -3,6 +3,7 @@
 	import type { LocalizedString } from '$lib/types/exercise';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import type { Snippet } from 'svelte';
 
 	type Column<T> = {
 		key: string;
@@ -10,6 +11,7 @@
 		render?: (item: T) => string | LocalizedString | { de: string; en: string } | undefined;
 		html?: boolean; // If true, render as HTML
 		class?: string;
+		cellSnippet?: Snippet<[T, Column<T>]> | string;
 	};
 
 	type Props<T> = {
@@ -24,6 +26,7 @@
 		onSelectAll?: () => void;
 		class?: string;
 		tableClass?: string;
+		cellSnippets?: Record<string, Snippet<[T, Column<T>]>>; // Dictionary of snippets
 	};
 
 	let {
@@ -37,7 +40,8 @@
 		onSelect,
 		onSelectAll,
 		class: className = '',
-		tableClass = ''
+		tableClass = '',
+		cellSnippets = {} // Dictionary of snippets
 	}: Props<T> = $props();
 
 	function isSelected(item: T): boolean {
@@ -91,7 +95,24 @@
 
 		return String(value);
 	}
+	// Resolve cell snippet - either direct snippet or lookup by key
+	function getCellSnippet(column: Column<T>): Snippet<[T, Column<T>]> | undefined {
+		if (!column.cellSnippet) return undefined;
+
+		// If it's already a snippet, return it
+		if (typeof column.cellSnippet !== 'string') {
+			return column.cellSnippet;
+		}
+		console.log(column);
+		console.log(cellSnippets);
+		// Otherwise, look it up in cellSnippets dictionary
+		return cellSnippets[column.cellSnippet];
+	}
 </script>
+
+{#snippet defaultSnippet(exercise)}
+	<span>Error rendering snippet</span>
+{/snippet}
 
 <div class={className}>
 	{#if showSearch}
@@ -138,8 +159,11 @@
 							</th>
 						{/if}
 						{#each columns as column, i (i)}
+							{@const snippet = getCellSnippet(column)}
 							<td class={column.class}>
-								{#if column.html}
+								{#if column.cellSnippet}
+									{@render (snippet ?? defaultSnippet)(item, column)}
+								{:else if column.html}
 									<span>{@html sanitizeHtml(renderCell(item, column))}</span>
 								{:else}
 									<span>{renderCell(item, column)}</span>

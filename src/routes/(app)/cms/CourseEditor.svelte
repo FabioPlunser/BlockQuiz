@@ -1,15 +1,17 @@
 <script lang="ts">
 	import type { Course, CourseFormData } from '$types/course';
-	import type { Exercise } from '$types/exercise';
+	import type { Exercise, ExerciseFormData } from '$types/exercise';
 	import type { User } from '$types/user';
 
 	import { MoveLeft } from '@lucide/svelte';
 	import { Info, Users, BookText } from '@lucide/svelte';
+	import { fly } from 'svelte/transition';
 
 	import LocalizedInput from '$cp/editor/LocalizedInput.svelte';
 	import { LocalizedRichText } from '$cp/editor';
 	import SelectableTable from '$cp/SelectableTable.svelte';
 	import Boundary from '$cp/Boundary.svelte';
+	import ExerciseEditor from './ExerciseEditor.svelte';
 
 	import { getExercises } from '$lib/remote/exercises.remote';
 	import { getUsers } from '$lib/remote/users.remote';
@@ -52,7 +54,7 @@
 	// Fetch exercises and users
 	let exercises = $derived(getExercises({}));
 	let users = $derived(getUsers({}));
-
+	let editSelectedExercise = $state<Exercise | undefined>(undefined);
 	// ---------------------------------------------------
 	// Filtered lists
 	// ---------------------------------------------------
@@ -91,6 +93,11 @@
 			label: 'Description',
 			render: (e: Exercise) => e.content?.description ?? { de: '', en: '' },
 			html: true
+		},
+		{
+			key: 'edit',
+			label: 'edit',
+			cellSnippet: 'edit'
 		}
 	];
 
@@ -237,107 +244,143 @@
 			);
 		}
 	}
+	function handleExerciseCancel() {
+		editSelectedExercise = undefined;
+	}
+
+	function exerciseToFormData(exercise: Exercise): ExerciseFormData & { id: string } {
+		return {
+			id: exercise.id,
+			courseId: exercise.courseId,
+			type: exercise.type,
+			content: exercise.content,
+			config: exercise.config,
+			published: exercise.published,
+			order: exercise.order
+		};
+	}
 </script>
 
+{#snippet editExercise(exercise: Exercise)}
+	<button class="btn btn-sm btn-primary" onclick={() => (editSelectedExercise = exercise)}
+		>Edit</button
+	>
+{/snippet}
+
 <Boundary loading={exercises.loading || users.loading}>
-	<div class="p-4">
-		<div class="card bg-base-200 p-4 shadow-xl">
-			<!-- Header -->
-			<div class="flex items-center gap-4">
-				<button class="btn btn-ghost btn-sm" onclick={() => onCancel()}>
-					<MoveLeft size="32" />
-				</button>
-				<h1 class="text-2xl font-bold">{isNew ? 'Create Course' : 'Edit Course'}</h1>
-				<div class="absolute right-4 flex flex-wrap gap-4">
-					<label class="label cursor-pointer gap-2">
-						<input
-							type="checkbox"
-							class="toggle toggle-primary"
-							bind:checked={formData.published}
-						/>
-						<span class="label-text">Published</span>
-					</label>
-					<button class="btn btn-primary" onclick={handleSave}>Save</button>
+	{#if !editSelectedExercise}
+		<div class="p-4">
+			<div class="card bg-base-200 p-4 shadow-xl">
+				<!-- Header -->
+				<div class="flex items-center gap-4">
+					<button class="btn btn-ghost btn-sm" onclick={() => onCancel()}>
+						<MoveLeft size="32" />
+					</button>
+					<h1 class="text-2xl font-bold">{isNew ? 'Create Course' : 'Edit Course'}</h1>
+					<div class="absolute right-4 flex flex-wrap gap-4">
+						<label class="label cursor-pointer gap-2">
+							<input
+								type="checkbox"
+								class="toggle toggle-primary"
+								bind:checked={formData.published}
+							/>
+							<span class="label-text">Published</span>
+						</label>
+						<button class="btn btn-primary" onclick={handleSave}>Save</button>
+					</div>
 				</div>
-			</div>
 
-			<!-- Tab Navigation -->
-			<div class="mt-2 mb-2 tabs">
-				{#each sections as section (section.id)}
-					<button
-						class="tab"
-						class:tab-active={activeSection === section.id}
-						onclick={() => (activeSection = section.id)}
-					>
-						<section.icon size="24" />
-						<span class="ml-2">{section.label}</span>
-					</button>
-				{/each}
-			</div>
+				<!-- Tab Navigation -->
+				<div class="mt-2 mb-2 tabs">
+					{#each sections as section (section.id)}
+						<button
+							class="tab"
+							class:tab-active={activeSection === section.id}
+							onclick={() => (activeSection = section.id)}
+						>
+							<section.icon size="24" />
+							<span class="ml-2">{section.label}</span>
+						</button>
+					{/each}
+				</div>
 
-			<!-- Overview Section -->
-			{#if activeSection === 'overview'}
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Upload an image</legend>
-					<input type="file" class="file-input" accept="image/*" onchange={handleImage} />
-				</fieldset>
-				{#if imagePreview}
-					<button
-						class="btn w-fit btn-sm btn-primary"
-						onclick={() => (formData.content.image = '')}
-					>
-						Remove Image
-					</button>
-					<img src={imagePreview} alt="Course Preview" class="mt-2 max-h-64 object-contain" />
+				<!-- Overview Section -->
+				{#if activeSection === 'overview'}
+					<fieldset class="fieldset">
+						<legend class="fieldset-legend">Upload an image</legend>
+						<input type="file" class="file-input" accept="image/*" onchange={handleImage} />
+					</fieldset>
+					{#if imagePreview}
+						<button
+							class="btn w-fit btn-sm btn-primary"
+							onclick={() => (formData.content.image = '')}
+						>
+							Remove Image
+						</button>
+						<img src={imagePreview} alt="Course Preview" class="mt-2 max-h-64 object-contain" />
+					{/if}
+					<div class="mt-4">
+						<LocalizedInput bind:value={formData.content.title} label="Title" />
+					</div>
+					<div class="mt-4">
+						<LocalizedRichText bind:value={formData.content.description} label="Description" />
+					</div>
 				{/if}
-				<div class="mt-4">
-					<LocalizedInput bind:value={formData.content.title} label="Title" />
-				</div>
-				<div class="mt-4">
-					<LocalizedRichText bind:value={formData.content.description} label="Description" />
-				</div>
-			{/if}
 
-			<!-- Exercises Section -->
-			{#if activeSection === 'exercises'}
-				<div class="mt-4">
-					<h2 class="mb-2 font-bold">Assign Exercises to Course</h2>
-					<p class="mb-4 text-sm text-base-content/60">
-						Select exercises that should be included in this course. Selected: {formData
-							.exerciseIds.length}
-					</p>
-					<SelectableTable
-						items={filteredExercises}
-						columns={exerciseColumns}
-						bind:searchQuery={searchQueryExercises}
-						bind:selectedIds={formData.exerciseIds}
-						onSelect={handleSelectExercise}
-						onSelectAll={handleSelectAllExercises}
-						tableClass="h-96"
-					/>
-				</div>
-			{/if}
+				<!-- Exercises Section -->
+				{#if activeSection === 'exercises'}
+					<div class="mt-4">
+						<h2 class="mb-2 font-bold">Assign Exercises to Course</h2>
+						<p class="mb-4 text-sm text-base-content/60">
+							Select exercises that should be included in this course. Selected: {formData
+								.exerciseIds.length}
+						</p>
+						<SelectableTable
+							items={filteredExercises}
+							columns={exerciseColumns}
+							bind:searchQuery={searchQueryExercises}
+							bind:selectedIds={formData.exerciseIds}
+							onSelect={handleSelectExercise}
+							onSelectAll={handleSelectAllExercises}
+							tableClass="h-96"
+							cellSnippets={{
+								edit: editExercise
+							}}
+						/>
+					</div>
+				{/if}
 
-			<!-- Users Section -->
-			{#if activeSection === 'users'}
-				<div class="mt-4">
-					<h2 class="mb-2 font-bold">Assign Users to Course</h2>
-					<p class="mb-4 text-sm text-base-content/60">
-						Select users that should have access to this course. Selected: {formData.userIds
-							.length}
-					</p>
-					<SelectableTable
-						items={filteredUsers}
-						columns={userColumns}
-						bind:searchQuery={searchQueryUsers}
-						bind:selectedIds={formData.userIds}
-						onSelect={handleSelectUser}
-						onSelectAll={handleSelectAllUsers}
-						tableClass="h-96"
-					/>
-				</div>
-			{/if}
+				<!-- Users Section -->
+				{#if activeSection === 'users'}
+					<div class="mt-4">
+						<h2 class="mb-2 font-bold">Assign Users to Course</h2>
+						<p class="mb-4 text-sm text-base-content/60">
+							Select users that should have access to this course. Selected: {formData.userIds
+								.length}
+						</p>
+						<SelectableTable
+							items={filteredUsers}
+							columns={userColumns}
+							bind:searchQuery={searchQueryUsers}
+							bind:selectedIds={formData.userIds}
+							onSelect={handleSelectUser}
+							onSelectAll={handleSelectAllUsers}
+							tableClass="h-96"
+						/>
+					</div>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
+	{#if editSelectedExercise}
+		<div in:fly={{ y: -100, duration: 300 }} class="top-0 z-10">
+			<ExerciseEditor
+				exercise={exerciseToFormData(editSelectedExercise)}
+				remote={exercises}
+				isNew={false}
+				onCancel={handleExerciseCancel}
+				onSave={handleExerciseCancel}
+			/>
+		</div>
+	{/if}
 </Boundary>
-

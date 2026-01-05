@@ -5,15 +5,7 @@
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { submitAttempt } from '$lib/remote/courses.remote';
 	import ExercisePlayer from './ExercisePlayer.svelte';
-	import {
-		X,
-		ChevronLeft,
-		ChevronRight,
-		SkipForward,
-		Trophy,
-		CircleCheck,
-		ArrowLeft
-	} from '@lucide/svelte';
+	import { Trophy, CircleCheck, ArrowLeft } from '@lucide/svelte';
 
 	type Props = {
 		course: Course;

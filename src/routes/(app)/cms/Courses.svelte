@@ -238,16 +238,6 @@
 				{/if}
 			</div>
 			<div class="mt-4 card-actions justify-end">
-				{#if course.exerciseIds?.length}
-					<button
-						class="btn btn-ghost btn-sm"
-						onclick={() => handleViewExercises(course)}
-						title="View Exercises"
-					>
-						<Eye class="h-4 w-4" />
-						Exercises
-					</button>
-				{/if}
 				<button class="btn btn-sm btn-error" onclick={() => handleDelete(course)}>Delete</button>
 				<button class="btn btn-sm btn-primary" onclick={() => handleEdit(course)}>Edit</button>
 			</div>
@@ -329,37 +319,6 @@
 					onCancel={handleCancel}
 					onSave={handleCancel}
 				/>
-			</div>
-		{/if}
-
-		<!-- View Exercises for a Course -->
-		{#if viewingCourseExercises && !editExercise}
-			<div in:fly={{ y: -100, duration: 300 }}>
-				<div class="card bg-base-200 p-4 shadow-xl">
-					<div class="flex items-center gap-4">
-						<button class="btn btn-ghost btn-sm" onclick={handleBackFromExercises}>
-							← Back to Courses
-						</button>
-						<h2 class="text-xl font-bold">
-							Exercises in: {getLocalized(viewingCourseExercises.content?.title)}
-						</h2>
-					</div>
-
-					<div class="mt-4">
-						{#if courseExercises.length === 0}
-							<div class="rounded-lg border-2 border-dashed border-base-300 p-8 text-center">
-								<BookOpen class="mx-auto h-8 w-8 text-base-content/40" />
-								<p class="mt-2 text-base-content/60">No exercises in this course yet.</p>
-							</div>
-						{:else}
-							<CMSTableView
-								items={courseExercises}
-								columns={exerciseColumns}
-								actions={exerciseActions}
-							/>
-						{/if}
-					</div>
-				</div>
 			</div>
 		{/if}
 
