@@ -102,32 +102,48 @@
 </script>
 
 <div class="flex h-[90vh] w-full gap-4">
-	<!-- Left Sidebar: Exercise Info -->
-	<div class="flex w-1/3 flex-col gap-4">
-		<ExerciseInfoPanel {exercise} {currentIndex} {totalExercises} />
-		<ResultsPanel {result} {isSubmitting} {hasNextExercise} onRetry={handleRetry} {onNext} />
+	<!-- Left Sidebar: Exercise Info + Blockly -->
+	<div class="flex w-1/3 flex-col gap-4 overflow-hidden">
+		<!-- Exercise info - constrained height with scroll -->
+		<div class="shrink-0 overflow-y-auto">
+			<ExerciseInfoPanel {exercise} {currentIndex} {totalExercises} />
+		</div>
 	</div>
 
 	<!-- Right Main Area: Blockly + Execution -->
-	<div class="flex flex-1 gap-4">
-		<div class="min-w-0 flex-1">
-			{#key exercise.id}
-				<BlocklyWorkspace
-					bind:this={blocklyRef}
-					toolboxConfig={getToolbox()}
-					starterXml={exercise.config.hasStarterBlocks ? exercise.config.starterXml : ''}
-				/>
-			{/key}
-		</div>
-		<div>
-			<ExecutionArea {exercise} {getCode} {hasNextExercise} onSubmit={handleSubmit} {onNext} />
-		</div>
+	<!-- Blockly workspace - takes remaining space -->
+	<div class="max-h-[60vh] min-h-0 flex-1 focus:outline-none">
+		{#key exercise.id}
+			<BlocklyWorkspace
+				bind:this={blocklyRef}
+				toolboxConfig={getToolbox()}
+				starterXml={exercise.config.hasStarterBlocks ? exercise.config.starterXml : ''}
+			/>
+		{/key}
 	</div>
+	<div class="flex flex-col gap-4">
+		<ResultsPanel {result} {isSubmitting} {hasNextExercise} onRetry={handleRetry} {onNext} />
+		<ExecutionArea {exercise} {getCode} {hasNextExercise} onSubmit={handleSubmit} {onNext} />
+	</div>
+	<!-- <div class="flex flex-1 gap-4">
+		<div class="min-w-0 flex-1"></div>
+		<div>
+		</div>
+	</div> -->
 </div>
 
 <style>
 	/* Ensure the Blockly workspace fills its container */
 	:global(.blocklyWorkspace) {
 		height: 100% !important;
+	}
+
+	/* Remove unwanted focus/outline styles from Blockly container */
+	:global(.blocklyWorkspace:focus),
+	:global(.blocklyWorkspace:focus-visible),
+	:global(.blocklyMainBackground:focus) {
+		outline: none !important;
+		border: none !important;
+		box-shadow: none !important;
 	}
 </style>

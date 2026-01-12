@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Code Sandbox</title>
+	<style>
+		body { margin: 0; padding: 0; }
+	</style>
+</head>
+<body>
+<script>
+(function() {
+	'use strict';
+
+	// =============================================================================
+	// Configuration
+	// =============================================================================
+	
+	const DEFAULT_TIMEOUT = 2000;
+	const DEFAULT_MAX_COMMANDS = 10000;
+	const DEFAULT_MAX_ITERATIONS = 10000;
+
+	// =============================================================================
+	// Security: Shadow dangerous globals
+	// =============================================================================
+	
+	// Note: 'eval' and 'arguments' cannot be shadowed in strict mode
+	// They are still restricted because the sandbox iframe has limited capabilities
+	const blockedGlobals = [
+		'fetch',
+		'XMLHttpRequest',
+		'WebSocket',
+		'localStorage',
+		'sessionStorage',
+		'indexedDB',
+		'document',
+		'window',
+		'parent',
+		'top',
+		'opener',
+		'frames',
+		'self',
+		'globalThis',
+		// 'eval' - cannot shadow in strict mode, but iframe sandbox restricts it
+		// 'Function' - cannot shadow in strict mode
+		'importScripts',
+		'Worker',
+		'SharedWorker',
+		'ServiceWorker',
+		'navigator',
+		'location',
+		'history',
+		'alert',
+		'confirm',
+		'prompt',
+		'open',
+		'close',
+		'postMessage'
+	];
+
+	// =============================================================================
+	// Loop Trap Injection
+	// =============================================================================
+	
+	function injectLoopTrap(code, maxIterations) {
+		const counterVar = '_loopCount_' + Math.random().toString(36).substr(2, 9);
+		
+		// Inject counter into while loops
+		let processed = code.replace(
+			/while\s*\(/g,
+			`while (++${counterVar} < ${maxIterations} && (`
+		);
+		
+		// Inject counter into for loops (add closing paren for condition)
+		processed = processed.replace(
+			/for\s*\(\s*([^;]*);([^;]*);/g,
+			`for ($1; ++${counterVar} < ${maxIterations} && ($2);`
+		);
+		
+		// Prepend counter declaration
+		return `let ${counterVar} = 0;\n${processed}`;
+	}
+
+	// =============================================================================
+	// API Builder
+	// =============================================================================
+	
+	function buildApi(apiMethods, commands, maxCommands) {
+		const api = {};
+		let commandCount = 0;
+
+		for (const methodName of apiMethods) {
+			api[methodName] = function(...args) {
+				commandCount++;
+				
+				if (commandCount > maxCommands) {
+					throw new Error(`COMMAND_LIMIT: Maximum command count (${maxCommands}) exceeded`);
+				}
+				
+				commands.push({
+					type: methodName,
+					args: args,
+					timestamp: Date.now()
+				});
+			};
+		}
+
+		return api;
+	}
+
+	// =============================================================================
+	// Code Executor
+	// =============================================================================
+	
+	function executeCode(code, apiMethods, options) {
+		const commands = [];
+		const maxCommands = options.maxCommands || DEFAULT_MAX_COMMANDS;
+		const maxIterations = options.maxIterations || DEFAULT_MAX_ITERATIONS;
+		
+		// Build the restricted API
+		const api = buildApi(apiMethods, commands, maxCommands);
+		
+		// Inject loop trap
+		const protectedCode = injectLoopTrap(code, maxIterations);
+		
+		// Build shadowed globals string
+		const shadowedGlobals = blockedGlobals.map(g => `${g} = undefined`).join(', ');
+		
+		// Wrap code in an IIFE with shadowed globals
+		const wrappedCode = `
+			(function(api) {
+				"use strict";
+				// Shadow dangerous globals
+				var ${shadowedGlobals};
+				
+				// Execute user code
+				${protectedCode}
+			})
+		`;
+		
+		try {
+			// Create function from string (this is safe because we're in sandboxed iframe)
+			const fn = (0, eval)(wrappedCode);
+			fn(api);
+			
+			return {
+				success: true,
+				commands: commands
+			};
+		} catch (err) {
+			const errorMessage = err instanceof Error ? err.message : String(err);
+			
+			// Determine error type
+			let errorType = 'runtime';
+			if (errorMessage.includes('COMMAND_LIMIT')) {
+				errorType = 'command_limit';
+			} else if (errorMessage.includes('Maximum call stack')) {
+				errorType = 'loop';
+			}
+			
+			return {
+				success: false,
+				commands: commands,
+				error: errorMessage,
+				errorType: errorType
+			};
+		}
+	}
+
+	// =============================================================================
+	// Message Handler
+	// =============================================================================
+	
+	function handleMessage(event) {
+		const message = event.data;
+		
+		if (!message || !message.type) return;
+		
+		switch (message.type) {
+			case 'execute': {
+				const { id, code, apiMethods, timeout, maxCommands, maxIterations } = message;
+				
+				const timeoutMs = timeout || DEFAULT_TIMEOUT;
+				
+				// Create timeout promise
+				let timeoutId;
+				const timeoutPromise = new Promise((_, reject) => {
+					timeoutId = setTimeout(() => {
+						reject(new Error('TIMEOUT: Execution exceeded time limit'));
+					}, timeoutMs);
+				});
+				
+				// Create execution promise
+				const executePromise = new Promise((resolve) => {
+					// Use setTimeout to make execution async so timeout can interrupt
+					setTimeout(() => {
+						const result = executeCode(code, apiMethods || [], {
+							maxCommands: maxCommands,
+							maxIterations: maxIterations
+						});
+						resolve(result);
+					}, 0);
+				});
+				
+				// Race between execution and timeout
+				Promise.race([executePromise, timeoutPromise])
+					.then((result) => {
+						clearTimeout(timeoutId);
+						event.source.postMessage({
+							type: 'result',
+							id: id,
+							success: result.success,
+							commands: result.commands,
+							error: result.error,
+							errorType: result.errorType
+						}, '*');
+					})
+					.catch((err) => {
+						clearTimeout(timeoutId);
+						const errorMessage = err instanceof Error ? err.message : String(err);
+						let errorType = 'runtime';
+						
+						if (errorMessage.includes('TIMEOUT')) {
+							errorType = 'timeout';
+						}
+						
+						event.source.postMessage({
+							type: 'result',
+							id: id,
+							success: false,
+							commands: [],
+							error: errorMessage,
+							errorType: errorType
+						}, '*');
+					});
+				break;
+			}
+			
+			case 'reset': {
+				// Nothing to reset in stateless sandbox
+				event.source.postMessage({
+					type: 'result',
+					id: message.id,
+					success: true,
+					commands: []
+				}, '*');
+				break;
+			}
+		}
+	}
+
+	// =============================================================================
+	// Initialize
+	// =============================================================================
+	
+	// Listen for messages from parent
+	window.addEventListener('message', handleMessage);
+	
+	// Signal ready to parent
+	if (window.parent && window.parent !== window) {
+		window.parent.postMessage({ type: 'ready' }, '*');
+	}
+	
+})();
+</script>
+</body>
+</html>
+

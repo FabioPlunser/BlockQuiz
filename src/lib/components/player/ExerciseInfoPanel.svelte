@@ -4,7 +4,6 @@
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { Lightbulb, ChevronRight, Clock, Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 
 	type Props = {
 		exercise: Exercise;
@@ -14,8 +13,8 @@
 
 	let { exercise, currentIndex, totalExercises }: Props = $props();
 
-	// Hint state
-	let revealedHints = $state<Set<string>>(new Set());
+	// Hint state - use array for better reactivity in Svelte 5
+	let revealedHints = $state<string[]>([]);
 	let hintTimers = $state<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 	let exerciseStartTime = $state(Date.now());
 
@@ -24,7 +23,7 @@
 		// Clear previous timers
 		hintTimers.forEach((timer) => clearTimeout(timer));
 		hintTimers.clear();
-		revealedHints.clear();
+		revealedHints = [];
 		exerciseStartTime = Date.now();
 
 		// Set up timed hints
@@ -32,8 +31,9 @@
 			exercise.config.hints.forEach((hint) => {
 				if (hint.trigger === 'time' && hint.delaySeconds) {
 					const timer = setTimeout(() => {
-						revealedHints.add(hint.id);
-						revealedHints = new SvelteSet(revealedHints);
+						if (!revealedHints.includes(hint.id)) {
+							revealedHints = [...revealedHints, hint.id];
+						}
 					}, hint.delaySeconds * 1000);
 					hintTimers.set(hint.id, timer);
 				}
@@ -46,8 +46,9 @@
 	});
 
 	function revealHint(hintId: string) {
-		revealedHints.add(hintId);
-		revealedHints = new SvelteSet(revealedHints);
+		if (!revealedHints.includes(hintId)) {
+			revealedHints = [...revealedHints, hintId];
+		}
 	}
 
 	function getAvailableHints(): ExerciseHint[] {
@@ -122,12 +123,12 @@
 				<Lightbulb class="h-4 w-4 text-warning" />
 				<span>Hints</span>
 				<span class="text-base-content/50">
-					({revealedHints.size}/{exercise.config.hints.length})
+					({revealedHints.length}/{exercise.config.hints.length})
 				</span>
 			</div>
 
 			{#each exercise.config.hints as hint, index (hint.id)}
-				{@const isRevealed = revealedHints.has(hint.id)}
+				{@const isRevealed = revealedHints.includes(hint.id)}
 				{@const isAvailable = availableHints.some((h) => h.id === hint.id)}
 
 				{#if isAvailable || hint.trigger === 'click'}
@@ -139,11 +140,11 @@
 							</div>
 						{:else if hint.trigger === 'click'}
 							<button
-								class="flex w-full items-center gap-2 text-left text-sm text-base-content/60 hover:text-base-content"
+								class="btn btn-warning btn-sm w-full justify-start gap-2"
 								onclick={() => revealHint(hint.id)}
 							>
-								<EyeOff class="h-4 w-4 shrink-0" />
-								<span>Click to reveal hint {index + 1}</span>
+								<Lightbulb class="h-4 w-4" />
+								<span>Reveal Hint {index + 1}</span>
 								<ChevronRight class="ml-auto h-4 w-4" />
 							</button>
 						{:else}

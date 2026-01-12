@@ -12,8 +12,7 @@
 		{ path: '/courses', label: i18n.nav_courses, visible: true },
 		{ path: '/cms', label: i18n.nav_cms, visible: isAdmin },
 		{ path: '/users', label: i18n.nav_users, visible: isAdmin },
-		{ path: '/logs', label: 'Logs', visible: isAdmin },
-		{ path: '/settings', label: i18n.nav_settings, visible: isAdmin }
+		{ path: '/logs', label: 'Logs', visible: isAdmin }
 	]);
 </script>
 

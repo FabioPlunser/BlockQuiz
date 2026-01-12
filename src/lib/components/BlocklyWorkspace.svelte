@@ -21,14 +21,51 @@
 
 	let blocklyDiv: HTMLDivElement;
 	let workspace: Blockly.WorkspaceSvg | null = null;
+	let scrollbarObserver: MutationObserver | null = null;
 
 	onMount(() => {
 		if (!browser) return;
 		try {
-			workspace = Blockly.inject(blocklyDiv, {
-				toolbox: toolboxConfig,
-				...config
-			});
+		workspace = Blockly.inject(blocklyDiv, {
+			toolbox: toolboxConfig,
+			...config
+		});
+
+
+		// Fix flyout scrollbar persistence issue
+			if (workspace) {
+				const cleanupScrollbars = () => {
+					requestAnimationFrame(() => {
+						const flyout = (workspace as any).getFlyout?.();
+						if (flyout) {
+							const isVisible = flyout.isVisible?.();
+							if (!isVisible) {
+								// Hide scrollbars when flyout is closed
+								const scrollbars = blocklyDiv.querySelectorAll('.blocklyFlyoutScrollbar');
+								scrollbars.forEach((sb) => {
+									(sb as HTMLElement).style.display = 'none';
+									(sb as HTMLElement).style.visibility = 'hidden';
+								});
+							}
+						}
+					});
+				};
+
+				// Use MutationObserver to watch for flyout visibility changes
+				scrollbarObserver = new MutationObserver(() => {
+					cleanupScrollbars();
+				});
+
+				// Observe the Blockly container for changes
+				scrollbarObserver.observe(blocklyDiv, {
+					attributes: true,
+					attributeFilter: ['style', 'class'],
+					subtree: true
+				});
+
+				// Initial cleanup
+				cleanupScrollbars();
+			}
 		} catch (e) {
 			console.error('Blockly inject failed:', e);
 		}
@@ -44,6 +81,9 @@
 		}
 	});
 	onDestroy(() => {
+		if (scrollbarObserver) {
+			scrollbarObserver.disconnect();
+		}
 		if (workspace) {
 			workspace.dispose();
 		}
@@ -67,4 +107,39 @@
 	}
 </script>
 
-<div bind:this={blocklyDiv} class="h-96 w-full rounded border border-base-300" />
+<div bind:this={blocklyDiv} class="h-full min-h-64 w-full overflow-hidden rounded border border-base-300 focus:outline-none focus:ring-0" />
+
+<style>
+	/* Fix Blockly flyout scrollbar persistence issue */
+	/* Hide scrollbars when flyout is not visible */
+	:global(.blocklyFlyout[style*="display: none"] .blocklyFlyoutScrollbar),
+	:global(.blocklyFlyoutScrollbar[style*="display: none"]) {
+		display: none !important;
+		visibility: hidden !important;
+	}
+
+	/* Fix for SVG elements that might cause scrollbar issues */
+	:global(svg[display='none']) {
+		display: none !important;
+	}
+
+	/* Ensure scrollbars are hidden when parent flyout is hidden */
+	:global(.blocklyFlyout:not([style*="display: block"]):not([style*="display: flex"]) .blocklyFlyoutScrollbar) {
+		display: none !important;
+		visibility: hidden !important;
+	}
+
+	/* Remove focus/outline styles that might cause highlighting */
+	:global(.blocklyMainBackground),
+	:global(.blocklyBlockCanvas),
+	:global(.blocklyBubbleCanvas) {
+		outline: none !important;
+	}
+
+	:global(.blocklyMainBackground:focus),
+	:global(.blocklyBlockCanvas:focus),
+	:global(.blocklyBubbleCanvas:focus) {
+		outline: none !important;
+		box-shadow: none !important;
+	}
+</style>

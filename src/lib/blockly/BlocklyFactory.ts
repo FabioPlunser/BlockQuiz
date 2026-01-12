@@ -58,7 +58,7 @@ export function initBlocks(blocks: BlockDef[], prefix: string) {
 					const value = blockInstance.getFieldValue(arg.name);
 					argValues.push(`'${value}'`);
 				} else if (arg.type === 'number') {
-					// Get number input
+					// Get number input - will be a math_number block
 					const val = jG.valueToCode(
 						blockInstance,
 						arg.name,
@@ -94,25 +94,7 @@ export function getCategoryForBlocks(
 		colour,
 		contents: blocks.map((block) => {
 			const blocklyId = `${prefix}_${block.id}`;
-			const cfg: any = { kind: 'block', type: blocklyId };
-
-			// Optionally add number shadows
-			if (block.args) {
-				const inputs: Record<string, any> = {};
-				for (const arg of block.args) {
-					if (arg.type === 'number') {
-						inputs[arg.name] = {
-							shadow: {
-								type: 'math_number',
-								fields: { NUM: arg.default ?? 0 }
-							}
-						};
-					}
-				}
-				if (Object.keys(inputs).length > 0) cfg.inputs = inputs;
-			}
-
-			return cfg;
+			return { kind: 'block', type: blocklyId };
 		})
 	};
 }

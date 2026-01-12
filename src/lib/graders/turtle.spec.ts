@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { simulateTurtle, gradeTurtle, type TurtleTest } from './turtle';
+import { simulateTurtle, gradeTurtle, type TurtleTest, type CanvasConfig } from './turtle';
+
+// Default canvas: 400x400, gridSize 50
+// So move:1 = 50 pixels, start position = (200, 200)
+const defaultConfig: CanvasConfig = { width: 400, height: 400, gridSize: 50 };
 
 describe('simulateTurtle', () => {
   it('should start at center (200, 200) with angle 0', () => {
-    const state = simulateTurtle([]);
+    const state = simulateTurtle([], defaultConfig);
     expect(state.x).toBe(200);
     expect(state.y).toBe(200);
     expect(state.angle).toBe(0);
@@ -11,46 +15,60 @@ describe('simulateTurtle', () => {
   });
 
   it('should move forward (north) correctly', () => {
-    const state = simulateTurtle(['move:50']);
+    // move:1 = 1 cell = 50 pixels north
+    const state = simulateTurtle(['move:1'], defaultConfig);
     // At angle 0, moving forward goes north (y decreases)
     expect(state.x).toBe(200);
-    expect(state.y).toBe(150);
+    expect(state.y).toBe(150); // 200 - 50 = 150
   });
 
   it('should turn right and move correctly', () => {
-    const state = simulateTurtle(['turn:90', 'move:50']);
+    const state = simulateTurtle(['turn:90', 'move:1'], defaultConfig);
     // After turning 90 degrees right, moving goes east (x increases)
-    expect(state.x).toBeCloseTo(250, 5);
+    expect(state.x).toBeCloseTo(250, 5); // 200 + 50 = 250
     expect(state.y).toBeCloseTo(200, 5);
   });
 
   it('should turn left and move correctly', () => {
-    const state = simulateTurtle(['turn:-90', 'move:50']);
+    const state = simulateTurtle(['turn:-90', 'move:1'], defaultConfig);
     // After turning 90 degrees left, moving goes west (x decreases)
-    expect(state.x).toBeCloseTo(150, 5);
+    expect(state.x).toBeCloseTo(150, 5); // 200 - 50 = 150
     expect(state.y).toBeCloseTo(200, 5);
   });
 
   it('should handle multiple moves', () => {
-    const state = simulateTurtle(['move:50', 'turn:90', 'move:50']);
-    // Move north 50, turn right, move east 50
+    const state = simulateTurtle(['move:1', 'turn:90', 'move:1'], defaultConfig);
+    // Move north 50px, turn right, move east 50px
     expect(state.x).toBeCloseTo(250, 5);
     expect(state.y).toBeCloseTo(150, 5);
   });
 
   it('should track pen state', () => {
-    const stateUp = simulateTurtle(['penUp']);
+    const stateUp = simulateTurtle(['penUp'], defaultConfig);
     expect(stateUp.penDown).toBe(false);
 
-    const stateDown = simulateTurtle(['penUp', 'penDown']);
+    const stateDown = simulateTurtle(['penUp', 'penDown'], defaultConfig);
     expect(stateDown.penDown).toBe(true);
   });
 
   it('should handle full rotation', () => {
-    const state = simulateTurtle(['turn:360', 'move:50']);
+    const state = simulateTurtle(['turn:360', 'move:1'], defaultConfig);
     expect(state.x).toBeCloseTo(200, 5);
     expect(state.y).toBeCloseTo(150, 5);
     expect(state.angle).toBe(0);
+  });
+
+  it('should handle different canvas sizes', () => {
+    const smallConfig: CanvasConfig = { width: 200, height: 200, gridSize: 25 };
+    const state = simulateTurtle(['move:1'], smallConfig);
+    // Start at center (100, 100), move 1 cell = 25 pixels north
+    expect(state.x).toBe(100);
+    expect(state.y).toBe(75); // 100 - 25 = 75
+  });
+
+  it('should handle negative angles correctly', () => {
+    const state = simulateTurtle(['turn:-90'], defaultConfig);
+    expect(state.angle).toBe(270); // -90 normalized to 270
   });
 });
 
@@ -68,7 +86,8 @@ describe('gradeTurtle', () => {
       }
     ];
 
-    const result = gradeTurtle(['move:50'], tests);
+    // move:1 = 50 pixels north, ends at (200, 150)
+    const result = gradeTurtle(['move:1'], tests, defaultConfig);
     expect(result.passed).toBe(true);
     expect(result.score).toBe(1);
     expect(result.tests[0].passed).toBe(true);
@@ -87,7 +106,8 @@ describe('gradeTurtle', () => {
       }
     ];
 
-    const result = gradeTurtle(['move:50'], tests);
+    // move:1 ends at (200, 150), target is at (300, 150) - 100 pixels away
+    const result = gradeTurtle(['move:1'], tests, defaultConfig);
     expect(result.passed).toBe(false);
     expect(result.score).toBe(0);
     expect(result.tests[0].passed).toBe(false);
@@ -101,12 +121,12 @@ describe('gradeTurtle', () => {
         visible: true,
         type: 'target',
         expected: {
-          target: { x: 200, y: 155 } // 5 pixels away, within default 10
+          target: { x: 200, y: 155 } // 5 pixels away from (200, 150), within default 10
         }
       }
     ];
 
-    const result = gradeTurtle(['move:50'], tests);
+    const result = gradeTurtle(['move:1'], tests, defaultConfig);
     expect(result.passed).toBe(true);
   });
 
@@ -118,12 +138,12 @@ describe('gradeTurtle', () => {
         visible: true,
         type: 'commands',
         expected: {
-          commands: ['move:50', 'turn:90']
+          commands: ['move:1', 'turn:90']
         }
       }
     ];
 
-    const result = gradeTurtle(['move:50', 'turn:90'], tests);
+    const result = gradeTurtle(['move:1', 'turn:90'], tests, defaultConfig);
     expect(result.passed).toBe(true);
     expect(result.score).toBe(1);
   });
@@ -136,12 +156,12 @@ describe('gradeTurtle', () => {
         visible: true,
         type: 'commands',
         expected: {
-          commands: ['turn:90', 'move:50']
+          commands: ['turn:90', 'move:1']
         }
       }
     ];
 
-    const result = gradeTurtle(['move:50', 'turn:90'], tests);
+    const result = gradeTurtle(['move:1', 'turn:90'], tests, defaultConfig);
     expect(result.passed).toBe(false);
   });
 
@@ -153,12 +173,13 @@ describe('gradeTurtle', () => {
         visible: true,
         type: 'state',
         expected: {
+          // After turn:90, move:1: position (250, 200), angle 90
           state: { x: 250, y: 200, angle: 90, tolerance: 10 }
         }
       }
     ];
 
-    const result = gradeTurtle(['turn:90', 'move:50'], tests);
+    const result = gradeTurtle(['turn:90', 'move:1'], tests, defaultConfig);
     expect(result.passed).toBe(true);
   });
 
@@ -169,18 +190,18 @@ describe('gradeTurtle', () => {
         description: { de: 'Test 1', en: 'Test 1' },
         visible: true,
         type: 'target',
-        expected: { target: { x: 200, y: 150, tolerance: 10 } }
+        expected: { target: { x: 200, y: 150, tolerance: 10 } } // move:1 reaches this
       },
       {
         id: 'test2',
         description: { de: 'Test 2', en: 'Test 2' },
         visible: true,
         type: 'target',
-        expected: { target: { x: 300, y: 300, tolerance: 10 } }
+        expected: { target: { x: 300, y: 300, tolerance: 10 } } // move:1 doesn't reach this
       }
     ];
 
-    const result = gradeTurtle(['move:50'], tests);
+    const result = gradeTurtle(['move:1'], tests, defaultConfig);
     expect(result.passed).toBe(false);
     expect(result.score).toBe(0.5);
     expect(result.tests[0].passed).toBe(true);
@@ -188,10 +209,28 @@ describe('gradeTurtle', () => {
   });
 
   it('should return 0 score for empty tests array', () => {
-    const result = gradeTurtle(['move:50'], []);
+    const result = gradeTurtle(['move:1'], [], defaultConfig);
     expect(result.passed).toBe(true);
     expect(result.score).toBe(0);
     expect(result.tests).toHaveLength(0);
   });
-});
 
+  it('should work with different canvas configurations', () => {
+    const smallConfig: CanvasConfig = { width: 200, height: 200, gridSize: 25 };
+    const tests: TurtleTest[] = [
+      {
+        id: 'test1',
+        description: { de: 'Zum Ziel', en: 'To target' },
+        visible: true,
+        type: 'target',
+        expected: {
+          // Canvas 200x200, center is (100, 100), move:2 = 50px north = (100, 50)
+          target: { x: 100, y: 50, tolerance: 10 }
+        }
+      }
+    ];
+
+    const result = gradeTurtle(['move:2'], tests, smallConfig);
+    expect(result.passed).toBe(true);
+  });
+});

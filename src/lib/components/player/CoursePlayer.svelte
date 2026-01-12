@@ -60,7 +60,9 @@
 			});
 
 			// Check if all exercises are completed
-			if (result.passed && completedCount + 1 === exercises.length) {
+			// Calculate directly after Map update to ensure accuracy
+			const newCompletedCount = [...exerciseResults.values()].filter((r) => r.passed).length;
+			if (result.passed && newCompletedCount === exercises.length && exercises.length > 0) {
 				showCompletionModal = true;
 			}
 		} catch (err) {
@@ -198,7 +200,7 @@
 				<button class="btn btn-outline" onclick={() => (showCompletionModal = false)}>
 					Review Exercises
 				</button>
-				<button class="btn btn-primary" onclick={onClose}> Close Course </button>
+				<button class="btn btn-primary" onclick={onBack}> Close Course </button>
 			</div>
 		</div>
 	</div>

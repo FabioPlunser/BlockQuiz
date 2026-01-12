@@ -24,21 +24,45 @@ export interface GradeResult {
 	tests: Array<TurtleTest & { passed: boolean; message: string }>;
 }
 
-export function simulateTurtle(commands: string[]): TurtleState {
-	let x = 200,
-		y = 200,
-		angle = 0,
-		penDown = true;
+export interface CanvasConfig {
+	width: number;
+	height: number;
+	gridSize: number;
+}
+
+const DEFAULT_CANVAS_CONFIG: CanvasConfig = {
+	width: 400,
+	height: 400,
+	gridSize: 50
+};
+
+/**
+ * Simulate turtle movement based on command log.
+ * Commands are in format "move:1", "turn:90", etc.
+ * Move distance is in CELLS (grid units), which gets multiplied by gridSize.
+ */
+export function simulateTurtle(
+	commands: string[],
+	config: CanvasConfig = DEFAULT_CANVAS_CONFIG
+): TurtleState {
+	// Start at center of canvas
+	let x = config.width / 2;
+	let y = config.height / 2;
+	let angle = 0;
+	let penDown = true;
 
 	for (const cmd of commands) {
 		const [op, ...args] = cmd.split(':');
 		if (op === 'move') {
-			const dist = parseInt(args[0]);
+			const cells = parseInt(args[0]);
+			// Convert cells to pixels using gridSize
+			const distancePx = cells * config.gridSize;
 			const rad = (angle * Math.PI) / 180;
-			x += dist * Math.sin(rad);
-			y -= dist * Math.cos(rad);
+			x += distancePx * Math.sin(rad);
+			y -= distancePx * Math.cos(rad);
 		} else if (op === 'turn') {
 			angle = (angle + parseInt(args[0])) % 360;
+			if (angle < 0) angle += 360;
 		} else if (op === 'penDown') {
 			penDown = true;
 		} else if (op === 'penUp') {
@@ -50,7 +74,11 @@ export function simulateTurtle(commands: string[]): TurtleState {
 }
 
 
-export function gradeTurtle(commandLog: string[], tests: TurtleTest[]): GradeResult {
+export function gradeTurtle(
+	commandLog: string[],
+	tests: TurtleTest[],
+	config: CanvasConfig = DEFAULT_CANVAS_CONFIG
+): GradeResult {
 	const results: GradeResult['tests'] = [];
 	let passed = 0;
 
@@ -60,12 +88,12 @@ export function gradeTurtle(commandLog: string[], tests: TurtleTest[]): GradeRes
 		let message = '';
 
 		if (test.type === 'target' && test.expected.target) {
-			const state = simulateTurtle(commandLog);
+			const state = simulateTurtle(commandLog, config);
 			const dx = Math.abs(state.x - test.expected.target.x);
 			const dy = Math.abs(state.y - test.expected.target.y);
 			const distance = Math.sqrt(dx * dx + dy * dy);
 			const tolerance = test.expected.target.tolerance ?? 10;
-			testPassed = distance < tolerance;
+			testPassed = distance <= tolerance;
 
 			message = testPassed
 				? `Turtle reached the target!`
@@ -76,12 +104,12 @@ export function gradeTurtle(commandLog: string[], tests: TurtleTest[]): GradeRes
 				? `Turtle executed the correct commands.`
 				: `Turtle executed the wrong commands.`;
 		} else if (test.type === 'state' && test.expected.state) {
-			const state = simulateTurtle(commandLog);
+			const state = simulateTurtle(commandLog, config);
 			const dx = Math.abs(state.x - test.expected.state.x);
 			const dy = Math.abs(state.y - test.expected.state.y);
 			const distance = Math.sqrt(dx * dx + dy * dy);
 			const angleDiff = Math.abs(state.angle - test.expected.state.angle);
-			testPassed = distance < test.expected.state.tolerance && angleDiff < test.expected.state.tolerance;
+			testPassed = distance <= test.expected.state.tolerance && angleDiff <= test.expected.state.tolerance;
 			message = testPassed
 				? `Turtle reached the target state.`
 				: `Turtle is ${distance.toFixed(1)} away from target state.`;
