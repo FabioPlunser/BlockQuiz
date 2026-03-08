@@ -104,6 +104,9 @@ export const exercises = sqliteTable('exercises', {
 	image: text('image'),
 	content: text('content', { mode: 'json' }).notNull(),
 	config: text('config', { mode: 'json' }).notNull(),
+	validationJson: text('validation_json', { mode: 'json' })
+		.notNull()
+		.default('{"valid":false,"issues":[]}'),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
 	order: integer('order', { mode: 'number' }).notNull().default(0),
 	createdBy: text('created_by')
@@ -133,14 +136,19 @@ export const attempts = sqliteTable('attempts', {
 		.references(() => exercises.id, { onDelete: 'cascade' }),
 	userId: text('user_id').references(() => user.id),
 	clientId: text('client_id'),
+	actorType: text('actor_type', { enum: ['user', 'guest'] }).notNull().default('user'),
+	workspaceXml: text('workspace_xml').notNull().default(''),
+	generatedCode: text('generated_code').notNull().default(''),
 	resultJson: text('result_json').notNull(),
 	locale: text('locale', { enum: ['de', 'en'] })
 		.notNull()
 		.default('de'),
 	startedAt: integer('started_at', { mode: 'number' }).notNull(),
-	endedAt: integer('ended_at', { mode: 'number' }),
-	score: integer('score'),
-	passed: integer('passed', { mode: 'boolean' }),
+	endedAt: integer('ended_at', { mode: 'number' }).notNull().default(nowMs()),
+	score: integer('score').notNull().default(0),
+	passed: integer('passed', { mode: 'boolean' }).notNull().default(false),
+	hintEventsJson: text('hint_events_json').notNull().default('[]'),
+	analyticsJson: text('analytics_json').notNull().default('{}'),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs())
 });
 

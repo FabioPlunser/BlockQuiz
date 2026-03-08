@@ -15,7 +15,24 @@
 
 {#if mounted}
 	<h2 class="text-2xl font-semibold text-slate-900">Reset password</h2>
-	<form class="mt-6 space-y-5">
+	<form
+		class="mt-6 space-y-5"
+		{...resetPassword.enhance(async ({ submit }) => {
+			try {
+				await submit();
+				const issues = resetPassword.fields.allIssues();
+				if (issues && issues.length > 0) {
+					showError(issues[0].message);
+				} else {
+					showSuccess('Password reset successfully');
+					forgot = false;
+				}
+			} catch (e) {
+				console.error(e);
+				showError('Password reset failed');
+			}
+		})}
+	>
 		<div class="space-y-2">
 			<label class="text-sm font-medium text-slate-700" for="email">{i18n.form_email_label}</label>
 			<input
@@ -42,24 +59,7 @@
 
 		<div class="flex justify-between">
 			<button class="btn btn-info" type="button" onclick={() => (forgot = false)}>Back</button>
-			<button
-				class="btn btn-primary"
-				{...resetPassword.buttonProps.enhance(async ({ submit }) => {
-					try {
-						await submit();
-						const issues = resetPassword.fields.allIssues();
-						if (issues && issues.length > 0) {
-							showError(issues[0].message);
-						} else {
-							showSuccess('Password reset successfully');
-							forgot = false;
-						}
-					} catch (e) {
-						console.error(e);
-						showError('Password reset failed');
-					}
-				})}>Reset</button
-			>
+			<button class="btn btn-primary" type="submit">Reset</button>
 		</div>
 	</form>
 {/if}

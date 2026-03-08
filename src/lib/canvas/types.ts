@@ -11,7 +11,7 @@ export interface Point {
 
 export interface Command {
 	type: string;
-	args: string[] | number[];
+	args: Array<string | number>;
 	timestamp: number;
 }
 

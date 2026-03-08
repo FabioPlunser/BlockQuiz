@@ -1,561 +1,386 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import BlocklyWorkspace from '$lib/components/BlocklyWorkspace.svelte';
-	import Canvas from '$lib/components/Canvas.svelte';
-	import { gradeTurtle } from '$lib/graders/turtle';
-	import { Turtle } from '$lib/canvas/Turtle.svelte';
-	import { Robot } from '$lib/canvas/Robot.svelte';
-	import type { Point, TargetPoint, DrawMode } from '$lib/canvas/types';
-	import { LOGIC_BLOCKS, LOOP_BLOCKS, MATH_BLOCKS, TEXT_BLOCKS } from '$lib/blockly/presets';
-	import { getCategoryToolBox, getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
-	import type { BlockDef, BlocklyCategoryConfig, BlocklyToolboxConfig } from '$lib/blockly/types';
-	import { BlocklyToolboxKind } from '$lib/blockly/types';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import CoursePlayer from '$lib/components/player/CoursePlayer.svelte';
 	import {
-		normalizePathToCells,
-		pathsEqual,
-		evaluateTurtlePositionOnGrid
-	} from '$lib/graders/canvas';
+		clearGuestProgress,
+		exportGuestProgress,
+		getGuestCourseProgress,
+		getGuestLatestAttemptsByExercise,
+		importGuestProgressJson,
+		readGuestProgress,
+		recordGuestAttempt,
+		setGuestCourseResume,
+		syncGuestCourseContext
+	} from '$lib/guest-progress/storage';
+	import { getLocalized } from '$lib/i18n/index.svelte';
+	import {
+		getPublicCourseExercises,
+		getPublicCourses
+	} from '$lib/remote/courses.remote';
+	import type { AttemptSubmission } from '$lib/types/attempt';
+	import type { Course } from '$lib/types/course';
+	import type { Exercise } from '$lib/types/exercise';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import {
+		ArrowLeft,
+		BookOpen,
+		Download,
+		FolderUp,
+		LogIn,
+		Play,
+		RefreshCcw,
+		Trash2
+	} from '@lucide/svelte';
+	import toast from '$lib/toaster';
 
-	type EngineKey = 'turtle' | 'robot';
-	type TestMode = 'path' | 'target';
+	let publicCourses = $derived(getPublicCourses({}));
 
-	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+	let selectedCourse = $state<Course | null>(null);
+	let selectedExercises = $state<Exercise[]>([]);
+	let selectedCourseProgress = $state<Record<string, { passed: boolean; bestScore: number; attemptCount: number }>>({});
+	let selectedSnapshots = $state<Record<string, { workspaceXml?: string }>>({});
+	let selectedCourseExerciseIndex = $state(0);
+	let isLoadingExercises = $state(false);
+	let loadingCourseId = $state<string | null>(null);
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let guestProgress = $state(browser ? readGuestProgress() : null);
 
-	let blocklyRef: BlocklyWorkspace;
-	let result = $state<any | null>(null);
-
-	// Engines
-	let turtle = new Turtle(400, 400);
-	let robot = new Robot(400, 400);
-	let currentEngine: EngineKey = $state('turtle');
-	let testMode: TestMode = $state('target');
-
-	const exercise = {
-		title: 'Hungry Turtle',
-		description: 'Help the turtle follow the path and eat the apple without hitting walls.',
-		tests: [
-			{
-				id: 'test1',
-				description: { de: 'Schildkröte bewegt sich', en: 'Turtle moves' },
-				visible: true,
-				type: 'state' as const,
-				expected: {
-					state: {
-						x: 200,
-						y: 100,
-						angle: 0,
-						tolerance: 15
-					}
-				}
-			}
-		]
-	};
-
-	function getEngine() {
-		return currentEngine === 'turtle' ? turtle : robot;
-	}
-
-	// Grid + teacher drawing config (client-side only for now)
-	let appleTolerance = $state(0.5); // in cells
-	let wallTolerance = $state(0.0); // in cells (0 = exact cell)
-
-	let teacherMode = $state(true);
-	let showGrid = $state(true);
-	let drawMode = $state<DrawMode>('path');
-	let pathOverlay = $state<Point[]>([]);
-	let targets = $state<TargetPoint[]>([]);
-	let walls = $state<Point[]>([]);
-	let simulationSpeed = $state(100);
-
-	// For backward compatibility with grading
-	let apple = $derived<Point | null>(
-		targets.length > 0 ? { x: targets[0].x, y: targets[0].y } : null
-	);
-
-	// Per-engine selection of which custom Canvas2D blocks to show.
-	let selectedBlocks = $state<Record<EngineKey, string[]>>({
-		turtle: turtle.blockDefs.map((b) => b.id),
-		robot: robot.blockDefs.map((b) => b.id)
-	});
-
-	// Simple version counter used to force BlocklyWorkspace remount when toolbox changes.
-	let toolboxVersion = $state(0);
-
-	function toggleBlock(engine: EngineKey, id: string, checked: boolean) {
-		const current = selectedBlocks[engine] ?? [];
-		const next = checked ? [...new Set([...current, id])] : current.filter((x) => x !== id);
-		selectedBlocks = { ...selectedBlocks, [engine]: next };
-		toolboxVersion += 1;
-	}
-
-	function getVisibleBlocks(engineKey: EngineKey): BlockDef[] {
-		const engine = engineKey === 'turtle' ? turtle : robot;
-		const ids = new Set(selectedBlocks[engineKey] ?? []);
-		return engine.blockDefs.filter((b) => ids.size === 0 || ids.has(b.id));
-	}
-
-	// Global selection of built-in Blockly blocks (from presets).
-	const ALL_BUILTIN = [...LOGIC_BLOCKS, ...LOOP_BLOCKS, ...MATH_BLOCKS, ...TEXT_BLOCKS];
-	let selectedBuiltin = $state<string[]>([...ALL_BUILTIN]);
-
-	function toggleBuiltin(id: string, checked: boolean) {
-		const next = checked
-			? [...new Set([...selectedBuiltin, id])]
-			: selectedBuiltin.filter((x) => x !== id);
-		selectedBuiltin = next;
-		toolboxVersion += 1;
-	}
-
-	function buildBuiltinCategories(): BlocklyCategoryConfig[] {
-		const makeCategory = (name: string, colour: number, ids: string[]): BlocklyCategoryConfig => ({
-			kind: 'category',
-			name,
-			colour,
-			contents: ids
-				.filter((id) => selectedBuiltin.includes(id))
-				.map((id) => ({ kind: 'block', type: id }))
-		});
-
-		const cats: BlocklyCategoryConfig[] = [];
-		const logic = makeCategory('Logic', 210, LOGIC_BLOCKS);
-		if (logic.contents.length) cats.push(logic);
-		const loops = makeCategory('Loops', 120, LOOP_BLOCKS);
-		if (loops.contents.length) cats.push(loops);
-		const math = makeCategory('Math', 230, MATH_BLOCKS);
-		if (math.contents.length) cats.push(math);
-		const text = makeCategory('Text', 160, TEXT_BLOCKS);
-		if (text.contents.length) cats.push(text);
-
-		return cats;
-	}
-
-	async function run() {
-		if (!blocklyRef || !browser) {
+	function refreshGuestProgress() {
+		if (!browser) {
 			return;
 		}
+		guestProgress = readGuestProgress();
+	}
 
-		const engine = getEngine();
-		// Grid size is fixed (1 move step = 1 grid cell = 50px)
-		engine.gridSize = 50;
-		engine.api.reset();
+	function getProgressForCourse(courseId: string) {
+		const courseProgress = guestProgress?.courses.find((course) => course.courseId === courseId);
+		return {
+			completed: courseProgress?.completedCount ?? 0,
+			total: courseProgress?.exerciseCount ?? 0,
+			percent: courseProgress?.progress ?? 0
+		};
+	}
 
-		const code = blocklyRef.getCode();
-		console.log('Generated code:', code);
+	function hydrateSelectedCourseState(courseId: string, exerciseIds: string[]) {
+		const courseProgress = getGuestCourseProgress(courseId);
+		selectedCourseProgress = Object.fromEntries(
+			Object.values(courseProgress?.exerciseProgress ?? {}).map((progress) => [
+				progress.exerciseId,
+				{
+					passed: progress.passed,
+					bestScore: progress.bestScore,
+					attemptCount: progress.attemptCount
+				}
+			])
+		);
+		selectedSnapshots = getGuestLatestAttemptsByExercise(exerciseIds);
 
-		// For turtle, do an animated replay of the command sequence.
-		if (currentEngine === 'turtle') {
-			try {
-				// 1) Dry run to fill turtle.commands
-				const fn = new Function('api', code);
-				fn(engine.api);
-			} catch (e) {
-				console.error(e);
+		const firstIncompleteIndex = exerciseIds.findIndex(
+			(exerciseId) => !courseProgress?.exerciseProgress?.[exerciseId]?.passed
+		);
+		selectedCourseExerciseIndex =
+			courseProgress?.lastExerciseIndex ??
+			(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
+	}
+
+	onMount(() => {
+		refreshGuestProgress();
+	});
+
+	async function handlePlayCourse(course: Course) {
+		isLoadingExercises = true;
+		loadingCourseId = course.id;
+
+		try {
+			const exerciseResult = await getPublicCourseExercises(course.id);
+
+			if (exerciseResult.length === 0) {
+				toast.error('This public course has no published exercises yet.', {
+					position: 'top-right'
+				});
 				return;
 			}
 
-			// Copy and reset before animation
-			const sequence = [...turtle.commands];
-			engine.api.reset();
-			turtle.commands = [];
-
-			// 2) Animate each command with a small delay so movement is visible
-			for (const cmd of sequence) {
-				const [raw] = cmd.args;
-				const value = Number(raw);
-				if (cmd.type === 'move') {
-					turtle.move(value);
-				} else if (cmd.type === 'turn') {
-					turtle.turn(value);
-				}
-				await sleep(simulationSpeed); // adjust speed here (ms between commands)
-			}
-
-			check();
-			return;
-		}
-
-		// For other engines (robot), keep simple immediate execution for now.
-		try {
-			const fn = new Function('api', code);
-			fn(engine.api);
-		} catch (e) {
-			console.error(e);
-			return;
+			selectedCourse = course;
+			selectedExercises = exerciseResult;
+			const exerciseIds = exerciseResult.map((exercise) => exercise.id);
+			syncGuestCourseContext(course.id, exerciseIds);
+			refreshGuestProgress();
+			hydrateSelectedCourseState(course.id, exerciseIds);
+		} catch (error) {
+			console.error('Failed to load public course:', error);
+			toast.error('Failed to load this course. Please try again.', {
+				position: 'top-right'
+			});
+			selectedCourse = null;
+		} finally {
+			isLoadingExercises = false;
+			loadingCourseId = null;
 		}
 	}
 
-	function check() {
-		if (!browser || currentEngine !== 'turtle') return;
+	function handleBack() {
+		selectedCourse = null;
+		selectedExercises = [];
+		selectedCourseProgress = {};
+		selectedSnapshots = {};
+		selectedCourseExerciseIndex = 0;
+		refreshGuestProgress();
+	}
 
-		const cellSize = 50;
-		const appleTol = Number(appleTolerance) || 0;
-		const wallTol = Number(wallTolerance) || 0;
-
-		// Compute turtle's current grid cell
-		const col = Math.round(turtle.state.x / cellSize);
-		const row = Math.round(turtle.state.y / cellSize);
-
-		// --- Path-based grading (follow the teacher path) ---
-		if (testMode === 'path' && pathOverlay.length > 1) {
-			const teacherCells = normalizePathToCells(pathOverlay, cellSize);
-
-			// Build student's path from turtle.path segment endpoints
-			const studentPoints: Point[] = [];
-			for (const seg of turtle.path) {
-				studentPoints.push(seg.from, seg.to);
-			}
-			const studentCells = normalizePathToCells(studentPoints, cellSize);
-
-			const passed = pathsEqual(teacherCells, studentCells);
-
-			result = {
-				passed,
-				score: passed ? 1 : 0,
-				message: passed
-					? 'Great! Your turtle followed the path.'
-					: 'The turtle did not follow the red path exactly. Try again.'
-			};
+	function handleExerciseChange(payload: { exerciseId?: string; exerciseIndex: number }) {
+		if (!selectedCourse) {
 			return;
 		}
 
-		// --- Target-based grading (apple + walls) ---
-		const { wallHit, atApple } = evaluateTurtlePositionOnGrid({
-			turtle: { x: turtle.state.x, y: turtle.state.y },
-			walls,
-			apple,
-			cellSize,
-			appleToleranceCells: appleTol,
-			wallToleranceCells: wallTol
+		setGuestCourseResume(
+			selectedCourse.id,
+			selectedExercises.map((exercise) => exercise.id),
+			payload.exerciseIndex,
+			payload.exerciseId
+		);
+		refreshGuestProgress();
+	}
+
+	async function persistGuestAttempt(attempt: AttemptSubmission) {
+		if (!selectedCourse) {
+			return;
+		}
+
+		const exerciseIds = selectedExercises.map((exercise) => exercise.id);
+		recordGuestAttempt({
+			courseId: selectedCourse.id,
+			exerciseIds,
+			exerciseIndex: Math.max(
+				selectedExercises.findIndex((exercise) => exercise.id === attempt.exerciseId),
+				0
+			),
+			attempt: {
+				exerciseId: attempt.exerciseId,
+				workspaceXml: attempt.workspaceXml,
+				generatedCode: attempt.generatedCode,
+				resultJson: attempt.resultJson,
+				locale: attempt.locale,
+				startedAt: attempt.startedAt,
+				endedAt: attempt.endedAt,
+				score: attempt.score,
+				passed: attempt.passed,
+				hintEventsJson: attempt.hintEventsJson,
+				analyticsJson: attempt.analyticsJson
+			}
 		});
 
-		if (wallHit) {
-			result = {
-				passed: false,
-				score: 0,
-				message: 'Ouch! The turtle bumped into a wall. Try a different path.'
-			};
+		refreshGuestProgress();
+		hydrateSelectedCourseState(selectedCourse.id, exerciseIds);
+	}
+
+	function handleExport() {
+		if (!browser) {
 			return;
 		}
 
-		if (atApple) {
-			result = {
-				passed: true,
-				score: 1,
-				message: 'Yum! The turtle ate the apple. Great job!'
-			};
+		const blob = new Blob([exportGuestProgress()], {
+			type: 'application/json'
+		});
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `blockquiz-guest-progress-${new Date().toISOString().slice(0, 10)}.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+		toast.success('Guest progress exported.', { position: 'top-right' });
+	}
+
+	async function handleImport(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const [file] = input.files ?? [];
+
+		if (!file) {
 			return;
 		}
 
-		// Fallback to existing grader / generic feedback
-		const commandLog = turtle.commands.map((cmd) =>
-			cmd.args.length > 0 ? `${cmd.type}:${cmd.args.map(String).join(':')}` : cmd.type
-		);
-		result = gradeTurtle(commandLog, exercise.tests);
-	}
+		try {
+			importGuestProgressJson(await file.text());
+			refreshGuestProgress();
 
-	let runInterval: number | null = null;
+			if (selectedCourse) {
+				hydrateSelectedCourseState(
+					selectedCourse.id,
+					selectedExercises.map((exercise) => exercise.id)
+				);
+			}
 
-	function toggleContinuousRun() {
-		if (runInterval !== null) {
-			clearInterval(runInterval);
-			runInterval = null;
-			return;
+			toast.success('Guest progress imported.', { position: 'top-right' });
+		} catch (error) {
+			console.error('Failed to import guest progress:', error);
+			toast.error('The selected file is not a valid guest progress export.', {
+				position: 'top-right'
+			});
+		} finally {
+			input.value = '';
 		}
-		// Run every 1s; for real sandboxed execution you would move this into the iframe executor.
-		runInterval = window.setInterval(() => {
-			run();
-		}, 1000);
 	}
 
-	function reset() {
-		const engine = getEngine();
-		engine.api.reset();
-		result = null;
-		// Do not clear teacher drawings here so they can be reused across runs.
-	}
+	function handleClear() {
+		clearGuestProgress();
+		refreshGuestProgress();
 
-	let toolboxKind = $state(BlocklyToolboxKind.CATEGORY);
-
-	function getToolBox(): BlocklyToolboxConfig {
-		const engineKey = currentEngine;
-		const prefix = engineKey;
-		const blocks = getVisibleBlocks(engineKey);
-
-		if (toolboxKind === BlocklyToolboxKind.CATEGORY) {
-			const engineCategory = getCategoryForBlocks(
-				blocks,
-				prefix,
-				engineKey === 'turtle' ? 'Turtle' : 'Robot',
-				160
+		if (selectedCourse) {
+			hydrateSelectedCourseState(
+				selectedCourse.id,
+				selectedExercises.map((exercise) => exercise.id)
 			);
-			const builtinCategories = buildBuiltinCategories();
-			return {
-				kind: BlocklyToolboxKind.CATEGORY,
-				contents: [engineCategory, ...builtinCategories]
-			};
 		}
 
-		// FLYOUT toolbox: merge custom engine blocks and selected built-ins into a single flyout.
-		const customToolbox = getCategoryToolBox(toolboxKind, blocks, prefix);
-		const customBlocks = customToolbox ? (customToolbox.contents as any[]) : [];
-		const builtinBlocks = ALL_BUILTIN.filter((id) => selectedBuiltin.includes(id)).map((id) => ({
-			kind: 'block',
-			type: id
-		}));
-
-		return {
-			kind: BlocklyToolboxKind.FLYOUT,
-			contents: [...customBlocks, ...builtinBlocks]
-		};
+		toast('Guest progress cleared on this device.', { position: 'top-right' });
 	}
 </script>
 
-<div class="flex flex-wrap gap-4 p-4">
-	<div class="form-control">
-		<span class="label-text mb-1 font-semibold">Engine</span>
-		<select bind:value={currentEngine} class="select-bordered select w-full max-w-xs">
-			<option value="turtle">Turtle</option>
-			<option value="robot">Robot</option>
-		</select>
-	</div>
-	<div class="form-control">
-		<span class="label-text mb-1 font-semibold">Toolbox Type</span>
-		<select bind:value={toolboxKind} class="select-bordered select w-full max-w-xs">
-			<option value={BlocklyToolboxKind.CATEGORY}>Category Toolbox</option>
-			<option value={BlocklyToolboxKind.FLYOUT}>Flyout Toolbox</option>
-		</select>
-	</div>
-	<div class="form-control">
-		<span class="label-text mb-1 font-semibold">Check Mode</span>
-		<select bind:value={testMode} class="select-bordered select w-full max-w-xs">
-			<option value="target">Reach apple (walls matter)</option>
-			<option value="path">Follow red path</option>
-		</select>
-	</div>
-	<div class="form-control">
-		<span class="label-text mb-1 font-semibold">Canvas</span>
-		<div class="flex flex-wrap gap-2">
-			<button
-				type="button"
-				class="btn btn-xs"
-				class:btn-primary={showGrid}
-				onclick={() => (showGrid = !showGrid)}
-			>
-				{showGrid ? 'Hide Grid' : 'Show Grid'}
-			</button>
-			<button
-				type="button"
-				class="btn btn-xs"
-				class:btn-primary={drawMode === 'path'}
-				onclick={() => (drawMode = drawMode === 'path' ? null : 'path')}
-			>
-				Draw Path
-			</button>
-			<button
-				type="button"
-				class="btn btn-xs"
-				class:btn-primary={drawMode === 'target'}
-				onclick={() => (drawMode = drawMode === 'target' ? null : 'target')}
-			>
-				Place Target
-			</button>
-			<button
-				type="button"
-				class="btn btn-xs"
-				class:btn-primary={drawMode === 'wall'}
-				onclick={() => (drawMode = drawMode === 'wall' ? null : 'wall')}
-			>
-				Place Wall
-			</button>
-			<button
-				type="button"
-				class="btn btn-ghost btn-xs"
-				onclick={() => {
-					pathOverlay = [];
-					targets = [];
-					walls = [];
-					toolboxVersion += 1;
-				}}
-			>
-				Clear All
-			</button>
-		</div>
-	</div>
-	<div class="flex flex-col gap-4">
-		<div class="form-control">
-			<span class="label-text mb-1 font-semibold">Speed between steps</span>
-			<label class="felx items-center gap-2">
-				<input
-					type="range"
-					min="1"
-					max="1000"
-					step="1"
-					bind:value={simulationSpeed}
-					class="range w-40 range-xs"
-				/>
-				<span>{simulationSpeed} ms</span>
-			</label>
-		</div>
-		<div class="form-control">
-			<span class="label-text mb-1 font-semibold">Tolerance (cells)</span>
-			<div class="flex flex-col gap-1 text-xs">
-				<label class="flex items-center gap-2">
-					<span>Apple</span>
-					<input
-						type="range"
-						min="0"
-						max="2"
-						step="0.25"
-						bind:value={appleTolerance}
-						class="range w-40 range-xs"
-					/>
-					<span>{appleTolerance.toFixed(2)}</span>
-				</label>
-				<label class="flex items-center gap-2">
-					<span>Wall</span>
-					<input
-						type="range"
-						min="0"
-						max="1"
-						step="0.25"
-						bind:value={wallTolerance}
-						class="range w-40 range-xs"
-					/>
-					<span>{wallTolerance.toFixed(2)}</span>
-				</label>
+{#if selectedCourse}
+	<CoursePlayer
+		course={selectedCourse}
+		exercises={selectedExercises}
+		onBack={handleBack}
+		persistAttempt={persistGuestAttempt}
+		initialProgress={selectedCourseProgress}
+		initialSnapshots={selectedSnapshots}
+		initialExerciseIndex={selectedCourseExerciseIndex}
+		onExerciseChange={handleExerciseChange}
+	/>
+{:else}
+	<section class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
+		<div class="flex flex-col gap-4 rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl sm:px-8">
+			<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+				<div class="max-w-3xl space-y-3">
+					<a
+						href={resolve('/login')}
+						class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white/90 transition hover:bg-white/20"
+					>
+						<ArrowLeft class="h-4 w-4" />
+						Back to Login
+					</a>
+					<h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">
+						Play published courses as a guest
+					</h1>
+					<p class="max-w-2xl text-base text-white/70 sm:text-lg">
+						Your progress stays on this device until you explicitly export it or import it into an
+						account later.
+					</p>
+				</div>
+
+				<div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
+					<button class="btn gap-2 btn-outline border-white/20 text-white" onclick={handleExport}>
+						<Download class="h-4 w-4" />
+						Export JSON
+					</button>
+					<button
+						class="btn gap-2 btn-outline border-white/20 text-white"
+						onclick={() => fileInput?.click()}
+					>
+						<FolderUp class="h-4 w-4" />
+						Import JSON
+					</button>
+					<button class="btn gap-2 btn-outline border-white/20 text-white" onclick={handleClear}>
+						<Trash2 class="h-4 w-4" />
+						Clear Local Data
+					</button>
+					<a href={resolve('/login')} class="btn gap-2 btn-primary">
+						<LogIn class="h-4 w-4" />
+						Sign In Later
+					</a>
+				</div>
+			</div>
+
+			<div class="grid gap-3 text-sm text-white/80 sm:grid-cols-3">
+				<div class="rounded-2xl bg-white/10 p-4">
+					<div class="text-white/60">Courses started</div>
+					<div class="mt-1 text-2xl font-semibold">{guestProgress?.courses.length ?? 0}</div>
+				</div>
+				<div class="rounded-2xl bg-white/10 p-4">
+					<div class="text-white/60">Attempts saved</div>
+					<div class="mt-1 text-2xl font-semibold">{guestProgress?.attempts.length ?? 0}</div>
+				</div>
+				<div class="rounded-2xl bg-white/10 p-4">
+					<div class="text-white/60">Courses completed</div>
+					<div class="mt-1 text-2xl font-semibold">
+						{guestProgress?.courses.filter((course) => course.progress === 100).length ?? 0}
+					</div>
+				</div>
 			</div>
 		</div>
-	</div>
-</div>
 
-<div class="container mx-auto p-4">
-	<h1 class="mb-2 text-3xl font-bold">{exercise.title}</h1>
-	<p class="mb-2 text-lg">
-		{#if currentEngine === 'turtle'}
-			{exercise.description}
+		<input bind:this={fileInput} type="file" accept="application/json" class="hidden" onchange={handleImport} />
+
+		<div class="flex items-center justify-between">
+			<div>
+				<h2 class="text-2xl font-semibold text-slate-900">Public courses</h2>
+				<p class="text-sm text-slate-600">Only published courses and published exercises appear here.</p>
+			</div>
+			<button class="btn gap-2 btn-ghost" onclick={refreshGuestProgress}>
+				<RefreshCcw class="h-4 w-4" />
+				Refresh Local State
+			</button>
+		</div>
+
+		{#if publicCourses.loading}
+			<div class="flex min-h-48 items-center justify-center rounded-3xl border border-slate-200 bg-white">
+				<span class="loading loading-lg loading-spinner"></span>
+			</div>
+		{:else if ((publicCourses.current as Course[]) ?? []).length === 0}
+			<div class="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-600">
+				<BookOpen class="mx-auto h-10 w-10 text-slate-400" />
+				<p class="mt-4 text-lg font-medium">No public courses are published yet.</p>
+			</div>
 		{:else}
-			Move the robot using the same Canvas2D blocks (no grading yet).
+			<div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+				{#each ((publicCourses.current as Course[]) ?? []) as course (course.id)}
+					{@const progress = getProgressForCourse(course.id)}
+					<article class="flex flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+						{#if course.content?.image}
+							<img src={course.content.image} alt="" class="h-48 w-full object-cover" />
+						{/if}
+
+						<div class="flex flex-1 flex-col gap-4 p-6">
+							<div class="space-y-2">
+								<h3 class="text-2xl font-semibold text-slate-900">
+									{getLocalized(course.content.title)}
+								</h3>
+								<div class="text-sm text-slate-600">
+									{@html sanitizeHtml(getLocalized(course.content.description))}
+								</div>
+							</div>
+
+							<div class="space-y-2 rounded-2xl bg-slate-50 p-4">
+								<div class="flex items-center justify-between text-sm text-slate-600">
+									<span>Progress</span>
+									<span>{progress.completed}/{progress.total || course.exerciseIds.length}</span>
+								</div>
+								<progress class="progress w-full progress-primary" value={progress.percent} max="100"></progress>
+							</div>
+
+							<div class="mt-auto flex items-center justify-between text-sm text-slate-500">
+								<span>{course.exerciseIds.length} exercises</span>
+								<span>{course.createdBy}</span>
+							</div>
+
+							<button
+								class="btn gap-2 btn-primary"
+								onclick={() => handlePlayCourse(course)}
+								disabled={isLoadingExercises && loadingCourseId === course.id}
+							>
+								{#if isLoadingExercises && loadingCourseId === course.id}
+									<span class="loading loading-xs loading-spinner"></span>
+								{:else}
+									<Play class="h-4 w-4" />
+								{/if}
+								{progress.percent > 0 ? 'Continue as Guest' : 'Start as Guest'}
+							</button>
+						</div>
+					</article>
+				{/each}
+			</div>
 		{/if}
-	</p>
-
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-		<!-- Blockly -->
-		<div class="card bg-base-200">
-			<div class="card-body">
-				<h2 class="card-title">Code Blocks ({currentEngine})</h2>
-
-				<!-- Block picker: Canvas2D engine blocks -->
-				<div class="mb-2 flex flex-wrap gap-3">
-					{#each getEngine().blockDefs as block (block.id)}
-						<label class="label cursor-pointer gap-2">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-sm checkbox-primary"
-								checked={(selectedBlocks[currentEngine] ?? []).includes(block.id)}
-								onchange={(e) =>
-									toggleBlock(
-										currentEngine,
-										block.id,
-										(e.currentTarget as HTMLInputElement).checked
-									)}
-							/>
-							<span class="label-text text-sm">{block.id}</span>
-						</label>
-					{/each}
-				</div>
-
-				<!-- Block picker: built-in Blockly blocks -->
-				<div class="mb-4 flex flex-wrap gap-3 border-t border-base-300 pt-2">
-					{#each ALL_BUILTIN as id (id)}
-						<label class="label cursor-pointer gap-2">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-xs checkbox-primary"
-								checked={selectedBuiltin.includes(id)}
-								onchange={(e) => toggleBuiltin(id, (e.currentTarget as HTMLInputElement).checked)}
-							/>
-							<span class="label-text text-xs">{id}</span>
-						</label>
-					{/each}
-				</div>
-
-				{#key `${toolboxKind}-${currentEngine}-${toolboxVersion}`}
-					<BlocklyWorkspace bind:this={blocklyRef} toolboxConfig={getToolBox()} />
-				{/key}
-			</div>
-		</div>
-
-		<!-- Canvas / Engine view -->
-		<div class="card bg-base-200">
-			<div class="card-body">
-				<h2 class="card-title">
-					{currentEngine === 'turtle' ? 'Turtle' : 'Robot'} Canvas
-				</h2>
-
-				<!-- Generic Canvas with built-in actor types -->
-				<Canvas
-					engine={getEngine()}
-					actorType={currentEngine}
-					editable={teacherMode}
-					{showGrid}
-					{drawMode}
-					{pathOverlay}
-					{targets}
-					{walls}
-					onPathChange={(points) => (pathOverlay = points)}
-					onTargetChange={(t) => (targets = t)}
-					onWallsChange={(w) => (walls = w)}
-				/>
-
-				<!-- Controls -->
-				<div class="mt-4 flex flex-wrap gap-2">
-					<button class="btn btn-primary" onclick={() => run()}>Run</button>
-					<button
-						class="btn btn-outline btn-primary"
-						type="button"
-						onclick={() => toggleContinuousRun()}
-					>
-						Run continuously
-					</button>
-					<button
-						class="btn btn-secondary"
-						onclick={() => check()}
-						disabled={currentEngine !== 'turtle'}
-						title={currentEngine !== 'turtle' ? 'Grading only available for Turtle' : ''}
-					>
-						Check
-					</button>
-					<button class="btn btn-info" onclick={() => reset()}>Reset</button>
-				</div>
-
-				<!-- Result -->
-				{#if result && currentEngine === 'turtle'}
-					<div
-						class="mt-4 alert"
-						class:alert-success={result.passed}
-						class:alert-error={!result.passed}
-					>
-						{#if result.passed}
-							<span class="text-2xl">🎊 Correct! Great Job!</span>
-						{:else}
-							<span class="text-2xl">😢 Incorrect. Try again!</span>
-						{/if}
-					</div>
-					<div class="mt-2 space-y-1">
-						<h3 class="text-xl">
-							Grade:
-							{#if typeof result.score === 'number'}
-								{Math.round(result.score * 100)}%
-							{:else}
-								–
-							{/if}
-						</h3>
-						{#if result.message}
-							<p class="text-sm text-base-content/80">{result.message}</p>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
-</div>
+	</section>
+{/if}

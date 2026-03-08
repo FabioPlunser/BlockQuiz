@@ -21,7 +21,7 @@ export interface TurtleTest {
 export interface GradeResult {
 	passed: boolean;
 	score: number;
-	tests: Array<TurtleTest & { passed: boolean; message: string }>;
+	tests: Array<Omit<TurtleTest, 'message'> & { passed: boolean; message: string }>;
 }
 
 export interface CanvasConfig {

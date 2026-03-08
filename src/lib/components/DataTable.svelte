@@ -3,6 +3,7 @@
 	export type Column<T> = {
 		key: string;
 		label: string;
+		render?: (item: T) => string | LocalizedString | { de: string; en: string } | undefined;
 		html?: boolean;
 		class?: string;
 		sortable?: boolean;
@@ -86,7 +87,7 @@
 
 	// Get cell value for search/sort
 	function getCellValue(item: T, column: Column<T>): string {
-		const value = (item as Record<string, unknown>)[column.key];
+		const value = column.render ? column.render(item) : (item as Record<string, unknown>)[column.key];
 
 		if (!value) return '';
 
@@ -224,7 +225,7 @@
 </script>
 
 <!-- Default cell snippet for simple text rendering -->
-{#snippet defaultCell(item, column)}
+{#snippet defaultCell(item: T, column: Column<T>)}
 	{@const value = getCellValue(item, column)}
 	{#if column.html}
 		<span>{@html sanitizeHtml(value)}</span>

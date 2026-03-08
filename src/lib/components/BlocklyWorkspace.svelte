@@ -26,13 +26,12 @@
 	onMount(() => {
 		if (!browser) return;
 		try {
-		workspace = Blockly.inject(blocklyDiv, {
-			toolbox: toolboxConfig,
-			...config
-		});
+			workspace = Blockly.inject(blocklyDiv, {
+				toolbox: toolboxConfig,
+				...config
+			});
 
-
-		// Fix flyout scrollbar persistence issue
+			// Fix flyout scrollbar persistence issue
 			if (workspace) {
 				const cleanupScrollbars = () => {
 					requestAnimationFrame(() => {
@@ -73,7 +72,7 @@
 		// Load starter xml if provided
 		if (starterXml && workspace) {
 			try {
-				const xml = Blockly.Xml.textToDom(starterXml);
+				const xml = Blockly.utils.xml.textToDom(starterXml);
 				Blockly.Xml.domToWorkspace(xml, workspace);
 			} catch (e) {
 				console.error('Failed to load starter XML:', e);
@@ -107,7 +106,10 @@
 	}
 </script>
 
-<div bind:this={blocklyDiv} class="h-full min-h-64 w-full overflow-hidden rounded border border-base-300 focus:outline-none focus:ring-0" />
+<div
+	bind:this={blocklyDiv}
+	class="h-full min-h-64 w-full overflow-hidden rounded border border-base-300 focus:outline-none focus:ring-0"
+></div>
 
 <style>
 	/* Fix Blockly flyout scrollbar persistence issue */

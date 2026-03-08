@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { RemoteForm } from '@sveltejs/kit';
+	import type { Snippet } from 'svelte';
 	import { showSuccess, showError } from '$lib/utils/toast';
 
 	let {
@@ -9,6 +11,14 @@
 		successMessage = 'Action completed successfully',
 		children,
 		controls
+	}: {
+		open?: boolean;
+		remoteFunction: RemoteForm<any, any>;
+		onClose?: () => void;
+		title?: string;
+		successMessage?: string;
+		children?: Snippet;
+		controls?: Snippet;
 	} = $props();
 
 	let dialogRef: HTMLDialogElement;

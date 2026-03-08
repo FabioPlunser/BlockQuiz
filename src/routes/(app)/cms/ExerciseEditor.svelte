@@ -294,6 +294,15 @@
 			}
 		} else {
 			try {
+				if (!exercise.id) {
+					handleServerResult(
+						{ success: false, error: 'Exercise ID is missing' },
+						'',
+						'Cannot update an exercise without an ID'
+					);
+					return;
+				}
+
 				const result = await updateExercise({
 					id: exercise.id,
 					type: exercise.type,

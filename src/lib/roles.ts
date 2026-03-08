@@ -1,7 +1,8 @@
 export enum Role {
 	STUDENT = 'student',
 	TEACHER = 'teacher',
+	AUTHOR = 'author',
 	ADMIN = 'admin'
 }
 
-export const ROLES = Object.values(Role);
+export const ROLES = ['student', 'teacher', 'author', 'admin'] as const;

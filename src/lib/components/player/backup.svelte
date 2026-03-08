@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Course } from '$lib/types/course';
 	import type { Exercise } from '$lib/types/exercise';
+	import type { AttemptCapture } from '$lib/types/attempt';
 	import type { GradingResult } from '$lib/player/executor';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { submitAttempt } from '$lib/remote/courses.remote';
@@ -22,6 +23,7 @@
 	};
 
 	let { course, exercises, onBack }: Props = $props();
+	const onClose = onBack;
 
 	// State
 	let currentExerciseIndex = $state(0);
@@ -44,7 +46,12 @@
 	let allCompleted = $derived(completedCount === exercises.length && exercises.length > 0);
 
 	// Handle exercise submission
-	async function handleSubmit(result: GradingResult) {
+	async function handleSubmit({
+		result
+	}: {
+		result: GradingResult;
+		capture: AttemptCapture;
+	}) {
 		if (!currentExercise) return;
 
 		isSubmitting = true;
@@ -64,6 +71,7 @@
 				score: result.score,
 				passed: result.passed,
 				startedAt: startTime,
+				endedAt: Date.now(),
 				locale: 'de'
 			});
 
@@ -193,6 +201,7 @@
 						onSubmit={handleSubmit}
 						onNext={goToNext}
 						{hasNextExercise}
+						initialWorkspaceXml=""
 					/>
 				{/key}
 			{:else}

@@ -1,19 +1,25 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import type { Course } from '$types/course';
+	import type { AttemptSubmission } from '$lib/types/attempt';
 	import type { Exercise } from '$lib/types/exercise';
 	import Boundary from '$cp/Boundary.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import CoursePlayer from '$lib/components/player/CoursePlayer.svelte';
+	import { hasGuestProgress, readGuestProgress } from '$lib/guest-progress/storage';
 	import { PersistedState, watch } from 'runed';
+	import { onMount } from 'svelte';
 	import {
 		getUserCourses,
 		getCourseExercises,
-		getCourseProgress
+		getCourseProgress,
+		importGuestAttempts,
+		submitAttempt
 	} from '$lib/remote/courses.remote';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import { BookOpen, Play, CircleCheckBig } from '@lucide/svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { BookOpen, Play, CircleCheckBig, Upload } from '@lucide/svelte';
 	import toast from '$lib/toaster';
 
 	// --------------------------------------------------------------------
@@ -28,10 +34,25 @@
 	// Modal state
 	let selectedCourse = $state<Course | null>(null);
 	let selectedExercises = $state<Exercise[]>([]);
+	let selectedCourseProgress = $state<Record<string, { passed: boolean; bestScore: number; attemptCount: number }>>({});
+	let selectedCourseExerciseIndex = $state(0);
 	let isLoadingExercises = $state(false);
+	let hasImportableGuestState = $state(false);
+	let isImportingGuestProgress = $state(false);
 
 	// Course progress cache
 	let courseProgress = new SvelteMap<string, { completedCount: number; totalCount: number }>();
+
+	function refreshGuestState() {
+		if (!browser) {
+			return;
+		}
+		hasImportableGuestState = hasGuestProgress();
+	}
+
+	onMount(() => {
+		refreshGuestState();
+	});
 
 	// --------------------------------------------------------------------
 	// Filtered items
@@ -97,10 +118,16 @@
 		selectedCourse = course;
 
 		try {
-			// Load exercises for this course
-			const result = await getCourseExercises(course.id);
-			console.log('Course exercies', result);
-			selectedExercises = result;
+			const [exerciseResult, progress] = await Promise.all([
+				getCourseExercises(course.id),
+				getCourseProgress({ courseId: course.id })
+			]);
+			selectedExercises = exerciseResult;
+			selectedCourseProgress = progress.exerciseProgress ?? {};
+			const firstIncompleteIndex = exerciseResult.findIndex(
+				(exercise) => !progress.exerciseProgress?.[exercise.id]?.passed
+			);
+			selectedCourseExerciseIndex = firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
 
 			if (selectedExercises.length === 0) {
 				toast.error('This course has no exerciess yet');
@@ -118,9 +145,53 @@
 	function handleBack() {
 		selectedCourse = null;
 		selectedExercises = [];
+		selectedCourseProgress = {};
+		selectedCourseExerciseIndex = 0;
 
 		// Refresh progress after playing
 		loadCourseProgress();
+	}
+
+	async function persistAuthenticatedAttempt(attempt: AttemptSubmission) {
+		await submitAttempt({
+			exerciseId: attempt.exerciseId,
+			resultJson: attempt.resultJson,
+			score: attempt.score,
+			passed: attempt.passed,
+			startedAt: attempt.startedAt,
+			endedAt: attempt.endedAt,
+			locale: attempt.locale
+		});
+	}
+
+	async function handleImportGuestProgress() {
+		if (!browser) {
+			return;
+		}
+
+		isImportingGuestProgress = true;
+		try {
+			const guestAttempts = readGuestProgress().attempts;
+			const result = await importGuestAttempts({ attempts: guestAttempts });
+
+			if (!result.success || result.importedCount === 0) {
+				toast('No new guest attempts to import.', { position: 'top-right' });
+			} else {
+				toast.success(`Imported ${result.importedCount} guest attempt(s) into your account.`, {
+					position: 'top-right'
+				});
+			}
+
+			await loadCourseProgress();
+			refreshGuestState();
+		} catch (err) {
+			console.error('Failed to import guest attempts:', err);
+			toast.error('Failed to import guest progress. Please try again.', {
+				position: 'top-right'
+			});
+		} finally {
+			isImportingGuestProgress = false;
+		}
 	}
 
 	// Load progress for all courses
@@ -172,6 +243,29 @@
 				<h1 class="text-2xl font-bold">My Courses</h1>
 				<p class="text-base-content/60">Courses assigned to you</p>
 			</div>
+
+			{#if hasImportableGuestState}
+				<div class="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sky-900 lg:flex-row lg:items-center lg:justify-between">
+					<div>
+						<div class="font-medium">Guest progress found on this device</div>
+						<p class="text-sm text-sky-800/80">
+							Import it into your account to continue with your authenticated history.
+						</p>
+					</div>
+					<button
+						class="btn gap-2 btn-primary"
+						onclick={handleImportGuestProgress}
+						disabled={isImportingGuestProgress}
+					>
+						{#if isImportingGuestProgress}
+							<span class="loading loading-xs loading-spinner"></span>
+						{:else}
+							<Upload class="h-4 w-4" />
+						{/if}
+						Import Guest Progress
+					</button>
+				</div>
+			{/if}
 
 			<CMSToolbar
 				bind:viewMode={viewMode.current}
@@ -284,5 +378,12 @@
 
 <!-- Course Player -->
 {#if selectedCourse}
-	<CoursePlayer course={selectedCourse} exercises={selectedExercises} onBack={handleBack} />
+	<CoursePlayer
+		course={selectedCourse}
+		exercises={selectedExercises}
+		onBack={handleBack}
+		persistAttempt={persistAuthenticatedAttempt}
+		initialProgress={selectedCourseProgress}
+		initialExerciseIndex={selectedCourseExerciseIndex}
+	/>
 {/if}

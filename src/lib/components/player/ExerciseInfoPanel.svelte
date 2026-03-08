@@ -1,29 +1,53 @@
 <script lang="ts">
+	import type { HintRevealEvent } from '$lib/types/attempt';
 	import type { Exercise, ExerciseHint } from '$lib/types/exercise';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
-	import { Lightbulb, ChevronRight, Clock, Eye, EyeOff } from '@lucide/svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { Lightbulb, ChevronRight, Clock, Eye } from '@lucide/svelte';
+	import { onDestroy } from 'svelte';
 
 	type Props = {
 		exercise: Exercise;
 		currentIndex: number;
 		totalExercises: number;
+		onHintEventsChange?: (events: HintRevealEvent[]) => void;
 	};
 
-	let { exercise, currentIndex, totalExercises }: Props = $props();
+	let { exercise, currentIndex, totalExercises, onHintEventsChange }: Props = $props();
 
 	// Hint state - use array for better reactivity in Svelte 5
 	let revealedHints = $state<string[]>([]);
+	let hintEvents = $state<HintRevealEvent[]>([]);
 	let hintTimers = $state<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 	let exerciseStartTime = $state(Date.now());
+
+	function syncHintEvents(nextEvents: HintRevealEvent[]) {
+		hintEvents = nextEvents;
+		revealedHints = nextEvents.map((event) => event.hintId);
+		onHintEventsChange?.(nextEvents);
+	}
+
+	function recordHintReveal(hint: ExerciseHint) {
+		if (revealedHints.includes(hint.id)) {
+			return;
+		}
+
+		syncHintEvents([
+			...hintEvents,
+			{
+				hintId: hint.id,
+				revealedAt: Date.now(),
+				trigger: hint.trigger
+			}
+		]);
+	}
 
 	// Reset hints when exercise changes
 	$effect(() => {
 		// Clear previous timers
 		hintTimers.forEach((timer) => clearTimeout(timer));
 		hintTimers.clear();
-		revealedHints = [];
+		syncHintEvents([]);
 		exerciseStartTime = Date.now();
 
 		// Set up timed hints
@@ -31,9 +55,7 @@
 			exercise.config.hints.forEach((hint) => {
 				if (hint.trigger === 'time' && hint.delaySeconds) {
 					const timer = setTimeout(() => {
-						if (!revealedHints.includes(hint.id)) {
-							revealedHints = [...revealedHints, hint.id];
-						}
+						recordHintReveal(hint);
 					}, hint.delaySeconds * 1000);
 					hintTimers.set(hint.id, timer);
 				}
@@ -46,8 +68,9 @@
 	});
 
 	function revealHint(hintId: string) {
-		if (!revealedHints.includes(hintId)) {
-			revealedHints = [...revealedHints, hintId];
+		const hint = exercise.config.hints?.find((entry) => entry.id === hintId);
+		if (hint) {
+			recordHintReveal(hint);
 		}
 	}
 

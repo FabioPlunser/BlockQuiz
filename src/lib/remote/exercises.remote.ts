@@ -1,103 +1,16 @@
 import { z } from 'zod';
 import { error } from '@sveltejs/kit';
-import { query, command } from '$app/server';
+import { command, query } from '$app/server';
+import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db/client';
-import { exercises, courses, courseExercises } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { type ExerciseContent, type ExerciseConfig, dbExerciseTypes } from '$lib/types/exercise';
+import { courseExercises, courses, exercises } from '$lib/server/db/schema';
+import {
+	canonicalizeExercise,
+	dbExerciseTypes,
+	dehydrateExercise,
+	type Exercise
+} from '$lib/types/exercise';
 import { requireTeacherOrAdmin } from '$lib/utils/requireAuth';
-import type { Exercise } from '$lib/types/exercise';
-
-// =============================================================================
-// Zod Schemas
-// =============================================================================
-
-const localizedStringSchema = z.object({
-	de: z.string(),
-	en: z.string()
-});
-
-const hintSchema = z.object({
-	id: z.string(),
-	text: localizedStringSchema,
-	trigger: z.enum(['click', 'time']),
-	delaySeconds: z.number().optional()
-});
-
-const testCaseSchema = z.object({
-	id: z.string(),
-	description: localizedStringSchema,
-	visible: z.boolean(),
-	type: z.enum(['target', 'commands', 'state', 'path']),
-	message: localizedStringSchema.optional(),
-	expected: z.object({
-		target: z
-			.object({
-				x: z.number(),
-				y: z.number(),
-				tolerance: z.number().optional()
-			})
-			.optional(),
-		commands: z.array(z.string()).optional(),
-		state: z
-			.object({
-				x: z.number(),
-				y: z.number(),
-				angle: z.number(),
-				tolerance: z.number()
-			})
-			.optional(),
-		path: z
-			.array(
-				z.object({
-					x: z.number(),
-					y: z.number()
-				})
-			)
-			.optional()
-	})
-});
-
-const exerciseContentSchema = z.object({
-	title: localizedStringSchema,
-	description: localizedStringSchema,
-	image: z.string().optional(),
-	example: z
-		.object({
-			description: localizedStringSchema,
-			starterXml: z.string(),
-			explanation: localizedStringSchema
-		})
-		.optional()
-});
-
-const exerciseConfigSchema = z.object({
-	mode: z.enum(['default', 'path', 'apple']),
-	toolbox: z.array(z.string()),
-	starterXml: z.string(),
-	hasStarterBlocks: z.boolean(),
-	canvas: z.object({
-		width: z.number(),
-		height: z.number(),
-		gridSize: z.number(),
-		pathOverlay: z.array(z.object({ x: z.number(), y: z.number() })),
-		targets: z.array(
-			z.object({
-				x: z.number(),
-				y: z.number(),
-				tolerance: z.number().optional(),
-				icon: z.enum(['apple', 'flag', 'star', 'custom']).optional()
-			})
-		),
-		walls: z.array(z.object({ x: z.number(), y: z.number() }))
-	}),
-	grader: z.object({
-		appleTolerance: z.number(),
-		wallTolerance: z.number(),
-		testCases: z.array(testCaseSchema)
-	}),
-	hints: z.array(hintSchema)
-});
 
 const exerciseFilterSchema = z.object({
 	courseId: z.string().optional(),
@@ -106,10 +19,10 @@ const exerciseFilterSchema = z.object({
 });
 
 const createExerciseSchema = z.object({
-	courseId: z.string().optional(),
+	courseId: z.string(),
 	type: z.enum(['io', 'turtle', 'robot']),
-	content: exerciseContentSchema,
-	config: exerciseConfigSchema,
+	content: z.unknown(),
+	config: z.unknown(),
 	published: z.boolean().optional().default(false),
 	order: z.number().optional().default(0)
 });
@@ -118,9 +31,15 @@ const updateExerciseSchema = createExerciseSchema.partial().extend({
 	id: z.string()
 });
 
-// =============================================================================
-// Query Functions
-// =============================================================================
+function hydrateExerciseRow(row: typeof exercises.$inferSelect): Exercise {
+	return canonicalizeExercise({
+		...row,
+		content: row.content,
+		config: row.config,
+		validationJson: row.validationJson,
+		image: row.image
+	});
+}
 
 export const getExercises = query(exerciseFilterSchema, async (filters) => {
 	requireTeacherOrAdmin();
@@ -136,112 +55,138 @@ export const getExercises = query(exerciseFilterSchema, async (filters) => {
 		conditions.push(eq(exercises.published, filters.published));
 	}
 
-	if (conditions.length === 0) {
-		return await db.select().from(exercises);
-	}
+	const rows =
+		conditions.length === 0
+			? await db.select().from(exercises)
+			: await db
+					.select()
+					.from(exercises)
+					.where(conditions.length === 1 ? conditions[0] : and(...conditions));
 
-	return (await db
-		.select()
-		.from(exercises)
-		.where(conditions.length === 1 ? conditions[0] : and(...conditions))) as Exercise[];
+	return rows.map((row) => hydrateExerciseRow(row));
 });
 
 export const getExercise = query(z.object({ id: z.string() }), async ({ id }) => {
 	requireTeacherOrAdmin();
-	const result = await db.select().from(exercises).where(eq(exercises.id, id));
+	const [row] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
 
-	if (result.length === 0) {
+	if (!row) {
 		error(404, 'Exercise not found');
 	}
 
-	return result[0];
+	return hydrateExerciseRow(row);
 });
 
-export const getExercisesByCourse = query(
-	z.object({ courseId: z.string() }),
-	async ({ courseId }) => {
-		requireTeacherOrAdmin();
-		// Verify course exists
-		const course = await db.select().from(courses).where(eq(courses.id, courseId));
-		if (course.length === 0) {
-			error(404, 'Course not found');
-		}
+export const getExercisesByCourse = query(z.object({ courseId: z.string() }), async ({ courseId }) => {
+	requireTeacherOrAdmin();
+	const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
 
-		return await db
-			.select()
-			.from(exercises)
-			.where(eq(exercises.courseId, courseId))
-			.orderBy(exercises.order);
+	if (!course) {
+		error(404, 'Course not found');
 	}
-);
 
-// =============================================================================
-// Command Functions (Create/Update/Delete)
-// =============================================================================
+	const rows = await db
+		.select()
+		.from(exercises)
+		.where(eq(exercises.courseId, courseId))
+		.orderBy(exercises.order);
+
+	return rows.map((row) => hydrateExerciseRow(row));
+});
 
 export const createExercise = command(createExerciseSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-
 	const id = crypto.randomUUID();
 	const now = Date.now();
+	const persisted = dehydrateExercise({
+		id,
+		courseId: data.courseId,
+		type: data.type,
+		content: data.content,
+		config: data.config,
+		published: data.published ?? false,
+		order: data.order ?? 0,
+		createdBy: user.id,
+		createdAt: now,
+		updatedAt: now
+	});
 
 	try {
 		await db.insert(exercises).values({
-			id,
-			courseId: data.courseId,
-			type: data.type,
-			content: data.content as unknown as ExerciseContent,
-			config: data.config as unknown as ExerciseConfig,
-			published: data.published ?? false,
-			order: data.order ?? 0,
-			createdBy: user?.email ?? 'system',
-			createdAt: now,
-			updatedAt: now
+			id: persisted.exercise.id,
+			courseId: persisted.exercise.courseId,
+			type: persisted.exercise.type,
+			image: persisted.exercise.content.image ?? '',
+			content: persisted.content,
+			config: persisted.config,
+			validationJson: persisted.validation,
+			published: persisted.exercise.published,
+			order: persisted.exercise.order,
+			createdBy: persisted.exercise.createdBy,
+			createdAt: persisted.exercise.createdAt,
+			updatedAt: persisted.exercise.updatedAt
 		});
 
 		return { success: true as const, id };
-	} catch (e) {
-		console.error('Error creating exercise:', e);
+	} catch (cause) {
+		console.error('Error creating exercise:', cause);
 		return {
 			success: false as const,
-			error: e instanceof Error ? e.message : 'Failed to create exercise'
+			error: cause instanceof Error ? cause.message : 'Failed to create exercise'
 		};
 	}
 });
 
 export const updateExercise = command(updateExerciseSchema, async (data) => {
-	const user = requireTeacherOrAdmin();
+	requireTeacherOrAdmin();
 
 	try {
-		const existing = await db.select().from(exercises).where(eq(exercises.id, data.id));
+		const [existing] = await db.select().from(exercises).where(eq(exercises.id, data.id)).limit(1);
 
-		if (existing.length === 0) {
+		if (!existing) {
 			return {
 				success: false as const,
 				error: 'Exercise not found'
 			};
 		}
 
-		const updates: Record<string, unknown> = {
+		const persisted = dehydrateExercise({
+			...existing,
+			content: data.content ?? existing.content,
+			config: data.config ?? existing.config,
+			validationJson: existing.validationJson,
+			id: data.id,
+			courseId: data.courseId ?? existing.courseId,
+			type: data.type ?? existing.type,
+			published: data.published ?? existing.published,
+			order: data.order ?? existing.order,
+			createdBy: existing.createdBy,
+			createdAt: existing.createdAt,
 			updatedAt: Date.now(),
-			updatedBy: user?.email ?? 'system'
-		};
+			image: existing.image
+		});
 
-		if (data.courseId !== undefined) updates.courseId = data.courseId;
-		if (data.type !== undefined) updates.type = data.type;
-		if (data.content !== undefined) updates.content = data.content;
-		if (data.config !== undefined) updates.config = data.config;
-		if (data.published !== undefined) updates.published = data.published;
-		if (data.order !== undefined) updates.order = data.order;
-
-		await db.update(exercises).set(updates).where(eq(exercises.id, data.id));
+		await db
+			.update(exercises)
+			.set({
+				courseId: persisted.exercise.courseId,
+				type: persisted.exercise.type,
+				image: persisted.exercise.content.image ?? '',
+				content: persisted.content,
+				config: persisted.config,
+				validationJson: persisted.validation,
+				published: persisted.exercise.published,
+				order: persisted.exercise.order,
+				updatedAt: persisted.exercise.updatedAt
+			})
+			.where(eq(exercises.id, data.id));
 
 		return { success: true as const, id: data.id };
-	} catch (e) {
-		console.error('Error updating exercise:', e);
+	} catch (cause) {
+		console.error('Error updating exercise:', cause);
 		return {
 			success: false as const,
-			error: e instanceof Error ? e.message : 'Failed to update exercise'
+			error: cause instanceof Error ? cause.message : 'Failed to update exercise'
 		};
 	}
 });
@@ -250,9 +195,9 @@ export const deleteExercise = command(z.string(), async (id) => {
 	requireTeacherOrAdmin();
 
 	try {
-		const existing = await db.select().from(exercises).where(eq(exercises.id, id));
+		const [existing] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
 
-		if (existing.length === 0) {
+		if (!existing) {
 			return {
 				success: false as const,
 				error: 'Exercise not found'
@@ -260,15 +205,14 @@ export const deleteExercise = command(z.string(), async (id) => {
 		}
 
 		await db.delete(exercises).where(eq(exercises.id, id));
-
 		await db.delete(courseExercises).where(eq(courseExercises.exerciseId, id));
 
 		return { success: true as const };
-	} catch (e) {
-		console.error('Error deleting exercise:', e);
+	} catch (cause) {
+		console.error('Error deleting exercise:', cause);
 		return {
 			success: false as const,
-			error: e instanceof Error ? e.message : 'Failed to delete exercise'
+			error: cause instanceof Error ? cause.message : 'Failed to delete exercise'
 		};
 	}
 });

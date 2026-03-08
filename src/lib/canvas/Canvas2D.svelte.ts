@@ -7,11 +7,11 @@ import type { BlockDef } from '$lib/blockly/types';
  * Subclasses: Turtle (with pen), Robot (grid-based), etc.
  */
 export class Canvas2D implements IPositionEngine {
-	state = $state<PositionState>({ x: 0, y: 0, angle: 0 });
-	commands = $state<Command[]>([]);
+	state: PositionState = { x: 0, y: 0, angle: 0 };
+	commands: Command[] = [];
 
-	readonly width: number = $state(400);
-	readonly height: number = $state(400);
+	readonly width: number;
+	readonly height: number;
 	gridSize = 50;
 
 	/** Unique identifier for this engine type (used for block prefixing) */
@@ -47,23 +47,36 @@ export class Canvas2D implements IPositionEngine {
 	constructor(width: number, height: number) {
 		this.width = width;
 		this.height = height;
-		this.state.x = width / 2;
-		this.state.y = height / 2;
+		this.state = {
+			x: width / 2,
+			y: height / 2,
+			angle: 0
+		};
 	}
 
 	protected moveBy(distance: number) {
 		const rad = (this.state.angle * Math.PI) / 180;
-		this.state.x += distance * Math.sin(rad);
-		this.state.y -= distance * Math.cos(rad);
+		this.state = {
+			...this.state,
+			x: this.state.x + distance * Math.sin(rad),
+			y: this.state.y - distance * Math.cos(rad)
+		};
 	}
 
 	protected turnBy(degrees: number) {
-		this.state.angle = (this.state.angle + degrees) % 360;
-		if (this.state.angle < 0) this.state.angle += 360;
+		let angle = (this.state.angle + degrees) % 360;
+		if (angle < 0) angle += 360;
+		this.state = {
+			...this.state,
+			angle
+		};
 	}
 
 	protected log(type: string, ...args: (string | number)[]) {
-		this.commands.push({ type, args: args.map((a) => String(a)), timestamp: Date.now() });
+		this.commands = [
+			...this.commands,
+			{ type, args: args.map((a) => String(a)), timestamp: Date.now() }
+		];
 	}
 
 	// Legacy getters for backward compatibility
@@ -76,9 +89,11 @@ export class Canvas2D implements IPositionEngine {
 	}
 
 	reset() {
-		this.state.x = this.width / 2;
-		this.state.y = this.height / 2;
-		this.state.angle = 0;
+		this.state = {
+			x: this.width / 2,
+			y: this.height / 2,
+			angle: 0
+		};
 		this.commands = [];
 	}
 

@@ -103,14 +103,13 @@
 		if (typeof column.cellSnippet !== 'string') {
 			return column.cellSnippet;
 		}
-		console.log(column);
-		console.log(cellSnippets);
+
 		// Otherwise, look it up in cellSnippets dictionary
 		return cellSnippets[column.cellSnippet];
 	}
 </script>
 
-{#snippet defaultSnippet(exercise)}
+{#snippet defaultSnippet(_item: T, _column: Column<T>)}
 	<span>Error rendering snippet</span>
 {/snippet}
 

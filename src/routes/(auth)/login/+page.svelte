@@ -16,8 +16,15 @@
 		i18n.feature_bilingual_ready
 	]);
 
+	let credentials = $state({
+		email: '',
+		password: ''
+	});
 	let forgot = $state(false);
 	let mounted = $state(false);
+	let loginFormRef = $state<HTMLFormElement | undefined>();
+	let registerFormRef = $state<HTMLFormElement | undefined>();
+	let issues = $derived([...(login.fields.allIssues() ?? []), ...(register.fields.allIssues() ?? [])]);
 	onMount(() => {
 		mounted = true;
 	});
@@ -66,15 +73,64 @@
 						</p>
 					{/if}
 
-					<form {...login} class="mt-6 space-y-5">
+					<form
+						bind:this={loginFormRef}
+						class="hidden"
+						aria-hidden="true"
+						{...login.enhance(async ({ submit }) => {
+							try {
+								await submit();
+								const loginIssues = login.fields.allIssues() ?? [];
+								if (loginIssues.length > 0) {
+									showError(loginIssues[0].message);
+								} else {
+									showSuccess('Login successful');
+									goto(resolve('/(app)'));
+								}
+							} catch (e) {
+								console.error(e);
+								showError('Login failed');
+							}
+						})}
+					>
+						<input name="email" type="hidden" bind:value={credentials.email} />
+						<input name="password" type="hidden" bind:value={credentials.password} />
+					</form>
+
+					<form
+						bind:this={registerFormRef}
+						class="hidden"
+						aria-hidden="true"
+						{...register.enhance(async ({ submit }) => {
+							try {
+								await submit();
+								const registerIssues = register.fields.allIssues() ?? [];
+								if (registerIssues.length > 0) {
+									showError(registerIssues[0].message);
+								} else {
+									showSuccess('Registration successful');
+									goto(resolve('/(app)/courses'));
+								}
+							} catch (e) {
+								console.error(e);
+								showError('Registration failed');
+							}
+						})}
+					>
+						<input name="email" type="hidden" bind:value={credentials.email} />
+						<input name="password" type="hidden" bind:value={credentials.password} />
+					</form>
+
+					<div class="mt-6 space-y-5">
 						<div class="space-y-2">
 							<label class="text-sm font-medium text-slate-700" for="email"
 								>{i18n.form_email_label}</label
 							>
 							<input
 								autofocus
+								type="email"
+								bind:value={credentials.email}
 								class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-sky-400 focus:ring-2 focus:ring-sky-200 focus:outline-none"
-								{...login.fields.email.as('text')}
 							/>
 						</div>
 						<div class="space-y-2">
@@ -82,58 +138,33 @@
 								>{i18n.form_password_label}</label
 							>
 							<input
-								{...login.fields.password.as('password')}
+								type="password"
+								bind:value={credentials.password}
 								class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-purple-400 focus:ring-2 focus:ring-purple-200 focus:outline-none"
 							/>
 						</div>
 						<div class="flex w-full flex-wrap justify-center gap-4">
 							<button
-								{...login.buttonProps.enhance(async ({ submit }) => {
-									try {
-										await submit();
-										const issues = login.fields.allIssues();
-										if (issues && issues.length > 0) {
-											showError(issues[0].message);
-										} else {
-											showSuccess('Login successful');
-											goto(resolve('/(app)'));
-										}
-									} catch (e) {
-										console.error(e);
-										showError('Login failed');
-									}
-								})}
+								type="button"
+								onclick={() => loginFormRef?.requestSubmit()}
 								class="btn w-full flex-1 btn-primary"
 							>
 								{i18n.login_submit_button}
 							</button>
 							<button
-								{...register.buttonProps.enhance(async ({ submit }) => {
-									try {
-										await submit();
-										const issues = register.fields.allIssues();
-										if (issues && issues.length > 0) {
-											showError(issues[0].message);
-										} else {
-											showSuccess('Registration successful');
-											goto(resolve('/(app)/courses'));
-										}
-									} catch (e) {
-										console.error(e);
-										showError('Registration failed');
-									}
-								})}
+								type="button"
+								onclick={() => registerFormRef?.requestSubmit()}
 								class="btn w-full flex-1 btn-secondary"
 							>
 								{i18n.register_submit_button}
 							</button>
 						</div>
-						{#each login.fields.allIssues() || register.fields.allIssues() as issue (issue.message)}
+						{#each issues as issue (`${issue.path}-${issue.message}`)}
 							{#if issue}
 								<span class="text-red-500 opacity-80">{issue.message}</span>
 							{/if}
 						{/each}
-					</form>
+					</div>
 					<div class="mt-4">
 						<button onclick={() => (forgot = true)} class="cursor-pointer">
 							Forgot password?

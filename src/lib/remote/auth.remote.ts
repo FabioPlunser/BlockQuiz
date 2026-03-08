@@ -1,15 +1,10 @@
-import { form, query, getRequestEvent, command } from '$app/server';
+import { form, query, getRequestEvent } from '$app/server';
 import { loginSchema } from '$remote/schemas/authSchema';
-import { redirect, error, invalid } from '@sveltejs/kit';
+import { redirect, invalid } from '@sveltejs/kit';
 import { auth } from '$server/auth';
-import { BetterAuthError } from 'better-auth';
 import { getResetToken, getUser } from '$lib/helper/dbHelper';
 import { logger } from '$lib/logs/logger';
 import { z } from 'zod';
-import { db } from '$db/client';
-import { user, user } from '$db/schema';
-import { eq } from 'drizzle-orm';
-import { tryCatch } from '$lib/utils/tryCatch';
 import { resolve } from '$app/paths';
 
 export const login = form(loginSchema, async (data, issue) => {

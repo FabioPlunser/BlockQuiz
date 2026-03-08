@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { getLocale } from '$lib/i18n/index.svelte';
 	import type { Exercise } from '$lib/types/exercise';
+	import type { AttemptCapture, HintRevealEvent } from '$lib/types/attempt';
 	import type { GradingResult } from '$lib/player/executor';
 	import type { BlocklyToolboxConfig, BlocklyCategoryConfig } from '$lib/blockly/types';
 	import { BlocklyToolboxKind } from '$lib/blockly/types';
@@ -17,27 +19,41 @@
 		exercise: Exercise;
 		currentIndex: number;
 		totalExercises: number;
-		onSubmit: (result: GradingResult) => void;
+		onSubmit: (payload: { result: GradingResult; capture: AttemptCapture }) => void;
 		onNext: () => void;
 		hasNextExercise: boolean;
+		initialWorkspaceXml?: string;
 	};
 
-	let { exercise, currentIndex, totalExercises, onSubmit, onNext, hasNextExercise }: Props =
-		$props();
+	let {
+		exercise,
+		currentIndex,
+		totalExercises,
+		onSubmit,
+		onNext,
+		hasNextExercise,
+		initialWorkspaceXml = ''
+	}: Props = $props();
 
 	// Get singleton state
-	const state = getExecutionState();
+	const executionState = getExecutionState();
 
 	// Reactive access to shared state
-	let result = $derived(state.result);
-	let isSubmitting = $derived(state.isSubmitting);
+	let result = $derived(executionState.result);
+	let isSubmitting = $derived(executionState.isSubmitting);
 
-	let blocklyRef: BlocklyWorkspace;
+	let blocklyRef = $state<BlocklyWorkspace | undefined>(undefined);
+	let hintEvents = $state<HintRevealEvent[]>([]);
 
 	// Get code from Blockly workspace
 	function getCode(): string {
 		if (!blocklyRef) return '';
 		return blocklyRef.getCode();
+	}
+
+	function getWorkspaceXml(): string {
+		if (!blocklyRef) return '';
+		return blocklyRef.getXml();
 	}
 
 	// Build toolbox config from exercise configuration
@@ -93,11 +109,31 @@
 
 	// Handle submission
 	function handleSubmit(result: GradingResult) {
-		onSubmit(result);
+		const locale = getLocale() === 'de' ? 'de' : 'en';
+		onSubmit({
+			result,
+			capture: {
+				workspaceXml: getWorkspaceXml(),
+				generatedCode: getCode(),
+				locale,
+				hintEventsJson: JSON.stringify(hintEvents),
+				analyticsJson: JSON.stringify({
+					exerciseType: exercise.type,
+					totalTests: result.totalTests,
+					passedTests: result.passedTests,
+					hintUsageCount: hintEvents.length,
+					submittedAt: Date.now()
+				})
+			}
+		});
 	}
 
 	function handleRetry() {
-		state.handleRetry();
+		executionState.handleRetry();
+	}
+
+	function handleHintEventsChange(nextEvents: HintRevealEvent[]) {
+		hintEvents = [...nextEvents];
 	}
 </script>
 
@@ -106,7 +142,12 @@
 	<div class="flex w-1/3 flex-col gap-4 overflow-hidden">
 		<!-- Exercise info - constrained height with scroll -->
 		<div class="shrink-0 overflow-y-auto">
-			<ExerciseInfoPanel {exercise} {currentIndex} {totalExercises} />
+			<ExerciseInfoPanel
+				{exercise}
+				{currentIndex}
+				{totalExercises}
+				onHintEventsChange={handleHintEventsChange}
+			/>
 		</div>
 	</div>
 
@@ -117,7 +158,7 @@
 			<BlocklyWorkspace
 				bind:this={blocklyRef}
 				toolboxConfig={getToolbox()}
-				starterXml={exercise.config.hasStarterBlocks ? exercise.config.starterXml : ''}
+				starterXml={initialWorkspaceXml || (exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
 			/>
 		{/key}
 	</div>

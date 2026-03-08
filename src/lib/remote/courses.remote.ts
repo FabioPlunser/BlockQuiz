@@ -5,7 +5,8 @@ import { db } from '$lib/server/db/client';
 import { courses, courseExercises, courseUsers, exercises, attempts } from '$lib/server/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { requireAuth, requireTeacherOrAdmin } from '$lib/utils/requireAuth';
-import type { Exercise } from '$lib/types/exercise';
+import { canonicalizeExercise, type Exercise } from '$lib/types/exercise';
+import type { AttemptLocale } from '$lib/types/attempt';
 
 // =============================================================================
 // Zod Schemas
@@ -32,6 +33,84 @@ const updateCourseSchema = createCourseSchema.extend({
 	id: z.string()
 });
 
+const guestAttemptImportSchema = z.object({
+	id: z.string(),
+	exerciseId: z.string(),
+	clientId: z.string(),
+	actorType: z.literal('guest'),
+	workspaceXml: z.string().optional().default(''),
+	generatedCode: z.string().optional().default(''),
+	resultJson: z.string(),
+	locale: z.enum(['de', 'en']).default('de'),
+	startedAt: z.number(),
+	endedAt: z.number(),
+	score: z.number().min(0).max(100),
+	passed: z.boolean(),
+	hintEventsJson: z.string().optional().default('[]'),
+	analyticsJson: z.string().optional().default('{}'),
+	createdAt: z.number()
+});
+
+async function mapCoursesWithRelations(
+	courseRows: Array<typeof courses.$inferSelect>,
+	options: { includeUsers?: boolean; publishedExercisesOnly?: boolean } = {}
+) {
+	const allCourseExercises = await db.select().from(courseExercises);
+	const allExercises = await db.select().from(exercises);
+	const exerciseIdFilter = new Set(
+		allExercises
+			.filter((exercise) => !options.publishedExercisesOnly || exercise.published)
+			.map((exercise) => exercise.id)
+	);
+
+	const allCourseUsers = options.includeUsers ? await db.select().from(courseUsers) : [];
+
+	return courseRows.map((course) => ({
+		...course,
+		exerciseIds: allCourseExercises
+			.filter((relation) => relation.courseId === course.id && exerciseIdFilter.has(relation.exerciseId))
+			.sort((left, right) => left.order - right.order)
+			.map((relation) => relation.exerciseId),
+		userIds: options.includeUsers
+			? allCourseUsers.filter((relation) => relation.courseId === course.id).map((relation) => relation.userId)
+			: []
+	}));
+}
+
+async function loadPublishedCourseExercises(courseId: string): Promise<Exercise[]> {
+	const courseExerciseRelations = await db
+		.select()
+		.from(courseExercises)
+		.where(eq(courseExercises.courseId, courseId))
+		.orderBy(courseExercises.order);
+
+	if (courseExerciseRelations.length === 0) {
+		return [];
+	}
+
+	const courseExerciseList: Exercise[] = [];
+	for (const relation of courseExerciseRelations) {
+		const [exercise] = await db
+			.select()
+			.from(exercises)
+			.where(and(eq(exercises.id, relation.exerciseId), eq(exercises.published, true)))
+			.limit(1);
+		if (exercise) {
+			courseExerciseList.push(
+				canonicalizeExercise({
+					...exercise,
+					content: exercise.content,
+					config: exercise.config,
+					validationJson: exercise.validationJson,
+					image: exercise.image
+				})
+			);
+		}
+	}
+
+	return courseExerciseList;
+}
+
 // =============================================================================
 // Query Functions
 // =============================================================================
@@ -39,23 +118,7 @@ const updateCourseSchema = createCourseSchema.extend({
 export const getCourses = query('unchecked', async () => {
 	requireTeacherOrAdmin();
 
-	// Get all courses
-	const _courses = await db.select().from(courses);
-
-	// Get all course-exercise relationships
-	const allCourseExercises = await db.select().from(courseExercises);
-
-	// Get all course-user relationships
-	const allCourseUsers = await db.select().from(courseUsers);
-
-	// Map courses with their exercise and user IDs
-	return _courses.map((course) => ({
-		...course,
-		exerciseIds: allCourseExercises
-			.filter((ce) => ce.courseId === course.id)
-			.map((ce) => ce.exerciseId),
-		userIds: allCourseUsers.filter((cu) => cu.courseId === course.id).map((cu) => cu.userId)
-	}));
+	return mapCoursesWithRelations(await db.select().from(courses), { includeUsers: true });
 });
 
 export const getCourse = query(z.object({ id: z.string() }), async ({ id }) => {
@@ -104,24 +167,16 @@ export const getUserCourses = query('unchecked', async () => {
 		return [];
 	}
 
-	// Get all courses
-	const allCourses = await db.select().from(courses);
-
-	// Filter to only published courses assigned to user
-	const userCourses = allCourses.filter(
+	const userCourses = (await db.select().from(courses)).filter(
 		(course) => userCourseIds.includes(course.id) && course.published
 	);
 
-	// Get all course-exercise relationships for these courses
-	const allCourseExercises = await db.select().from(courseExercises);
+	return mapCoursesWithRelations(userCourses, { publishedExercisesOnly: true });
+});
 
-	// Map courses with their exercise IDs
-	return userCourses.map((course) => ({
-		...course,
-		exerciseIds: allCourseExercises
-			.filter((ce) => ce.courseId === course.id)
-			.map((ce) => ce.exerciseId)
-	}));
+export const getPublicCourses = query('unchecked', async () => {
+	const publicCourses = (await db.select().from(courses)).filter((course) => course.published);
+	return mapCoursesWithRelations(publicCourses, { publishedExercisesOnly: true });
 });
 
 // =============================================================================
@@ -154,26 +209,21 @@ export const getCourseExercises = query(z.string(), async (courseId) => {
 		error(403, 'This course is not published');
 	}
 
-	// Get exercise IDs for this course in order
-	const courseExerciseRelations = await db
+	return loadPublishedCourseExercises(courseId);
+});
+
+export const getPublicCourseExercises = query(z.string(), async (courseId) => {
+	const [course] = await db
 		.select()
-		.from(courseExercises)
-		.where(eq(courseExercises.courseId, courseId))
-		.orderBy(courseExercises.order);
+		.from(courses)
+		.where(and(eq(courses.id, courseId), eq(courses.published, true)))
+		.limit(1);
 
-	if (courseExerciseRelations.length === 0) {
-		return [];
+	if (!course) {
+		error(404, 'Course not found');
 	}
 
-	// Get the actual exercises
-	const exerciseIds = courseExerciseRelations.map((r) => r.exerciseId);
-	const courseExerciseList = [];
-	for (const id of exerciseIds) {
-		const exercise = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
-		courseExerciseList.push(exercise[0]);
-	}
-
-	return courseExerciseList as Exercise[];
+	return loadPublishedCourseExercises(courseId);
 });
 
 /**
@@ -182,32 +232,103 @@ export const getCourseExercises = query(z.string(), async (courseId) => {
 export const submitAttempt = command(
 	z.object({
 		exerciseId: z.string(),
+		workspaceXml: z.string().optional().default(''),
+		generatedCode: z.string().optional().default(''),
 		resultJson: z.string(),
 		score: z.number().min(0).max(100),
 		passed: z.boolean(),
 		startedAt: z.number(),
-		locale: z.enum(['de', 'en']).optional().default('de')
+		endedAt: z.number().optional(),
+		locale: z.enum(['de', 'en']).optional().default('de'),
+		hintEventsJson: z.string().optional().default('[]'),
+		analyticsJson: z.string().optional().default('{}')
 	}),
 	async (data) => {
 		const user = requireAuth();
 
 		const id = crypto.randomUUID();
-		const now = Date.now();
+		const endedAt = data.endedAt ?? Date.now();
 
 		await db.insert(attempts).values({
 			id,
 			exerciseId: data.exerciseId,
 			userId: user.id,
+			clientId: null,
+			actorType: 'user',
+			workspaceXml: data.workspaceXml,
+			generatedCode: data.generatedCode,
 			resultJson: data.resultJson,
 			score: data.score,
 			passed: data.passed,
 			startedAt: data.startedAt,
-			endedAt: now,
+			endedAt,
 			locale: data.locale,
-			createdAt: now
+			hintEventsJson: data.hintEventsJson,
+			analyticsJson: data.analyticsJson,
+			createdAt: endedAt
 		});
 
 		return { id, success: true };
+	}
+);
+
+export const importGuestAttempts = command(
+	z.object({
+		attempts: z.array(guestAttemptImportSchema)
+	}),
+	async ({ attempts: guestAttempts }) => {
+		const user = requireAuth();
+
+		if (guestAttempts.length === 0) {
+			return {
+				success: true as const,
+				importedCount: 0
+			};
+		}
+
+		const existingAttemptIds = new Set(
+			(
+				await db
+					.select({ id: attempts.id })
+					.from(attempts)
+					.where(eq(attempts.userId, user.id))
+			).map((attempt) => attempt.id)
+		);
+
+		const values = guestAttempts
+			.filter((attempt) => !existingAttemptIds.has(attempt.id))
+			.map((attempt) => ({
+				id: attempt.id,
+				exerciseId: attempt.exerciseId,
+				userId: user.id,
+				clientId: null,
+				actorType: 'user' as const,
+				workspaceXml: attempt.workspaceXml,
+				generatedCode: attempt.generatedCode,
+				resultJson: attempt.resultJson,
+				score: attempt.score,
+				passed: attempt.passed,
+				startedAt: attempt.startedAt,
+				endedAt: attempt.endedAt,
+				locale: attempt.locale as AttemptLocale,
+				hintEventsJson: attempt.hintEventsJson,
+				analyticsJson: attempt.analyticsJson,
+				createdAt: attempt.createdAt
+			}));
+
+		if (values.length === 0) {
+			return {
+				success: true as const,
+				importedCount: 0
+			};
+		}
+
+		await db.insert(attempts).values(values);
+
+		return {
+			success: true as const,
+			importedCount: values.length
+		};
 	}
 );
 
@@ -252,7 +373,7 @@ export const getCourseProgress = query(z.object({ courseId: z.string() }), async
 	for (const exerciseId of exerciseIds) {
 		const exerciseAttempts = userAttempts.filter((a) => a.exerciseId === exerciseId);
 		if (exerciseAttempts.length > 0) {
-			const bestScore = Math.max(...exerciseAttempts.map((a) => a.score ?? 0));
+			const bestScore = Math.max(...exerciseAttempts.map((a) => a.score));
 			const hasPassed = exerciseAttempts.some((a) => a.passed);
 			exerciseProgress[exerciseId] = {
 				passed: hasPassed,

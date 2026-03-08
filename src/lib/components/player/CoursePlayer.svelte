@@ -1,23 +1,73 @@
 <script lang="ts">
 	import type { Course } from '$lib/types/course';
 	import type { Exercise } from '$lib/types/exercise';
+	import type { AttemptCapture, AttemptSubmission } from '$lib/types/attempt';
 	import type { GradingResult } from '$lib/player/executor';
 	import { getLocalized } from '$lib/i18n/index.svelte';
-	import { submitAttempt } from '$lib/remote/courses.remote';
 	import ExercisePlayer from './ExercisePlayer.svelte';
 	import { Trophy, CircleCheck, ArrowLeft } from '@lucide/svelte';
+
+	type ExerciseProgress = {
+		passed: boolean;
+		bestScore: number;
+		attemptCount: number;
+	};
+
+	type ExerciseSnapshot = {
+		workspaceXml?: string;
+	};
 
 	type Props = {
 		course: Course;
 		exercises: Exercise[];
 		onBack: () => void;
+		persistAttempt: (attempt: AttemptSubmission) => Promise<void> | void;
+		initialProgress?: Record<string, ExerciseProgress>;
+		initialSnapshots?: Record<string, ExerciseSnapshot>;
+		initialExerciseIndex?: number;
+		onExerciseChange?: (payload: { exerciseId?: string; exerciseIndex: number }) => void;
 	};
 
-	let { course, exercises, onBack }: Props = $props();
+	let {
+		course,
+		exercises,
+		onBack,
+		persistAttempt,
+		initialProgress = {},
+		initialSnapshots = {},
+		initialExerciseIndex,
+		onExerciseChange
+	}: Props = $props();
+
+	function createExerciseResults(progress: Record<string, ExerciseProgress>) {
+		return new Map(
+			Object.entries(progress).map(([exerciseId, value]) => [
+				exerciseId,
+				{
+					passed: value.passed,
+					score: value.bestScore,
+					attemptCount: value.attemptCount
+				}
+			])
+		);
+	}
+
+	function getDefaultExerciseIndex() {
+		if (typeof initialExerciseIndex === 'number' && initialExerciseIndex >= 0) {
+			return Math.min(initialExerciseIndex, Math.max(exercises.length - 1, 0));
+		}
+
+		const firstIncompleteIndex = exercises.findIndex(
+			(exercise) => !initialProgress[exercise.id]?.passed
+		);
+		return firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
+	}
 
 	// State
-	let currentExerciseIndex = $state(0);
-	let exerciseResults = $state<Map<string, { passed: boolean; score: number }>>(new Map());
+	let currentExerciseIndex = $state(getDefaultExerciseIndex());
+	let exerciseResults = $state<
+		Map<string, { passed: boolean; score: number; attemptCount: number }>
+	>(createExerciseResults(initialProgress));
 	let isSubmitting = $state(false);
 	let showCompletionModal = $state(false);
 	let startTime = $state(Date.now());
@@ -35,34 +85,52 @@
 	);
 	let allCompleted = $derived(completedCount === exercises.length && exercises.length > 0);
 
+	$effect(() => {
+		onExerciseChange?.({
+			exerciseId: currentExercise?.id,
+			exerciseIndex: currentExerciseIndex
+		});
+	});
+
 	// Handle exercise submission
-	async function handleSubmit(result: GradingResult) {
+	async function handleSubmit({
+		result,
+		capture
+	}: {
+		result: GradingResult;
+		capture: AttemptCapture;
+	}) {
 		if (!currentExercise) return;
 
 		isSubmitting = true;
 
 		try {
-			// Save the result locally
+			const previous = exerciseResults.get(currentExercise.id);
+			const endedAt = Date.now();
+
 			exerciseResults.set(currentExercise.id, {
-				passed: result.passed,
-				score: result.score
+				passed: previous?.passed || result.passed,
+				score: Math.max(previous?.score ?? 0, result.score),
+				attemptCount: (previous?.attemptCount ?? 0) + 1
 			});
 			exerciseResults = new Map(exerciseResults);
 
-			// Submit to database
-			await submitAttempt({
+			await persistAttempt({
 				exerciseId: currentExercise.id,
+				workspaceXml: capture.workspaceXml,
+				generatedCode: capture.generatedCode,
 				resultJson: JSON.stringify(result),
+				locale: capture.locale,
+				startedAt: startTime,
+				endedAt,
 				score: result.score,
 				passed: result.passed,
-				startedAt: startTime,
-				locale: 'de'
+				hintEventsJson: capture.hintEventsJson,
+				analyticsJson: capture.analyticsJson
 			});
 
-			// Check if all exercises are completed
-			// Calculate directly after Map update to ensure accuracy
 			const newCompletedCount = [...exerciseResults.values()].filter((r) => r.passed).length;
-			if (result.passed && newCompletedCount === exercises.length && exercises.length > 0) {
+			if (!previous?.passed && result.passed && newCompletedCount === exercises.length && exercises.length > 0) {
 				showCompletionModal = true;
 			}
 		} catch (err) {
@@ -169,6 +237,7 @@
 					onSubmit={handleSubmit}
 					onNext={goToNext}
 					{hasNextExercise}
+					initialWorkspaceXml={initialSnapshots[currentExercise.id]?.workspaceXml ?? ''}
 				/>
 			{/key}
 		{:else}

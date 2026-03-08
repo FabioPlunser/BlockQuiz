@@ -1,12 +1,12 @@
 /**
- * Sandbox Execution Tests using Bun
- * 
+ * Sandbox execution tests.
+ *
  * These tests verify the sandbox message protocol and types.
  * Browser-specific functionality (iframe, postMessage) should be tested manually
  * or with an E2E testing framework.
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect } from 'vitest';
 import type {
 	ExecuteMessage,
 	ResultMessage,
@@ -317,4 +317,3 @@ describe('Execution Result Handling', () => {
 		expect(result.commands).toHaveLength(2);
 	});
 });
-

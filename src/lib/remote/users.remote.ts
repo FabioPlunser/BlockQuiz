@@ -1,10 +1,11 @@
 import { query, form, command } from '$app/server';
 import { db } from '$db/client';
-import { user, account } from '$server/db/schema';
+import { user, account } from '$db/schema';
 import { eq, like, and, or } from 'drizzle-orm';
 import {
 	userFilterSchema,
-	createUpdateUserSchema,
+	createUserSchema,
+	updateUserSchema,
 	resetPasswordSchema
 } from '$remote/schemas/usersSchema';
 import { requireAuth } from '$lib/utils/requireAuth';
@@ -43,20 +44,21 @@ export const getUsers = query(userFilterSchema, async (filters) => {
 		.where(and(...conditions));
 });
 
-export const createUser = form(createUpdateUserSchema, async (data) => {
+export const createUser = form(createUserSchema, async (data) => {
 	requireAuth(Role.ADMIN);
-	if (!data?.email) {
+	if (!data.email) {
 		invalid('Email is required');
 		return { success: false as const, error: 'Email is required' };
 	}
+
 	try {
 		const existingUser = await getUser(data.email);
 		if (existingUser) {
 			invalid('User already exists');
 			return { success: false as const, error: 'User already exists' };
 		}
-	} catch (e) {
-		console.error(e);
+	} catch {
+		// Missing user is the expected path for account creation.
 	}
 
 	try {
@@ -68,8 +70,8 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 			id: userId,
 			name: data.email,
 			email: data.email,
-			role: data.role,
-			active: data.active,
+			role: data.role ?? Role.STUDENT,
+			active: data.active ?? true,
 			emailVerified: false,
 			createdAt: now,
 			updatedAt: now
@@ -95,14 +97,18 @@ export const createUser = form(createUpdateUserSchema, async (data) => {
 	}
 });
 
-export const updateUser = command(createUpdateUserSchema, async (data) => {
+export const updateUser = command(updateUserSchema, async (data) => {
 	requireAuth(Role.ADMIN);
 	const { id, email, role, active } = data;
+
 	try {
 		await db
 			.update(user)
 			.set({
-				...data
+				email,
+				role,
+				active,
+				updatedAt: new Date()
 			})
 			.where(eq(user.id, id));
 		return { success: true as const, id };
@@ -137,7 +143,6 @@ export const resetPassword = form(resetPasswordSchema, async (data) => {
 		}
 
 		const token = await getResetToken(_user.email);
-		console.log(token);
 		if (!token) {
 			invalid('Reset token not generated');
 		}
