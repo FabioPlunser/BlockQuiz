@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { HintRevealEvent } from '$lib/types/attempt';
 	import type { Exercise, ExerciseHint } from '$lib/types/exercise';
-	import { getLocalized } from '$lib/i18n/index.svelte';
+	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { Lightbulb, ChevronRight, Clock, Eye } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
@@ -95,7 +95,7 @@
 	<!-- Progress Indicator -->
 	<div class="flex items-center justify-between">
 		<span class="text-sm font-medium text-base-content/60">
-			Exercise {currentIndex + 1} of {totalExercises}
+			{i18n.course_exercise_label} {currentIndex + 1} / {totalExercises}
 		</span>
 		<div class="flex gap-1">
 			{#each Array(totalExercises) as _, i (i)}
@@ -144,7 +144,7 @@
 		<div class="space-y-2">
 			<div class="flex items-center gap-2 text-sm font-medium">
 				<Lightbulb class="h-4 w-4 text-warning" />
-				<span>Hints</span>
+				<span>{i18n.player_hints}</span>
 				<span class="text-base-content/50">
 					({revealedHints.length}/{exercise.config.hints.length})
 				</span>
@@ -167,13 +167,13 @@
 								onclick={() => revealHint(hint.id)}
 							>
 								<Lightbulb class="h-4 w-4" />
-								<span>Reveal Hint {index + 1}</span>
+								<span>{i18n.player_reveal_hint?.replace('{n}', String(index + 1)) ?? `Reveal Hint ${index + 1}`}</span>
 								<ChevronRight class="ml-auto h-4 w-4" />
 							</button>
 						{:else}
 							<div class="flex items-center gap-2 text-sm text-base-content/50">
 								<Clock class="h-4 w-4" />
-								<span>Hint available in {hint.delaySeconds}s</span>
+								<span>{i18n.player_hint_available_in?.replace('{n}', String(hint.delaySeconds)) ?? `Hint available in ${hint.delaySeconds}s`}</span>
 							</div>
 						{/if}
 					</div>

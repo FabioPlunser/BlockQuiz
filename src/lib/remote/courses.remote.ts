@@ -246,6 +246,29 @@ export const submitAttempt = command(
 	async (data) => {
 		const user = requireAuth();
 
+		// Server-side validation: recalculate score and passed from resultJson
+		// to prevent client-side tampering with reported values.
+		let validatedScore = data.score;
+		let validatedPassed = data.passed;
+		try {
+			const result = JSON.parse(data.resultJson);
+			if (
+				result &&
+				typeof result === 'object' &&
+				Array.isArray(result.testResults) &&
+				result.testResults.length > 0
+			) {
+				const totalTests = result.testResults.length;
+				const passedTests = result.testResults.filter(
+					(t: { passed?: boolean }) => t.passed === true
+				).length;
+				validatedScore = Math.round((passedTests / totalTests) * 100);
+				validatedPassed = totalTests > 0 && passedTests === totalTests;
+			}
+		} catch {
+			// If resultJson is unparseable, fall back to client values
+		}
+
 		const id = crypto.randomUUID();
 		const endedAt = data.endedAt ?? Date.now();
 
@@ -258,8 +281,8 @@ export const submitAttempt = command(
 			workspaceXml: data.workspaceXml,
 			generatedCode: data.generatedCode,
 			resultJson: data.resultJson,
-			score: data.score,
-			passed: data.passed,
+			score: validatedScore,
+			passed: validatedPassed,
 			startedAt: data.startedAt,
 			endedAt,
 			locale: data.locale,
@@ -391,6 +414,125 @@ export const getCourseProgress = query(z.object({ courseId: z.string() }), async
 		progress: exerciseIds.length > 0 ? (completedCount / exerciseIds.length) * 100 : 0,
 		exerciseProgress
 	};
+});
+
+/**
+ * Get aggregate analytics for a course (teacher/admin only).
+ * Returns per-exercise stats: attempt count, unique students, pass rate, avg score.
+ */
+export const getCourseAnalytics = query(z.object({ courseId: z.string() }), async ({ courseId }) => {
+	requireTeacherOrAdmin();
+
+	const courseExerciseRelations = await db
+		.select()
+		.from(courseExercises)
+		.where(eq(courseExercises.courseId, courseId))
+		.orderBy(courseExercises.order);
+
+	const exerciseIds = courseExerciseRelations.map((r) => r.exerciseId);
+
+	if (exerciseIds.length === 0) {
+		return { exerciseCount: 0, exercises: [], totals: { attempts: 0, students: 0, passRate: 0, avgScore: 0 } };
+	}
+
+	const exerciseRows = await db.select().from(exercises);
+	const exerciseMap = new Map(exerciseRows.map((e) => [e.id, e]));
+
+	const allAttempts = await db.select().from(attempts);
+	const allStudentIds = new Set<string>();
+	let totalAttempts = 0;
+	let totalPassed = 0;
+	let totalScore = 0;
+
+	const exerciseAnalytics = exerciseIds.map((exerciseId) => {
+		const ex = exerciseMap.get(exerciseId);
+		const title = ex?.content && typeof ex.content === 'object' && 'title' in (ex.content as Record<string, unknown>)
+			? ((ex.content as Record<string, unknown>).title as { de: string; en: string })
+			: { de: exerciseId, en: exerciseId };
+
+		const exAttempts = allAttempts.filter((a) => a.exerciseId === exerciseId);
+		const studentIds = new Set(exAttempts.map((a) => a.userId ?? a.clientId ?? '').filter(Boolean));
+		studentIds.forEach((id) => allStudentIds.add(id));
+
+		const passedCount = exAttempts.filter((a) => a.passed).length;
+		const avgScore = exAttempts.length > 0
+			? Math.round(exAttempts.reduce((sum, a) => sum + a.score, 0) / exAttempts.length)
+			: 0;
+
+		totalAttempts += exAttempts.length;
+		totalPassed += passedCount;
+		totalScore += exAttempts.reduce((sum, a) => sum + a.score, 0);
+
+		return {
+			exerciseId,
+			title,
+			type: ex?.type ?? 'io',
+			attempts: exAttempts.length,
+			students: studentIds.size,
+			passRate: exAttempts.length > 0 ? Math.round((passedCount / exAttempts.length) * 100) : 0,
+			avgScore
+		};
+	});
+
+	return {
+		exerciseCount: exerciseIds.length,
+		exercises: exerciseAnalytics,
+		totals: {
+			attempts: totalAttempts,
+			students: allStudentIds.size,
+			passRate: totalAttempts > 0 ? Math.round((totalPassed / totalAttempts) * 100) : 0,
+			avgScore: totalAttempts > 0 ? Math.round(totalScore / totalAttempts) : 0
+		}
+	};
+});
+
+/**
+ * Export all attempts for a course as structured data (for CSV generation client-side).
+ */
+export const exportCourseAttempts = query(z.object({ courseId: z.string() }), async ({ courseId }) => {
+	requireTeacherOrAdmin();
+
+	const courseExerciseRelations = await db
+		.select()
+		.from(courseExercises)
+		.where(eq(courseExercises.courseId, courseId))
+		.orderBy(courseExercises.order);
+
+	const exerciseIds = new Set(courseExerciseRelations.map((r) => r.exerciseId));
+
+	const exerciseRows = await db.select().from(exercises);
+	const exerciseMap = new Map(exerciseRows.map((e) => [e.id, e]));
+
+	const allAttempts = await db
+		.select()
+		.from(attempts)
+		.orderBy(desc(attempts.createdAt));
+
+	const rows = allAttempts
+		.filter((a) => exerciseIds.has(a.exerciseId))
+		.map((a) => {
+			const ex = exerciseMap.get(a.exerciseId);
+			const title = ex?.content && typeof ex.content === 'object' && 'title' in (ex.content as Record<string, unknown>)
+				? ((ex.content as Record<string, unknown>).title as { de: string; en: string })
+				: { de: a.exerciseId, en: a.exerciseId };
+
+			return {
+				attemptId: a.id,
+				exerciseId: a.exerciseId,
+				exerciseTitle: title.en || title.de,
+				exerciseType: ex?.type ?? '',
+				userId: a.userId ?? '',
+				actorType: a.actorType,
+				score: a.score,
+				passed: a.passed,
+				startedAt: a.startedAt,
+				endedAt: a.endedAt,
+				locale: a.locale,
+				createdAt: a.createdAt
+			};
+		});
+
+	return { rows };
 });
 
 // =============================================================================

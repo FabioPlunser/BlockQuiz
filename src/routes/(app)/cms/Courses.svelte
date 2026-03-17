@@ -5,6 +5,7 @@
 	import Boundary from '$cp/Boundary.svelte';
 	import CourseEditor from './CourseEditor.svelte';
 	import ExerciseEditor from './ExerciseEditor.svelte';
+	import CourseAnalytics from './CourseAnalytics.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import type { Column } from '$lib/components/DataTable.svelte';
 
@@ -15,7 +16,7 @@
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { handleServerResult } from '$lib/utils/toast';
-	import { BookOpen, Eye, Pencil, Trash2 } from '@lucide/svelte';
+	import { BarChart3, BookOpen, Eye, Pencil, Trash2 } from '@lucide/svelte';
 
 	// --------------------------------------------------------------------
 	// State
@@ -30,6 +31,9 @@
 	let editExercise = $state(false);
 	let selectedExercise: (Exercise & { id: string }) | undefined = $state(undefined);
 	let viewingCourseExercises: Course | undefined = $state(undefined);
+
+	// Analytics state
+	let viewingAnalytics: Course | undefined = $state(undefined);
 
 	// Column visibility state
 	let visibleColumns = new PersistedState<string[]>('coursesVisibleColumns', [
@@ -191,6 +195,10 @@
 		viewingCourseExercises = course;
 	}
 
+	function handleViewAnalytics(course: Course) {
+		viewingAnalytics = course;
+	}
+
 	function handleEditExercise(exercise: Exercise) {
 		selectedExercise = exercise;
 		editExercise = true;
@@ -238,6 +246,9 @@
 				{/if}
 			</div>
 			<div class="mt-4 card-actions justify-end">
+				<button class="btn btn-sm btn-ghost" onclick={() => handleViewAnalytics(course)} title="Analytics">
+					<BarChart3 class="h-4 w-4" />
+				</button>
 				<button class="btn btn-sm btn-error" onclick={() => handleDelete(course)}>Delete</button>
 				<button class="btn btn-sm btn-primary" onclick={() => handleEdit(course)}>Edit</button>
 			</div>
@@ -256,6 +267,9 @@
 				<Eye class="h-3 w-3" />
 			</button>
 		{/if}
+		<button class="btn btn-ghost btn-xs" onclick={() => handleViewAnalytics(course)} title="Analytics">
+			<BarChart3 class="h-3 w-3" />
+		</button>
 		<button class="btn btn-ghost btn-xs" onclick={() => handleEdit(course)} title="Edit">
 			<Pencil class="h-3 w-3" />
 		</button>
@@ -283,8 +297,17 @@
 
 <div class="p-4">
 	<Boundary loading={courses.loading}>
+		<!-- Analytics View -->
+		{#if viewingAnalytics}
+			<CourseAnalytics
+				courseId={viewingAnalytics.id}
+				courseTitle={getLocalized(viewingAnalytics.content?.title)}
+				onBack={() => (viewingAnalytics = undefined)}
+			/>
+		{/if}
+
 		<!-- Main Course List View -->
-		{#if !newCourse && !editCourse && !viewingCourseExercises && !editExercise}
+		{#if !newCourse && !editCourse && !viewingCourseExercises && !editExercise && !viewingAnalytics}
 			<CMSToolbar
 				bind:viewMode={viewMode.current}
 				bind:searchQuery

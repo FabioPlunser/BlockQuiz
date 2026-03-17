@@ -3,7 +3,8 @@
 	import LocalizedInput from '$cp/editor/LocalizedInput.svelte';
 	import TypeModeSelector from '$cp/editor/TypeModeSelector.svelte';
 	import BlockPicker from '$cp/editor/BlockPicker.svelte';
-	import type { ExerciseFormData, TestCase } from '$types/exercise';
+	import type { ExerciseFormData, TestCase, PublishValidationResult } from '$types/exercise';
+	import { canonicalizeExercise, validateExercise } from '$types/exercise';
 	import { MoveLeft } from '@lucide/svelte';
 
 	import {
@@ -68,6 +69,34 @@
 	let blocklyRef: BlocklyWorkspace;
 	let toolboxVersion = $state(0);
 	let showManualTests = $state(false);
+	let validationResult = $state<PublishValidationResult | null>(null);
+
+	function runValidation(): PublishValidationResult {
+		const hydrated = canonicalizeExercise({
+			id: exercise.id ?? 'validation-check',
+			courseId: exercise.courseId,
+			type: exercise.type,
+			content: exercise.content,
+			config: exercise.config,
+			published: exercise.published,
+			order: exercise.order
+		});
+		return validateExercise(hydrated);
+	}
+
+	function handlePublishToggle(e: Event) {
+		const checked = (e.target as HTMLInputElement).checked;
+		if (checked) {
+			const result = runValidation();
+			validationResult = result;
+			if (!result.valid) {
+				exercise.published = false;
+				return;
+			}
+		}
+		exercise.published = checked;
+		if (!checked) validationResult = null;
+	}
 
 	let pathOverlay = $derived(exercise.config.canvas.pathOverlay);
 	let targets = $derived(exercise.config.canvas.targets);
@@ -374,9 +403,14 @@
 				<MoveLeft size="32" />
 			</button>
 			<h1 class="text-2xl font-bold">Create Exercise</h1>
-			<div class="absolute right-4 flex flex-wrap gap-4">
+			<div class="absolute right-4 flex flex-wrap items-center gap-4">
 				<label class="label cursor-pointer gap-2">
-					<input type="checkbox" class="toggle toggle-primary" bind:checked={exercise.published} />
+					<input
+						type="checkbox"
+						class="toggle toggle-primary"
+						checked={exercise.published}
+						onchange={handlePublishToggle}
+					/>
 					<span class="label-text">Published</span>
 				</label>
 				<button class="btn btn-primary" onclick={saveExercise}>Save</button>
@@ -394,6 +428,18 @@
 				</button>
 			{/each}
 		</div>
+		{#if validationResult && !validationResult.valid}
+			<div class="mb-4 rounded-lg border border-error bg-error/10 p-4">
+				<h3 class="mb-2 font-semibold text-error">Cannot publish — fix these issues first:</h3>
+				<ul class="ml-4 list-disc space-y-1 text-sm">
+					{#each validationResult.issues as issue (issue.code)}
+						<li class:text-error={issue.severity === 'error'} class:text-warning={issue.severity === 'warning'}>
+							{issue.message}
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 		{#if activeSection === 'basics'}
 			<h2 class="font-bold">Basic Information</h2>
 			<fieldset class="fieldset">

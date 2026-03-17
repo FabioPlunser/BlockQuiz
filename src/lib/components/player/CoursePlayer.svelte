@@ -3,7 +3,7 @@
 	import type { Exercise } from '$lib/types/exercise';
 	import type { AttemptCapture, AttemptSubmission } from '$lib/types/attempt';
 	import type { GradingResult } from '$lib/player/executor';
-	import { getLocalized } from '$lib/i18n/index.svelte';
+	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import ExercisePlayer from './ExercisePlayer.svelte';
 	import { Trophy, CircleCheck, ArrowLeft } from '@lucide/svelte';
 
@@ -183,7 +183,7 @@
 			<div class="flex items-center justify-center gap-4">
 				<h2 class="justify-center text-lg font-bold">{getLocalized(course.content?.title)}</h2>
 				<div class="badge badge-primary">
-					Exercise {currentExerciseIndex + 1}/{exercises.length}
+					{i18n.course_exercise_label} {currentExerciseIndex + 1}/{exercises.length}
 				</div>
 			</div>
 		</div>
@@ -244,8 +244,8 @@
 			<div class="flex h-full items-center justify-center">
 				<div class="text-center">
 					<div class="text-4xl">📚</div>
-					<div class="mt-2 text-lg font-medium">No exercises in this course</div>
-					<button class="btn mt-4 btn-primary" onclick={onBack}>Close</button>
+					<div class="mt-2 text-lg font-medium">{i18n.course_no_exercises}</div>
+					<button class="btn mt-4 btn-primary" onclick={onBack}>{i18n.course_close}</button>
 				</div>
 			</div>
 		{/if}
@@ -261,15 +261,15 @@
 					<Trophy class="h-10 w-10 text-success" />
 				</div>
 			</div>
-			<h2 class="mt-4 text-2xl font-bold">Course Completed!</h2>
+			<h2 class="mt-4 text-2xl font-bold">{i18n.course_completed_title}</h2>
 			<p class="mt-2 text-base-content/60">
-				Congratulations! You've completed all {exercises.length} exercises.
+				{i18n.course_completed_message}
 			</p>
 			<div class="mt-6 flex justify-center gap-3">
 				<button class="btn btn-outline" onclick={() => (showCompletionModal = false)}>
-					Review Exercises
+					{i18n.course_review}
 				</button>
-				<button class="btn btn-primary" onclick={onBack}> Close Course </button>
+				<button class="btn btn-primary" onclick={onBack}>{i18n.course_close_course}</button>
 			</div>
 		</div>
 	</div>

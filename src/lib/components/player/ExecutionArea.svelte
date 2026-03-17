@@ -4,6 +4,7 @@
 	import Canvas from '$cp/Canvas.svelte';
 	import { Play, RotateCcw, Send } from '@lucide/svelte';
 	import { getExecutionState } from './execution.svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
 
 	type Props = {
 		exercise: Exercise;
@@ -60,7 +61,7 @@
 		<!-- IO Exercise - Text Input/Output -->
 		<div class="rounded-lg border border-base-300 bg-base-100 p-4">
 			<div class="mb-2 flex items-center justify-between text-sm font-medium">
-				<span>Output</span>
+				<span>{i18n.player_output}</span>
 				{#if exercise.io.visibleExampleInput}
 					<span class="text-xs text-base-content/60">
 						Example input: <code>{exercise.io.visibleExampleInput}</code>
@@ -69,7 +70,7 @@
 			</div>
 			<pre class="min-h-32 whitespace-pre-wrap rounded-md bg-base-200 p-3 text-sm">{trace?.stdout || ''}</pre>
 			{#if trace?.stderr}
-				<div class="mt-3 text-sm font-medium text-error">Errors</div>
+				<div class="mt-3 text-sm font-medium text-error">{i18n.player_errors}</div>
 				<pre class="mt-1 whitespace-pre-wrap rounded-md bg-error/10 p-3 text-sm text-error-content">{trace.stderr}</pre>
 			{/if}
 		</div>
@@ -83,7 +84,7 @@
 			{:else}
 				<Play class="h-4 w-4" />
 			{/if}
-			Run
+			{i18n.player_run}
 		</button>
 
 		<button
@@ -92,7 +93,7 @@
 			disabled={isRunning || isSubmitting}
 		>
 			<RotateCcw class="h-4 w-4" />
-			Reset
+			{i18n.player_reset}
 		</button>
 
 		<div class="flex-1"></div>
@@ -107,7 +108,7 @@
 			{:else}
 				<Send class="h-4 w-4" />
 			{/if}
-			Submit
+			{i18n.player_submit}
 		</button>
 	</div>
 </div>
