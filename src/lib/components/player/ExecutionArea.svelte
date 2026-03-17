@@ -27,7 +27,7 @@
 	let engine = $derived(state.engine);
 	let isRunning = $derived(state.isRunning);
 	let isSubmitting = $derived(state.isSubmitting);
-	let executionError = $derived(state.executionError);
+	let trace = $derived(state.trace);
 
 	function handleRun() {
 		state.handleRun();
@@ -59,7 +59,19 @@
 	{:else if exercise.type === 'io'}
 		<!-- IO Exercise - Text Input/Output -->
 		<div class="rounded-lg border border-base-300 bg-base-100 p-4">
-			<div class="mb-2 text-sm font-medium">Output</div>
+			<div class="mb-2 flex items-center justify-between text-sm font-medium">
+				<span>Output</span>
+				{#if exercise.io.visibleExampleInput}
+					<span class="text-xs text-base-content/60">
+						Example input: <code>{exercise.io.visibleExampleInput}</code>
+					</span>
+				{/if}
+			</div>
+			<pre class="min-h-32 whitespace-pre-wrap rounded-md bg-base-200 p-3 text-sm">{trace?.stdout || ''}</pre>
+			{#if trace?.stderr}
+				<div class="mt-3 text-sm font-medium text-error">Errors</div>
+				<pre class="mt-1 whitespace-pre-wrap rounded-md bg-error/10 p-3 text-sm text-error-content">{trace.stderr}</pre>
+			{/if}
 		</div>
 	{/if}
 
@@ -98,11 +110,4 @@
 			Submit
 		</button>
 	</div>
-
-	<!-- Error Display -->
-	<!-- {#if executionError}
-		<div class="alert alert-error">
-			<span class="text-sm">{executionError}</span>
-		</div>
-	{/if} -->
 </div>

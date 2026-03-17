@@ -2,7 +2,8 @@ import { auth } from '$lib/server/auth'; // path to your auth file
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { building } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
-import { logger } from '$lib/logs/logger';
+
+const PUBLIC_ROUTE_PREFIXES = ['/login', '/test', '/demo', '/privacy', '/api/auth'];
 
 export async function handle({ event, resolve }) {
 	const session = await auth.api.getSession({
@@ -15,9 +16,7 @@ export async function handle({ event, resolve }) {
 		event.locals.user = session.user;
 	}
 
-	const publicRoutes = ['/login', '/test', '/demo', '/privacy'];
-
-	const isPublicRoute = publicRoutes.some(
+	const isPublicRoute = PUBLIC_ROUTE_PREFIXES.some(
 		(route) => event.url.pathname === route || event.url.pathname.startsWith(route + '/')
 	);
 
