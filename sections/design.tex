@@ -1,0 +1,166 @@
+\section{Design decisions}
+\label{sec:design-decisions}
+Key architectural decisions were made based on the requirements and constraints identified in the analysis phase.
+
+\subsection{Block Editor: Ggoogle Blockly}
+\begin{table}[h]
+  \centering
+  \label{tab:block-editor-selection}
+  \caption{Block Editor Selection}
+  \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
+    \hline
+    Option                & Pros                                                 & Cons                                     & Decision   \\\hline
+    Google Blockly        & Mature, documented, accessible, customizable toolbox & Larger bundle size                       & \checkmark \\\hline
+    Custom implementation & Full control, smaller size                           & Development time, maintenance burden     &            \\\hline
+    Scratch Blocks        & Familiar Scratch aesthetics                          & Less flexible, tied to Scratch ecosystem &            \\\hline
+  \end{tabularx}
+\end{table}
+
+Rationale: Blockly provides proven reliability, accessibility features and the flexibility to define per-exercise toolboxes.
+The bundle size trade-off is acceptable given lazy loading optimizations.
+
+\subsection{Code Execution: Client-Side Sandbox}
+\begin{table}[h]
+  \centering
+  \label{tab:code-execution}
+  \caption{Code Execution Options}
+  \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
+    \hline
+    Option                       & Pros                               & Cons                                                                & Decision   \\\hline
+    Client-side (iframe sandbox) & No server load, immediate response & Limited isolation compared to server-side, potential security risks & \checkmark \\\hline
+    Server-side (VM/Container)   & Better isolation                   & Added complexity, latency                                           &            \\\hline
+    WebAssembly sandbox          & Best isolation                     & Significant development effort                                      &            \\\hline
+  \end{tabularx}
+\end{table}
+
+Rationale: For educational code from children, client-side execution with loop traps and API whitelisting provides sufficient security.
+Server-side execution would add complexity and latency without proportional benefits for this use case.
+
+\subsection{Database: SQLite with Drizzle ORM}
+\begin{table}[h]
+  \centering
+  \label{tab:database-selection}
+  \caption{Database Selection}
+  \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
+    \hline
+    Option      & Pros                         & Cons                          & Decision   \\\hline
+    SQLite      & No setup, embedded, portable & Single-writer limitation      & \checkmark \\\hline
+    PostgresSQL & Scalable, concurrent writes  & Requires server, more complex &            \\\hline
+  \end{tabularx}
+\end{table}
+
+Rationale: QLite oﬀers the best balance for single-school deployments. The Drizzle ORM
+provides type-safe queries and migration management. The schema is designed to be portable,
+enabling future migration to PostgreSQL if needed.
+
+
+\section{Architectural Overview}
+\label{sec:design-overview}
+The system follows a layered architecture separating presentation, business logic and data access concerns.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth]{architecture.excalidraw.png}
+  \caption{System Architecture Overview}
+  \label{fig:architecture-overview}
+\end{figure}
+
+\subsection{Component Descriptions}
+\subsubsection*{Frontend Layer}
+The frontend is built with SvelteKit and comprises three main interfaces:
+\begin{itemize}
+  \item \textbf{Student Interface:} Displazs exercises, the Blockly workspace, canvas visualization and grading feedback.
+        Designed for simplicity and age-appropriateness.
+  \item \textbf{Teacher Interface:} Enables exercis creation and editing, course organization and progress monitoring. Includes visual editors for paths and grids.
+  \item \textbf{Admin Interface:} Manages users, system configuration and plugin administration.
+\end{itemize}
+
+\subsubsection*{Exercise Engines}
+Exercise engines encapsulate the state and behavior for each exercise type:
+\begin{itemize}
+  \item \textbf{Turtle:} Manages position, angle, pen state, and path history. Commands include \textit{move(distance)} \textit{turn(degrees)}, and pen control.
+  \item \textbf{GridRobot:} Manages grid position, direction and inventory. Command sinclude directional movement, collection and interaction,.
+  \item \textbf{I/O:} Manages input consumption and output accumulation for stdin/stdout-style exercises.
+\end{itemize}
+
+\subsubsection*{Sandbox}
+The sandbox provides secure code execution through:
+\begin{itemize}
+  \item An ifram with \textit{sandbox="allow-scripts"} attribute
+  \item PostMessage-based communication protocol
+  \item Whitelisted API surface exposing only exercise-specific functions
+  \item Loop trap injection detecting infinite loops
+  \item Timeout enforcement terminating long-running executions
+\end{itemize}
+
+\subsubsection*{Graders}
+Type-specific grades evaluate student solutions.
+\begin{itemize}
+  \item \textbf{Turtle Grader:} Compares final state (position, angle) or command sequencees against expected values with configurable tolerances.
+  \item \textbf{I/O Grader:} Compares program output against expected output with nromalization options.
+\end{itemize}
+
+
+\subsection{Exercise Type Framework}
+The exercise framework is dsigned for extensibility through a common base class and grading interface.
+\subsubsection*{Abstract Base: Canvas2D}
+All visual exercies types inherit from Canvas2D, which provides:
+\begin{itemize}
+  \item Reactive state for position coordinates
+  \item Command logging for grading
+  \item Reset and comparison methods
+  \item Canvas rendering hooks
+\end{itemize}
+
+\subsubsection*{Concrete Implementations}
+\textbf{Turle} Extends Canvas2D with angle, pen state, and move/turn methods.
+\textbf{GridRobot} Extends Canvas@d with discrete grid positioning, direction and inverntory management.
+\textbf{I/O} Implements a non-visual exercise type with input consumption and output generation capabilities.
+
+New exercise types can be added by:
+\begin{enumerate}
+  \item Implementing a class extending Canvas2D
+  \item Defining corresponding Blockly blocks and generators
+  \item Implementing a grade for the new type
+\end{enumerate}
+
+\section{Data Model}
+\label{sec:design-datamodel}
+The data model or database schema supports exercies, courses, user progress and audit logging.
+\subsection{Core Tables}
+\begin{itemize}
+  \item \textbf{users} Stores user credentials, roles (student, teacher, author, admin ) and preferences.
+  \item \textbf{courses} Contains course metadata, ordered exercies list via \textbf{courseExercises} junction table, and enrollment via \textbf{courseUsers}.
+  \item \textbf{exercises} Stores exercise definitions including type (io/turlte/robot), JSON content (localized title/description), JSON config (type-specific grader settings), toolbox XML, starter XML and hints.
+  \item \textbf{attempts} Records student attempts with workspace XML, grading resutls, score and timestamp.
+  \item \textbf{auditLogs} Tracks all admin actions like login, account cration, password reset for accountability and auditing.
+  \item \textbf{exerciseVersions} Stores snapshosts of exercises for versioning support
+  \item \textbf{translations} Custom i18n table: locale/kez/value rows used for runtime language lookup
+\end{itemize}
+
+\subsection{Relationships}
+\begin{itemize}
+  \item Courses contain ordered lists of exercies (many-to-many with ordering)
+  \item Users have roles determining access to CMS and admin features
+  \item Attempts link users to exercises with temporal tracking
+\end{itemize}
+
+\section{Security Model}
+\subsection{Threat Model}
+Primary threats addressed by the security model include:
+\begin{itemize}
+  \item Malicious student code attempting DOM access or infinite loops
+  \item Cross-site scripting through user-generated content
+  \item Unauthorized access to exercises or administrative functions
+\end{itemize}
+
+\subsection{Mitigitations}
+\begin{itemize}
+  \item \textbf{Iframe Sandbox} The \textit{sandox="allow-scripts"} attribute prevents navigation, from submission and plugin access.
+  \item \textbf{Loop Trap} Command counting detects and terminates infinite loops.
+  \item \textbf{API Whitelist} Only exercise-specific functions are exposed; no access to window, document, or network APIs.
+  \item \textbf{CSP Headers} Strict Content Security Policy prevents inline scripts and external resource loading.
+  \item \textbf{Input Validation} Zod schema validation on all API inputs prevents injection.
+  \item \textbf{Role-Based Access} Teachers cannot access admin functions; students cannot access CMS.
+\end{itemize}
+

@@ -1,0 +1,122 @@
+\section{Overview}
+\label{sec:req-overview}
+This section presents the functional and non-functional requirements derived from educational needs,
+technical constraints and privacy considerations. Requirements were gathered through analysis of existing platforms,
+Austrian curriculum documents and established principle of educational software design.
+
+\section{Stakeholders}
+\label{sec:req-stakeholders}
+The platform serves multiple stakeholder groups with distinct needs:
+
+
+\textbf{Studnets (8-12 years)} REquire engaging, achievable challenges with immediate feedback. Usability and age-appropriate design are critical.
+\textbf{Teachers} Need easy content creation without programming knowledge, progress tracking and minimal setup overhead.
+\textbf{School IT Administrators} Require simple deployment, easy maintance and compliance with data protection regulations.
+\textbf{Parents} Expect educational value, safety and privacy protection for their chidlren.
+
+\section{Functional Requirements}
+\label{sec:req-functional}
+\subsection*{Exercise Model (FR-1)}
+\begin{itemize}
+  \item \textbf{FR-1.1:} Each exercise has a unique identifier, title, description, type (io, turlte) and tags/topics
+  \item \textbf{FR-1.2:} Each exercise defines a toolbox (whitelist of allowed blocks), an optional starter program and a reference solution
+  \item \textbf{FR-1.3:} Each exercise includes progressive hints (minimum two) and grader configuration specifying type tests, normalization rules and tolerances.
+  \item \textbf{FR-1.4:} All textual content (hints, feedback) is provided in German and English with fallback to the default language for missing translations
+\end{itemize}
+
+\subsection*{Course Management (FR-2)}
+\begin{itemize}
+  \item \textbf{FR-2.1:} Exercisese reside in a central pool, filterable by topic, type, difficulty and age band.
+  \item \textbf{FR-2.2:} Crouses are ordreded sequence of exercises, enabling progressive learning paths.
+  \item \textbf{FR-2.3:} Exercises can be reused across multiple courses.
+\end{itemize}
+
+\subsection*{Authoring System (FR-3)}
+\begin{itemize}
+  \item \textbf{FR-3.1:} Authorcs can create, edit, clone and archive exercises
+  \item \textbf{FR-3.2:} A validation linter checks for required fields, complete translations, toolbox consistency and presence of hidden test.
+  \item \textbf{FR-3.3:} Preview mode allows authors to test exercises before publishing
+  \item \textbf{FR-3.4:} Import/export funcitonality for exercise backup and sharing as JSON format
+\end{itemize}
+
+\subsection*{Execution and Sandbox (FR-4)}
+\begin{itemize}
+  \item \textbf{FR-4.1:} Blocks generate executable code (JavaScript )  via Blockly's code generators.
+  \item \textbf{FR-4.2:} Code executes in an isolated sandbox environment (iframe with restirected permissions).
+  \item \textbf{FR-4.3:} The sandbox exposes only whitelisted APIs; no access to DOM, network, or browser storage.
+  \item \textbf{FR-4.4:} Configurable resource limits include maximum execution time (default 5 seconds) and infinite loop detection via command counting.
+\end{itemize}
+
+
+\subsection*{Auto-Grading (FR-5)}
+\begin{itemize}
+  \item \textbf{FR-5.1:} I/O exercises support multiple test cases (visible and hidden), output 
+  normalization (trim, wthiespace collapse, case insenstitivity) and detailed per-test feedback. 
+  \item \textbf{FR-5.2:} Turtle/Graphics exercises support grading via command log comparison or final state evaluation (position, angle)  with configurable tolerance thresholds. 
+  \item \textbf{FR-5.3:} Grading is deterministic through seeded random number generation and prohibition of time-dependent operations
+  \item \textbf{FR-5.4:} Results include voerall pass/fail status, numerical score and detailed per-test results with expected/actual values. 
+\end{itemize}
+
+\subsection*{User Management (FR-6)}
+\begin{itemize}
+  \item \textbf{FR-6.1:} Role-based access control distinguishes Students, Teachers and Administrators
+  \item \textbf{FR-6.2:} Guest mode operates without accounts, storing progress locally in the browser 
+  \item \textbf{FR-6.3:} Progress tracking records status (not started, attempted, passed), best score, attempt count, and hint usgae per exercise
+\end{itemize}
+
+\subsection*{Internationalization (FR-7)}
+\begin{itemize}
+  \item \textbf{FR-7.1:} System UI is available in German and English with user-selectable language
+  \item \textbf{FR-7.2:} Exercise content supports both languages with automatic fallback and missing-key logging
+  \item \textbf{FR-7.3:} Block labels are localized via Blockly's internationalization mechanims
+\end{itemize}
+
+
+\section{Non-Functional Requirements}
+\label{sec:req-nonfunctional}
+
+\subsection*{Security (NFR-1)}
+\begin{itemize}
+  \item \textbf{NFR-1.1:} Sandbox isolation via iframe with sandbox attributes and strict Content Security Policy headers
+  \item \textbf{NFR-1.2:} No student code access to DOM, window, network or storage APIs
+  \item \textbf{NFR-1.3:} Input validation on all API endpoints using schema validation
+  \item \textbf{NFR-1.4:} Role-based authorization enforcing least-privilege access
+\end{itemize}
+
+\subsection*{Privacy (NFR-1)}
+\begin{itemize}
+  \item \textbf{NFR-1.1:} Sandbox isolation via iframe with sandbox attributes and strict Content Security Policy headers
+  \item \textbf{NFR-1.2:} No student code access to DOM, window, network or storage APIs
+  \item \textbf{NFR-1.3:} Input validation on all API endpoints using schema validation
+  \item \textbf{NFR-1.4:} Role-based authorization enforcing least-privilege access
+\end{itemize}
+
+\subsection*{Performance (NFR-1)}
+\begin{itemize}
+  \item \textbf{NFR-1.1:} Sandbox isolation via iframe with sandbox attributes and strict Content Security Policy headers
+  \item \textbf{NFR-1.2:} No student code access to DOM, window, network or storage APIs
+  \item \textbf{NFR-1.3:} Input validation on all API endpoints using schema validation
+  \item \textbf{NFR-1.4:} Role-based authorization enforcing least-privilege access
+\end{itemize}
+
+
+\subsection*{Accessibility (NFR-1)}
+\begin{itemize}
+  \item \textbf{NFR-1.1:} Sandbox isolation via iframe with sandbox attributes and strict Content Security Policy headers
+  \item \textbf{NFR-1.2:} No student code access to DOM, window, network or storage APIs
+  \item \textbf{NFR-1.3:} Input validation on all API endpoints using schema validation
+  \item \textbf{NFR-1.4:} Role-based authorization enforcing least-privilege access
+\end{itemize}
+
+\subsection*{Maintainability (NFR-1)}
+\begin{itemize}
+  \item \textbf{NFR-1.1:} Sandbox isolation via iframe with sandbox attributes and strict Content Security Policy headers
+  \item \textbf{NFR-1.2:} No student code access to DOM, window, network or storage APIs
+  \item \textbf{NFR-1.3:} Input validation on all API endpoints using schema validation
+  \item \textbf{NFR-1.4:} Role-based authorization enforcing least-privilege access
+\end{itemize}
+
+\section{Use Cases}
+\label{sec:req-usecases}
+
+% TODO: Key use cases derived from the implemented system

@@ -6,6 +6,11 @@
 \usepackage{lmodern}     % easiest way to get outline fonts with T1 encoding
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{listings}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\graphicspath{{./images}}
+\usepackage{float}
 
 % \usepackage[ngerman]{babel}     % if the thesis is written in German
 
@@ -36,6 +41,30 @@ with Auto-Grading for students}
 \chapter{Introduction}
 \label{chap:introduction}
 \input{sections/introduction.tex}
+
+\chapter{Background and Related Work}
+\label{chap:background}
+\input{sections/background.tex}
+
+\chapter{Requirements Analysis}
+\label{chap:requirements}
+\input{sections/requirements.tex}
+
+\chapter{System Design}
+\label{chap:design}
+\input{sections/design.tex}
+
+\chapter{Implementation}
+\label{chap:implementation}
+\input{sections/implementation.tex}
+
+\chapter{Evaluation}
+\label{chap:evaluation}
+\input{sections/evaluation.tex}
+
+\chapter{Conclusion}
+\label{chap:conclusion}
+\input{sections/conclusion.tex}
 
 
 \bibliography{refs}

@@ -1,0 +1,193 @@
+\section{Block-Based Programming Environments}
+Block-based programming environments have emerged as a dominant approach for introducing
+computational concepts to novice programmers, particularly children. By representing code as
+interlocking visual blocks, these environments eliminate syntax errors and reduce the cognitive
+load associated with textual programming languages \cite{weintrop2015, maloney2010}.
+
+Empirical studies of Scratch-based learning further suggest that block-based programming can
+support the development of programming concepts, problem solving, and curricular integration
+when tasks are appropriately scaffolded~\cite{meerbaum2013, kalelioglu2014, saezLopez2016}.
+
+\subsection{Scratch}
+Scratch, developed at the MIT Media Lab, is perhaps the most widely recognized block-based programming
+environment for children \cite{resnick2009}. Launched in 2007, Scratch emphasizes creative
+expression through the creation of interactive stories, games and animations.
+The platform has been very successful, with millions of projects shared in its online community.
+
+However, Scratch's open-ended nature presents challenges for structured classroom instruction:
+\begin{itemize}
+  \item Projects can become arbitrarily complex, making assessment difficult
+  \item No built-in auto-grading or immediate feedback mechanism
+  \item The large block library can overwhelm beginners
+  \item Cloud-based storage raises privacy concerns for European users
+\end{itemize}
+
+\subsection{Microsoft MakeCode}
+Microsoft MakeCode extends block-based programming to physical computing, supporting hardware platforms such as
+the \textit{micro:bit}, Arduino, and Adafruit Circuit Playground~\cite{ball2019, devine2019, austin2020}. MakeCode provides a polished development
+experience with integrated simulation, block-to-text transitions, and hardware deployment.
+
+While MakeCode excels at hardware integration, its complexity and hardware focus limit its applicability
+for pure algorithmic thinking exercises. Classroom studies around the micro:bit ecosystem emphasize creative and physical-computing use cases rather than tightly constrained worksheet-style tasks~\cite{sentance2017cool, sentance2017teaching, bachinger2022}. The platform is designed for project-based learning rather
+than structured, gradeable exercises.
+
+\subsection{Google Blockly}
+Google Blockly is not a complete programming environment but rather a library for building
+block-based programming interfaces \cite{blockly}. MakeCode for example uses it under the hood.
+Blockly provides:
+\begin{itemize}
+  \item A robust block rendering and connection engine
+  \item Extensible code generators for multiple target languages
+  \item Internationalization support with block label translations
+  \item Accessibility features including keyboard navigation
+  \item Customizable toolboxes and block categories
+\end{itemize}
+
+Blockly's library nature makes it ideal for building custom educational platforms where the exercise structure, grading
+logic and user interface can be tailored to specific needs.
+BlockQuiz leverages Blockly as its foundation, building a complete learning platform around the library.
+
+\subsection{Code.org}
+Code.org offers curriculum-aligned computer science courses with structured exercises and automatic grading.
+The platform has been widely adopted in the United States and provides a good scaffold for learners.
+However, Code.org's closed ecosystem nature and US-centric curriculum limits its applicability for Austrian schools,
+and its cloud-only deployment model raises data protection concerns.
+
+\subsection{Comparison Summary}
+Table \ref{tab:platform-comparison} summarizes the key characteristics of existing platforms and how BlockQuiz differentiates itself.
+
+\begin{table}[h]
+  \centering
+  \caption{Comparison of Block-Based Programming Platforms}
+  \label{tab:platform-comparison}
+  \begin{tabular}{|l|c|c|c|c|}
+    \hline
+    \textbf{Platform}  & \textbf{Auto-grading} & \textbf{Teacher CMS} & \textbf{Self-hostable} & \textbf{Open Source} \\
+    \hline
+    Scratch            & No                    & No                   & No                     & Yes                  \\
+    MakeCode           & Partial               & No                   & No                     & Yes                  \\
+    Code.org           & Yes                   & Limited              & No                     & Partial              \\
+    Blockly            & N/A (library)         & N/A                  & Yes                    & Yes                  \\
+    \textbf{BlockQuiz} & Yes                   & Yes                  & Yes                    & Yes                  \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Automated Assessment in Programming Education}
+\label{sec:auto-grading}
+
+Automated assessment of programming exercises has been an active research area since
+the 1960s, with early classroom systems already described by Hollingsworth, Naur, and Forsythe and Wirth~\cite{hollingsworth1960, naur1964, forsythe1965}; later surveys document the continued development of this research area~\cite{alaMutka2005, douce2005, ihantola2010, messer-neil}. Modern auto-graders employ various strategies to evaluate student code,
+each with distinct advantages and limitations.
+
+\subsection{Test-Based Grading}
+The most common approach executes student code against a set of test cases~\cite{douce2005, alaMutka2005},
+comparing actual output to expected outpus. This approach is well stuited for Input/Output (I/O) exercises, where correctness
+can be defined in terms of input-output pairs.
+
+Key considerations for test-based grading include:
+\begin{itemize}
+  \item \textbf{Visible vs. hidden tests}: Visible tests provide immediate feedback and learning scaffolds, while hidden tests
+        prevent hardcoding of solutions.
+  \item \textbf{Output normalization}: Handling whitespace, case sensitivity, and formatting differences.
+  \item \textbf{Partial credit}: Awarding points for partially correct solutions.
+  \item \textbf{Feedback quality}: Providing meaningful error messages rather than simple pass/fail indicators.
+\end{itemize}
+
+\subsection{State-Based Grading}
+For visual programming exercises such as turtle graphics, state-based grading evaluates the final state of the execution
+environment rather than textual output. This includes:
+\begin{itemize}
+  \item Position and orientation of graphical elements
+  \item Command sequences executed during the program
+  \item Canvas or grid state at program termination
+\end{itemize}
+
+State-based grading allows for more flexible solutions, as multiple command sequences can produce equivalent final states~\cite{malmi2004}.
+BlockQuiz implements both exact command matching and final state comparison with configurable tolerance thresholds.
+
+
+\subsection{Benefits of Immediate Feedback}
+Research on formative assessment consistently demonstrates the value of immediate feedback for learning
+\cite{blackWiliam1998, hattie2007, shute2008}. Auto-grading enables instant feedback that would be impossible
+to provide manually in a classroom setting, allowing students to:
+\begin{itemize}
+  \item Iterate quickly on solutions
+  \item Identify and correct misunderstandings immediately
+  \item Progress at their own pace without waiting for teacher review
+\end{itemize}
+
+\section{Learning Theory Foundations}
+The design of BlockQuiz is informed by learning theories that guide decisions in exercise design, feedback mechanisms and scaffolding approaches.
+
+\subsection{Constructionism}
+Seymour Papert's constructionism builds on Piaget's constructivism, arguing that learning is particualarly effective when learners
+Are actively constructing artifacts that are personally meaningfull \cite{papert1980, constructionism}. Papert's work with Logo and turtle graphics demonstrated how
+programming could serve as a medium for exploring mathematical concepts thourhg construction.
+
+Blockquiy embraces constructionist principles by:
+\begin{itemize}
+  \item Providing immediate visual feedback through turtle graphics (as in \cite{papert1980})
+  \item Allowing learners to experiment and observe consequences
+  \item Making abstract concepts (angles, distances, repetition) tangible
+\end{itemize}
+
+\subsection{Cognitive Load Theory}
+Cognitive Load Theory \cite{sweller1988} distinguishes between intrinsic load (inherent to the material),
+extraneous load (caused by poor instructional design) and germane load (contributing to learning).
+Block-based programming reduces extraneous cognitive load by:
+\begin{itemize}
+  \item Eliminating syntax errors and the need to memorize keywords
+  \item Providing visual scaffoling throuhg block shapes that indicate valid connections
+  \item Constraining the problem space through per-exercise toolboxes
+\end{itemize}
+
+BlockQuiz's constrained exercise model direcrly applies cognitive load principles by limiting available blocks
+to those relevant for each learning objective, reducing the extraneous load of navigating a large block library.
+
+\subsubsection{Zone of Proximal Development}
+Vygotsky's Zone of Proximal Development (ZPD) \cite{Vygotsky1980, Shabani} describes the gap between what a learner can
+do independently and what they can achieve with guidance. Eﬀective instruction targets this
+zone, providing appropriate scaﬀolding that can be gradually removed.
+
+BlockQuiy implements scaffoling through:
+\begin{itemize}
+  \item Progressive hin systems that reveal guidance on demand
+  \item Starter blcoks that provide partial solutions for complex exercises
+  \item Difficulty progression within courses that builds on prior knowledge
+\end{itemize}
+
+\subsection{Age-Appropriate Design}
+Desigin for children aged 8-12 requrieds understanding developmental psychology and applying pricniples from child-computer interaction research.
+
+\subsubsection{Developmental Considerations}
+In classical Piagetian terms, many children in roughly the 7--11/12 age range are in the concrete
+operational stage~\cite{PiagetInhelder1969}. This stage is commonly characterized by:
+\begin{itemize}
+  \item Ability to perform logical operations on concrete objects
+  \item Development of conservation and reversibility concepts
+  \item More limited abstract reasoning than in later formal-operational thinking
+\end{itemize}
+
+This has implications for exercise design:
+\begin{itemize}
+  \item Younger children (8-9) often benefit from concrect, visual exercises like turtle graphics
+  \item Abstract concepts (variables, conditionals) should be introduced with concrete examples
+  \item Older children (11-12) may increasingly handle more abstract I/O-style exercises when they are appropriately scaffolded
+\end{itemize}
+
+\subsubsection{Interface Design for Children}
+Research on child-computer interaction suggests several design principles \cite{read2008}:
+\begin{itemize}
+\item \textbf{Large targets:} Interactive elements should be large enough for less precise motor control
+\item \textbf{Minimal text:} Instructions should be concise and use simple vocabulary
+\item \textbf{Visual feedback:} Immediate, visual responses to actions
+\item \textbf{Forgiving interfaces:} Undo functionality and tolerance for errors 
+\item \textbf{Playful aesthetics:} Engaging visual design appropriate for the age group 
+\end{itemize}
+
+BlockQuiz applies these principles thorugh large block targets, concise exercise descriptions, immediate visual feedback 
+from the canvas, and encouraging feedback messages. 
+
+\subsection{Privacy and Data Protection}
+The General data Protection Regulation (GDPR) imposes strict requirements on 
