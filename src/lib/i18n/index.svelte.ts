@@ -1,7 +1,15 @@
 import { browser } from '$app/environment';
 import type { LocalizedString } from '$types/exercise';
+import enMessages from './en.json';
+import deMessages from './de.json';
 
 type Dictionary = Record<string, any>;
+
+const FALLBACK_LOCALE = 'en';
+const BUILTIN_MESSAGES = {
+	en: enMessages,
+	de: deMessages
+} satisfies Record<string, Dictionary>;
 
 /** Helper to get/set locale from cookies */
 const getCookieLocale = (): string => {
@@ -15,12 +23,50 @@ const setCookieLocale = (value: string) => {
 	document.cookie = `i18n-locale=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
 };
 
+const applyDocumentLocale = (value: string) => {
+	if (!browser) return;
+	document.documentElement.lang = value;
+};
+
+const getInitialLocale = (availableLocales: string[]) => {
+	const savedLocale = getCookieLocale();
+	if (savedLocale && availableLocales.includes(savedLocale)) {
+		return savedLocale;
+	}
+
+	if (browser) {
+		const navigatorLocale = deriveLocaleFromNavigator(FALLBACK_LOCALE);
+		if (availableLocales.includes(navigatorLocale)) {
+			return navigatorLocale;
+		}
+	}
+
+	return availableLocales[0] ?? FALLBACK_LOCALE;
+};
+
+function deriveLocaleFromNavigator(deflt: string) {
+	if (navigator.language in BUILTIN_MESSAGES) {
+		return navigator.language;
+	}
+	if (navigator.language.includes('-')) {
+		const [firstPart] = navigator.language.split('-');
+		if (firstPart in BUILTIN_MESSAGES) {
+			return firstPart;
+		}
+	}
+	return deflt;
+}
+
+const bootstrapLocale = getInitialLocale(
+	Object.keys(BUILTIN_MESSAGES)
+) as keyof typeof BUILTIN_MESSAGES;
+
 /** The loaded locale dictionary. */
-let currentLocaleDict: Dictionary = $state.raw({});
+let currentLocaleDict: Dictionary = $state.raw(BUILTIN_MESSAGES[bootstrapLocale] ?? enMessages);
 /** The dictionary which keys will be used if they are not present in the currentLocaleDict. */
-let fallbackLocaleDict: Dictionary = $state.raw({});
+let fallbackLocaleDict: Dictionary = $state.raw(enMessages);
 /** Precalculated, merged dictionary that will be used in your components. */
-let mergedLocaleDict: Dictionary = $derived.by(() => {
+const mergedLocaleDict: Dictionary = $derived.by(() => {
 	const newDict: Dictionary = structuredClone(fallbackLocaleDict);
 	const walker = (part: Dictionary, target: Dictionary) => {
 		for (const i in target) {
@@ -38,10 +84,16 @@ let mergedLocaleDict: Dictionary = $derived.by(() => {
 });
 
 /** Maps locale IDs with functions to either the dictionary or the function that will load the dictionary file. */
-let localeMap: Record<string, (() => Promise<Dictionary>) | Dictionary> = $state.raw({});
+let localeMap: Record<string, (() => Promise<Dictionary>) | Dictionary> = $state.raw({
+	...BUILTIN_MESSAGES
+});
 
 /** Current locale stored in cookie for server-side access. */
-let currentLocale = $state(getCookieLocale());
+let currentLocale = $state<string>(bootstrapLocale);
+
+if (browser) {
+	applyDocumentLocale(bootstrapLocale);
+}
 
 /** Singleton i18n class for accessing translations */
 class I18n {
@@ -99,34 +151,22 @@ const loadLocale = (code: string): Promise<Dictionary> | Dictionary => {
 
 /** Initializes i18n by loading all available languages */
 export const initI18n = async (languages: Array<{ code: string; label: string }>) => {
-	const languageMap: Record<string, () => Promise<Dictionary>> = {};
+	const availableLocales = languages.map((language) => language.code);
 
 	for (const lang of languages) {
-		languageMap[lang.code] = () => import(`./${lang.code}.json`).then((m) => m.default || m);
+		const messages = BUILTIN_MESSAGES[lang.code as keyof typeof BUILTIN_MESSAGES];
+		if (messages) {
+			addMessages(lang.code, messages);
+		}
 	}
 
-	// Register all languages
-	for (const [code, loader] of Object.entries(languageMap)) {
-		register(code, loader as () => Promise<Dictionary>);
-	}
-
-	// Get saved locale from cookie, or use first language in list
-	let initialLocale: string;
-	const savedLocale = getCookieLocale();
-	if (savedLocale && languages.some((l) => l.code === savedLocale)) {
-		initialLocale = savedLocale;
-	} else {
-		initialLocale = languages[0]?.code || 'en';
-	}
-
-	const fallbackLocale = 'en';
+	const initialLocale = getInitialLocale(availableLocales);
 
 	try {
-		fallbackLocaleDict = await loadLocale(fallbackLocale);
-		setCookieLocale(fallbackLocale);
-		currentLocale = fallbackLocale;
+		fallbackLocaleDict = await loadLocale(FALLBACK_LOCALE);
 		currentLocaleDict = await loadLocale(initialLocale);
 		setCookieLocale(initialLocale);
+		applyDocumentLocale(initialLocale);
 		currentLocale = initialLocale;
 	} catch (error) {
 		console.error('Failed to initialize i18n:', error);
@@ -143,16 +183,22 @@ export const init = async ({
 	initialLocale: string;
 	fallbackLocale: string;
 }) => {
-	fallbackLocaleDict = loadLocale(fallbackLocale) as Dictionary;
-	currentLocale = fallbackLocale;
-	currentLocaleDict = await loadLocale(initialLocale);
-	currentLocale = initialLocale;
+	const resolvedFallbackLocale = fallbackLocale in localeMap ? fallbackLocale : FALLBACK_LOCALE;
+	const resolvedInitialLocale = initialLocale in localeMap ? initialLocale : resolvedFallbackLocale;
+
+	fallbackLocaleDict = loadLocale(resolvedFallbackLocale) as Dictionary;
+	currentLocale = resolvedFallbackLocale;
+	currentLocaleDict = await loadLocale(resolvedInitialLocale);
+	setCookieLocale(resolvedInitialLocale);
+	applyDocumentLocale(resolvedInitialLocale);
+	currentLocale = resolvedInitialLocale;
 };
 
 /** Set the current locale */
 export const setLocale = async (locale: string) => {
 	currentLocaleDict = await loadLocale(locale);
 	setCookieLocale(locale);
+	applyDocumentLocale(locale);
 	currentLocale = locale;
 };
 
@@ -164,17 +210,7 @@ export const getLocales = () => Object.keys(localeMap);
 
 /** Derives the most suiting locale from navigator's information. */
 export const getLocaleFromNavigator = (deflt: string) => {
-	if (navigator.language in localeMap) {
-		return navigator.language;
-	}
-	if (navigator.language.includes('-')) {
-		const [firstPart] = navigator.language.split('-');
-		if (firstPart in localeMap) {
-			return firstPart;
-		}
-	}
-	// No locale loaded; use the existing one
-	return deflt;
+	return deriveLocaleFromNavigator(deflt);
 };
 
 /**

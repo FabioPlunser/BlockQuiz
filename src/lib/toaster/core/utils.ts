@@ -16,4 +16,3 @@ export const prefersReducedMotion = (() => {
 		return shouldReduceMotion ?? false;
 	};
 })();
-

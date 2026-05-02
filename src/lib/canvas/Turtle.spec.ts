@@ -89,7 +89,7 @@ describe('Turtle', () => {
 		it('should record correct path segment', () => {
 			turtle.penDown();
 			turtle.move(1);
-			
+
 			const segment = turtle.path[0];
 			expect(segment.from).toEqual({ x: 200, y: 200 });
 			expect(segment.to.x).toBeCloseTo(200, 5);
@@ -100,7 +100,7 @@ describe('Turtle', () => {
 			turtle.penDown();
 			turtle.setColor('#ff0000');
 			turtle.move(1);
-			
+
 			expect(turtle.path[0].color).toBe('#ff0000');
 		});
 
@@ -109,7 +109,7 @@ describe('Turtle', () => {
 			turtle.move(1);
 			turtle.turn(90);
 			turtle.move(1);
-			
+
 			expect(turtle.path).toHaveLength(2);
 		});
 	});
@@ -119,7 +119,7 @@ describe('Turtle', () => {
 			turtle.move(2);
 			turtle.turn(90);
 			turtle.reset();
-			
+
 			expect(turtle.state.x).toBe(200);
 			expect(turtle.state.y).toBe(200);
 			expect(turtle.state.angle).toBe(0);
@@ -129,21 +129,21 @@ describe('Turtle', () => {
 			turtle.penDown();
 			turtle.move(1);
 			turtle.reset();
-			
+
 			expect(turtle.path).toHaveLength(0);
 		});
 
 		it('should reset pen to up', () => {
 			turtle.penDown();
 			turtle.reset();
-			
+
 			expect(turtle.pen).toBe(false);
 		});
 
 		it('should reset color to black', () => {
 			turtle.setColor('#ff0000');
 			turtle.reset();
-			
+
 			expect(turtle.color).toBe('#000000');
 		});
 
@@ -151,7 +151,7 @@ describe('Turtle', () => {
 			turtle.move(1);
 			turtle.penDown();
 			turtle.reset();
-			
+
 			expect(turtle.commands).toHaveLength(0);
 		});
 	});
@@ -228,12 +228,12 @@ describe('Turtle', () => {
 	describe('integration', () => {
 		it('should draw a square', () => {
 			turtle.penDown();
-			
+
 			for (let i = 0; i < 4; i++) {
 				turtle.move(1);
 				turtle.turn(90);
 			}
-			
+
 			expect(turtle.path).toHaveLength(4);
 			// Should end at starting position
 			expect(turtle.state.x).toBeCloseTo(200, 4);
@@ -246,10 +246,9 @@ describe('Turtle', () => {
 			turtle.move(1);
 			turtle.setColor('#00ff00');
 			turtle.move(1);
-			
+
 			expect(turtle.path[0].color).toBe('#ff0000');
 			expect(turtle.path[1].color).toBe('#00ff00');
 		});
 	});
 });
-

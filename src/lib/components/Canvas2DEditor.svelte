@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Canvas from './Canvas.svelte';
 	import type { ICanvasEngine, Point, DrawMode, TargetPoint } from '$lib/canvas/types';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import { Target, Route, BrickWall, Trash2, Grid3X3, FlaskConical } from '@lucide/svelte';
 
 	type Props = {
@@ -79,25 +80,25 @@
 	<div class="flex flex-wrap items-center gap-2 rounded-lg bg-base-200 p-3">
 		<!-- Grid Toggle -->
 		<button
-			class="btn btn-sm gap-1"
+			class="btn gap-1 btn-sm"
 			class:btn-primary={showGrid}
 			class:btn-outline={!showGrid}
 			onclick={() => (showGrid = !showGrid)}
-			title="Toggle grid overlay"
+			title={i18n.canvas_editor_toggle_grid_title}
 		>
 			<Grid3X3 class="h-4 w-4" />
 			<span class="hidden sm:inline">{showGrid ? 'Hide Grid' : 'Show Grid'}</span>
 		</button>
 
-		<div class="divider divider-horizontal mx-1"></div>
+		<div class="divider mx-1 divider-horizontal"></div>
 
 		<!-- Draw Mode Selector with counts -->
 		<button
-			class="btn btn-sm gap-1"
+			class="btn gap-1 btn-sm"
 			class:btn-primary={drawMode === 'path'}
 			class:btn-outline={drawMode !== 'path'}
 			onclick={() => toggleDrawMode('path')}
-			title="Draw target path - Creates a path test automatically"
+			title={i18n.canvas_editor_draw_path_title}
 		>
 			<Route class="h-4 w-4" />
 			<span>Path</span>
@@ -107,11 +108,11 @@
 		</button>
 
 		<button
-			class="btn btn-sm gap-1"
+			class="btn gap-1 btn-sm"
 			class:btn-error={drawMode === 'target'}
 			class:btn-outline={drawMode !== 'target'}
 			onclick={() => toggleDrawMode('target')}
-			title="Place target points - Each creates a target test automatically"
+			title={i18n.canvas_editor_place_targets_title}
 		>
 			<Target class="h-4 w-4" />
 			<span>Target</span>
@@ -121,11 +122,11 @@
 		</button>
 
 		<button
-			class="btn btn-sm gap-1"
+			class="btn gap-1 btn-sm"
 			class:btn-neutral={drawMode === 'wall'}
 			class:btn-outline={drawMode !== 'wall'}
 			onclick={() => toggleDrawMode('wall')}
-			title="Place walls - Obstacles the student must avoid"
+			title={i18n.canvas_editor_place_walls_title}
 		>
 			<BrickWall class="h-4 w-4" />
 			<span>Wall</span>
@@ -134,13 +135,13 @@
 			{/if}
 		</button>
 
-		<div class="divider divider-horizontal mx-1"></div>
+		<div class="divider mx-1 divider-horizontal"></div>
 
 		<!-- Clear Buttons -->
 		<button
-			class="btn btn-sm btn-ghost gap-1"
+			class="btn gap-1 btn-ghost btn-sm"
 			onclick={clearAll}
-			title="Clear all"
+			title={i18n.canvas_editor_clear_all_title}
 			disabled={pathOverlay.length === 0 && targets.length === 0 && walls.length === 0}
 		>
 			<Trash2 class="h-4 w-4" />
@@ -150,7 +151,7 @@
 
 	<!-- Status Indicator -->
 	{#if drawMode}
-		<div class="alert alert-info py-2">
+		<div class="alert py-2 alert-info">
 			<span class="text-sm">
 				{#if drawMode === 'path'}
 					<Route class="mr-1 inline h-4 w-4" />

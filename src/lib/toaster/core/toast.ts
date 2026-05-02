@@ -1,10 +1,21 @@
 import { dismiss, remove, upsert } from './store';
-import { resolveValue, type Renderable, type Toast, type ToastOptions, type ToastType } from './types';
+import {
+	resolveValue,
+	type Renderable,
+	type Toast,
+	type ToastOptions,
+	type ToastType,
+	type ValueOrFunction
+} from './types';
 import { genId } from './utils';
 
 type ToastHandler = (message: Renderable, options?: ToastOptions) => string;
 
-const createToast = (message: Renderable, type: ToastType = 'blank', opts?: ToastOptions): Toast => ({
+const createToast = (
+	message: Renderable,
+	type: ToastType = 'blank',
+	opts?: ToastOptions
+): Toast => ({
 	createdAt: Date.now(),
 	visible: true,
 	type,
@@ -56,7 +67,8 @@ toast.promise = <T>(
 
 	promise
 		.then((p) => {
-			toast.success(resolveValue(msgs.success, p), {
+			const message = resolveValue(msgs.success as ValueOrFunction<Renderable, T>, p);
+			toast.success(message, {
 				id,
 				...opts,
 				...opts?.success
@@ -64,7 +76,8 @@ toast.promise = <T>(
 			return p;
 		})
 		.catch((e) => {
-			toast.error(resolveValue(msgs.error, e), {
+			const message = resolveValue(msgs.error as ValueOrFunction<Renderable, unknown>, e);
+			toast.error(message, {
 				id,
 				...opts,
 				...opts?.error
@@ -75,4 +88,3 @@ toast.promise = <T>(
 };
 
 export default toast;
-

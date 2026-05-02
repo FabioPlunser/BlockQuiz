@@ -1,38 +1,54 @@
 <script lang="ts">
-	import * as Blockly from 'blockly';
+	import * as Blockly from 'blockly/core';
+	import 'blockly/blocks';
 	import { onDestroy, onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import { javascriptGenerator as jG } from 'blockly/javascript';
 	import type { BlocklyToolboxConfig, BlocklyConfig } from '$lib/blockly/types';
 	import { getDefaultConfig } from '$lib/blockly/BlocklyFactory';
 
+	const uid = $props.id();
+
 	let {
 		toolboxConfig,
 		starterXml = '',
-		config = getDefaultConfig()
+		config = getDefaultConfig(),
+		ariaLabel = 'Blockly workspace'
 	}: {
 		toolboxConfig: BlocklyToolboxConfig;
 		starterXml?: string;
 		config?: BlocklyConfig;
+		ariaLabel?: string;
 	} = $props();
 	export { getCode, getXml, clear };
-
-	$inspect(toolboxConfig);
 
 	let blocklyDiv: HTMLDivElement;
 	let workspace: Blockly.WorkspaceSvg | null = null;
 	let scrollbarObserver: MutationObserver | null = null;
 
+	function updateAccessibility() {
+		const injectionDiv = blocklyDiv.querySelector('.injectionDiv');
+		if (injectionDiv instanceof HTMLElement) {
+			injectionDiv.setAttribute('role', 'region');
+			injectionDiv.setAttribute('aria-label', ariaLabel);
+			injectionDiv.tabIndex = 0;
+		}
+
+		const svg = blocklyDiv.querySelector('.blocklySvg');
+		if (svg instanceof SVGElement) {
+			svg.setAttribute('aria-label', ariaLabel);
+		}
+	}
+
 	onMount(() => {
-		if (!browser) return;
 		try {
-		workspace = Blockly.inject(blocklyDiv, {
-			toolbox: toolboxConfig,
-			...config
-		});
+			workspace = Blockly.inject(blocklyDiv, {
+				toolbox: toolboxConfig,
+				...config
+			});
+			updateAccessibility();
+			Blockly.svgResize(workspace);
 
-
-		// Fix flyout scrollbar persistence issue
+			// Fix flyout scrollbar persistence issue
 			if (workspace) {
 				const cleanupScrollbars = () => {
 					requestAnimationFrame(() => {
@@ -73,7 +89,7 @@
 		// Load starter xml if provided
 		if (starterXml && workspace) {
 			try {
-				const xml = Blockly.Xml.textToDom(starterXml);
+				const xml = Blockly.utils.xml.textToDom(starterXml);
 				Blockly.Xml.domToWorkspace(xml, workspace);
 			} catch (e) {
 				console.error('Failed to load starter XML:', e);
@@ -107,13 +123,24 @@
 	}
 </script>
 
-<div bind:this={blocklyDiv} class="h-full min-h-64 w-full overflow-hidden rounded border border-base-300 focus:outline-none focus:ring-0" />
+<div class="space-y-2">
+	<p id={`${uid}-instructions`} class="sr-only">
+		Use the toolbox to choose blocks, then build your program in the workspace.
+	</p>
+	<div
+		bind:this={blocklyDiv}
+		class="blockly-shell h-full min-h-64 w-full overflow-hidden rounded-xl border border-base-300 bg-base-100"
+		role="region"
+		aria-label={ariaLabel}
+		aria-describedby={`${uid}-instructions`}
+	></div>
+</div>
 
 <style>
 	/* Fix Blockly flyout scrollbar persistence issue */
 	/* Hide scrollbars when flyout is not visible */
-	:global(.blocklyFlyout[style*="display: none"] .blocklyFlyoutScrollbar),
-	:global(.blocklyFlyoutScrollbar[style*="display: none"]) {
+	:global(.blocklyFlyout[style*='display: none'] .blocklyFlyoutScrollbar),
+	:global(.blocklyFlyoutScrollbar[style*='display: none']) {
 		display: none !important;
 		visibility: hidden !important;
 	}
@@ -124,22 +151,20 @@
 	}
 
 	/* Ensure scrollbars are hidden when parent flyout is hidden */
-	:global(.blocklyFlyout:not([style*="display: block"]):not([style*="display: flex"]) .blocklyFlyoutScrollbar) {
+	:global(
+		.blocklyFlyout:not([style*='display: block']):not([style*='display: flex'])
+			.blocklyFlyoutScrollbar
+	) {
 		display: none !important;
 		visibility: hidden !important;
 	}
 
-	/* Remove focus/outline styles that might cause highlighting */
-	:global(.blocklyMainBackground),
-	:global(.blocklyBlockCanvas),
-	:global(.blocklyBubbleCanvas) {
-		outline: none !important;
+	.blockly-shell {
+		min-height: 16rem;
 	}
 
-	:global(.blocklyMainBackground:focus),
-	:global(.blocklyBlockCanvas:focus),
-	:global(.blocklyBubbleCanvas:focus) {
-		outline: none !important;
-		box-shadow: none !important;
+	.blockly-shell:focus-within {
+		outline: 2px solid hsl(var(--p));
+		outline-offset: 2px;
 	}
 </style>

@@ -1,21 +1,20 @@
 <script lang="ts">
-	import type { TestCase, TestCaseType, ExerciseType, ExerciseMode } from '$lib/types/exercise';
+	import type { TestCase, TestCaseType, ExerciseType } from '$lib/types/exercise';
 	import { createTestCase } from '$lib/types/exercise';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import LocalizedInput from './LocalizedInput.svelte';
 	import { Terminal, Compass, Plus } from '@lucide/svelte';
 
 	let {
 		testCases = $bindable<TestCase[]>([]),
-		exerciseType = 'turtle',
-		exerciseMode = 'default'
+		exerciseType = 'turtle'
 	}: {
 		testCases: TestCase[];
 		exerciseType: ExerciseType;
-		exerciseMode: ExerciseMode;
 	} = $props();
 
 	// Only show manual tests (state/commands) - auto-generated tests are in AutoTestsPanel
-	let manualTests = $derived(testCases.filter(t => t.type !== 'target' && t.type !== 'path'));
+	let manualTests = $derived(testCases.filter((t) => t.type !== 'target' && t.type !== 'path'));
 
 	interface TestTypeOption {
 		value: TestCaseType;
@@ -24,20 +23,20 @@
 		availableFor: ExerciseType[];
 	}
 
-	const testTypeOptions: TestTypeOption[] = [
+	let testTypeOptions = $derived<TestTypeOption[]>([
 		{
 			value: 'state',
-			label: 'Final State',
-			description: 'Check position and angle at the end',
+			label: i18n.cms_manual_test_state,
+			description: i18n.cms_manual_test_state_desc,
 			availableFor: ['turtle', 'robot']
 		},
 		{
 			value: 'commands',
-			label: 'Exact Commands',
-			description: 'Check exact sequence of commands',
+			label: i18n.cms_manual_test_commands,
+			description: i18n.cms_manual_test_commands_desc,
 			availableFor: ['io', 'turtle', 'robot']
 		}
-	];
+	]);
 
 	let availableTestTypes = $derived(
 		testTypeOptions.filter((t) => t.availableFor.includes(exerciseType))
@@ -59,7 +58,7 @@
 	function updateTestCase(index: number, updates: Partial<TestCase>) {
 		// Find the actual index in the full testCases array
 		const manualTest = manualTests[index];
-		const actualIndex = testCases.findIndex(t => t.id === manualTest.id);
+		const actualIndex = testCases.findIndex((t) => t.id === manualTest.id);
 		if (actualIndex !== -1) {
 			testCases = testCases.map((t, i) => (i === actualIndex ? { ...t, ...updates } : t));
 		}
@@ -70,15 +69,15 @@
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
 		<div>
-			<h3 class="font-medium">Manual Tests</h3>
+			<h3 class="font-medium">{i18n.cms_manual_tests_header}</h3>
 			<p class="text-xs text-base-content/60">
-				Add custom tests for specific requirements. These are in addition to the canvas-based tests.
+				{i18n.cms_manual_tests_header_hint}
 			</p>
 		</div>
 		{#if availableTestTypes.length > 0}
-			<button type="button" class="btn btn-primary btn-sm gap-1" onclick={addTestCase}>
+			<button type="button" class="btn gap-1 btn-sm btn-primary" onclick={addTestCase}>
 				<Plus size="16" />
-				Add Test
+				{i18n.cms_manual_tests_add}
 			</button>
 		{/if}
 	</div>
@@ -86,7 +85,7 @@
 	{#if manualTests.length === 0}
 		<div class="rounded-lg border-2 border-dashed border-base-300 p-6 text-center">
 			<p class="text-sm text-base-content/60">
-				No manual tests added. Canvas tests are usually sufficient for most exercises.
+				{i18n.cms_manual_tests_empty}
 			</p>
 		</div>
 	{:else}
@@ -103,7 +102,9 @@
 									<Terminal class="h-4 w-4" />
 								{/if}
 								<span class="badge badge-neutral">
-									{test.type === 'state' ? 'Final State' : 'Commands'}
+									{test.type === 'state'
+										? i18n.cms_manual_test_state
+										: i18n.cms_manual_test_commands}
 								</span>
 								<label class="label cursor-pointer gap-2">
 									<input
@@ -112,27 +113,32 @@
 										checked={test.visible}
 										onchange={(e) => updateTestCase(index, { visible: e.currentTarget.checked })}
 									/>
-									<span class="label-text text-xs">Visible to student</span>
+									<span class="label-text text-xs">{i18n.cms_manual_test_visible}</span>
 								</label>
 							</div>
 							<button
 								type="button"
-								class="btn btn-ghost btn-xs text-error"
+								class="btn text-error btn-ghost btn-xs"
 								onclick={() => removeTestCase(test.id)}
 							>
-								✕ Remove
+								✕ {i18n.cms_manual_test_remove}
 							</button>
 						</div>
 
 						<!-- Test Type Selector -->
 						<div class="form-control mb-3">
-							<label class="label py-1">
-								<span class="label-text text-xs font-medium">Test Type</span>
+							<label class="label py-1" for={`manual-test-${test.id}-type`}>
+								<span class="label-text text-xs font-medium">{i18n.cms_manual_test_type}</span>
 							</label>
 							<select
-								class="select select-bordered select-sm w-full"
+								id={`manual-test-${test.id}-type`}
+								class="select-bordered select w-full select-sm"
 								value={test.type}
-								onchange={(e) => updateTestCase(index, { type: e.currentTarget.value as TestCaseType, expected: {} })}
+								onchange={(e) =>
+									updateTestCase(index, {
+										type: e.currentTarget.value as TestCaseType,
+										expected: {}
+									})}
 							>
 								{#each availableTestTypes as option (option.value)}
 									<option value={option.value}>{option.label} - {option.description}</option>
@@ -143,8 +149,8 @@
 						<!-- Description -->
 						<LocalizedInput
 							bind:value={test.description}
-							label="Description"
-							placeholder="What does this test check?"
+							label={i18n.cms_manual_test_description}
+							placeholder={i18n.cms_manual_test_description_placeholder}
 						/>
 
 						<!-- Type-specific configuration -->
@@ -152,10 +158,13 @@
 							{#if test.type === 'state'}
 								<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 									<div class="form-control">
-										<label class="label"><span class="label-text text-xs">X</span></label>
+										<label class="label" for={`manual-test-${test.id}-x`}>
+											<span class="label-text text-xs">{i18n.cms_manual_test_x_position}</span>
+										</label>
 										<input
+											id={`manual-test-${test.id}-x`}
 											type="number"
-											class="input input-sm input-bordered"
+											class="input-bordered input input-sm"
 											value={test.expected.state?.x || 200}
 											onchange={(e) =>
 												updateTestCase(index, {
@@ -173,10 +182,13 @@
 										/>
 									</div>
 									<div class="form-control">
-										<label class="label"><span class="label-text text-xs">Y</span></label>
+										<label class="label" for={`manual-test-${test.id}-y`}>
+											<span class="label-text text-xs">{i18n.cms_manual_test_y_position}</span>
+										</label>
 										<input
+											id={`manual-test-${test.id}-y`}
 											type="number"
-											class="input input-sm input-bordered"
+											class="input-bordered input input-sm"
 											value={test.expected.state?.y || 200}
 											onchange={(e) =>
 												updateTestCase(index, {
@@ -193,10 +205,13 @@
 										/>
 									</div>
 									<div class="form-control">
-										<label class="label"><span class="label-text text-xs">Angle (°)</span></label>
+										<label class="label" for={`manual-test-${test.id}-angle`}>
+											<span class="label-text text-xs">{i18n.cms_manual_test_angle_degrees}</span>
+										</label>
 										<input
+											id={`manual-test-${test.id}-angle`}
 											type="number"
-											class="input input-sm input-bordered"
+											class="input-bordered input input-sm"
 											value={test.expected.state?.angle || 0}
 											min="0"
 											max="360"
@@ -215,10 +230,13 @@
 										/>
 									</div>
 									<div class="form-control">
-										<label class="label"><span class="label-text text-xs">Tolerance</span></label>
+										<label class="label" for={`manual-test-${test.id}-tolerance`}>
+											<span class="label-text text-xs">{i18n.cms_manual_test_tolerance}</span>
+										</label>
 										<input
+											id={`manual-test-${test.id}-tolerance`}
 											type="number"
-											class="input input-sm input-bordered"
+											class="input-bordered input input-sm"
 											value={test.expected.state?.tolerance || 10}
 											min="1"
 											max="100"
@@ -239,13 +257,14 @@
 								</div>
 							{:else if test.type === 'commands'}
 								<div class="form-control">
-									<label class="label">
-										<span class="label-text text-xs">Expected commands (one per line)</span>
+									<label class="label" for={`manual-test-${test.id}-commands`}>
+										<span class="label-text text-xs">{i18n.cms_manual_test_expected_commands}</span>
 									</label>
 									<textarea
-										class="textarea textarea-bordered w-full font-mono text-xs"
+										id={`manual-test-${test.id}-commands`}
+										class="textarea-bordered textarea w-full font-mono text-xs"
 										rows="4"
-										placeholder="move:50&#10;turn:90&#10;move:50"
+										placeholder={i18n.cms_manual_test_expected_commands_placeholder}
 										value={(test.expected.commands || []).join('\n')}
 										onchange={(e) =>
 											updateTestCase(index, {
@@ -267,8 +286,8 @@
 							<div class="mt-3">
 								<LocalizedInput
 									bind:value={test.message}
-									label="Success message (optional)"
-									placeholder="Message shown when test passes"
+									label={i18n.cms_manual_test_success}
+									placeholder={i18n.cms_manual_test_success_placeholder}
 								/>
 							</div>
 						{/if}

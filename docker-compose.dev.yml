@@ -3,13 +3,14 @@ services:
     image: oven/bun:1
     working_dir: /app
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       # Mount source code for hot reloading
       - ./src:/app/src
       - ./static:/app/static
       - ./drizzle:/app/drizzle
-      
+      - ./scripts:/app/scripts
+
       # Mount configuration files
       - ./package.json:/app/package.json
       - ./bun.lock:/app/bun.lock
@@ -19,24 +20,23 @@ services:
       - ./drizzle.config.ts:/app/drizzle.config.ts
       - ./eslint.config.js:/app/eslint.config.js
       - ./project.inlang:/app/project.inlang
-      
+
       # Persist database
       - ./data:/app/data
-      
+
       # Persist logs
       - ./logs:/app/logs
-      
+
       # Use named volume for node_modules to avoid host conflicts
       - node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
       - DATABASE_URL=file:./data/dev.db
     # Install dependencies and run dev server with Bun runtime
-    command: sh -c "bun install && bun --bun run dev --host 0.0.0.0"
+    command: sh -c "bun install && bun --bun run db:push && bun --bun run dev --host 0.0.0.0"
     # Keep container running for HMR
     stdin_open: true
     tty: true
 
 volumes:
   node_modules:
-

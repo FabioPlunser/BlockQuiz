@@ -1,9 +1,11 @@
 <script lang="ts">
 	import type { Course } from '$lib/types/course';
 	import type { Exercise } from '$lib/types/exercise';
+	import type { AttemptCapture } from '$lib/types/attempt';
 	import type { GradingResult } from '$lib/player/executor';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { submitAttempt } from '$lib/remote/courses.remote';
+	import { SvelteMap } from 'svelte/reactivity';
 	import ExercisePlayer from './ExercisePlayer.svelte';
 	import {
 		X,
@@ -23,10 +25,13 @@
 
 	let { course, exercises, onBack }: Props = $props();
 
+	function onClose() {
+		onBack();
+	}
+
 	// State
 	let currentExerciseIndex = $state(0);
-	let exerciseResults = $state<Map<string, { passed: boolean; score: number }>>(new Map());
-	let isSubmitting = $state(false);
+	let exerciseResults = new SvelteMap<string, { passed: boolean; score: number }>();
 	let showCompletionModal = $state(false);
 	let startTime = $state(Date.now());
 
@@ -41,13 +46,10 @@
 	let isCurrentCompleted = $derived(
 		exerciseResults.get(currentExercise?.id ?? '')?.passed ?? false
 	);
-	let allCompleted = $derived(completedCount === exercises.length && exercises.length > 0);
 
 	// Handle exercise submission
-	async function handleSubmit(result: GradingResult) {
+	async function handleSubmit({ result }: { result: GradingResult; capture: AttemptCapture }) {
 		if (!currentExercise) return;
-
-		isSubmitting = true;
 
 		try {
 			// Save the result locally
@@ -55,7 +57,6 @@
 				passed: result.passed,
 				score: result.score
 			});
-			exerciseResults = new Map(exerciseResults);
 
 			// Submit to database
 			await submitAttempt({
@@ -64,6 +65,7 @@
 				score: result.score,
 				passed: result.passed,
 				startedAt: startTime,
+				endedAt: Date.now(),
 				locale: 'de'
 			});
 
@@ -73,8 +75,6 @@
 			}
 		} catch (err) {
 			console.error('Failed to submit attempt:', err);
-		} finally {
-			isSubmitting = false;
 		}
 	}
 
@@ -193,6 +193,7 @@
 						onSubmit={handleSubmit}
 						onNext={goToNext}
 						{hasNextExercise}
+						initialWorkspaceXml=""
 					/>
 				{/key}
 			{:else}

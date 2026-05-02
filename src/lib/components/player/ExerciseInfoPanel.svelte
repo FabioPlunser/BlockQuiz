@@ -1,39 +1,88 @@
 <script lang="ts">
+	import type { HintRevealEvent } from '$lib/types/attempt';
 	import type { Exercise, ExerciseHint } from '$lib/types/exercise';
-	import { getLocalized } from '$lib/i18n/index.svelte';
+	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
-	import { Lightbulb, ChevronRight, Clock, Eye, EyeOff } from '@lucide/svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { Lightbulb, ChevronRight, Clock, Eye } from '@lucide/svelte';
+	import { onDestroy } from 'svelte';
 
 	type Props = {
 		exercise: Exercise;
 		currentIndex: number;
 		totalExercises: number;
+		onHintEventsChange?: (events: HintRevealEvent[]) => void;
 	};
 
-	let { exercise, currentIndex, totalExercises }: Props = $props();
+	let { exercise, currentIndex, totalExercises, onHintEventsChange }: Props = $props();
 
 	// Hint state - use array for better reactivity in Svelte 5
 	let revealedHints = $state<string[]>([]);
+	let hintEvents = $state<HintRevealEvent[]>([]);
 	let hintTimers = $state<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 	let exerciseStartTime = $state(Date.now());
+	let hintClock = $state(Date.now());
+	let hintClockInterval = $state<ReturnType<typeof setInterval> | null>(null);
+
+	function getExerciseTypeLabel(type: Exercise['type']) {
+		if (type === 'io') return i18n.exercise_type_io;
+		if (type === 'robot') return i18n.exercise_type_robot;
+		return i18n.exercise_type_turtle;
+	}
+
+	function getExerciseModeLabel(mode: string) {
+		if (mode === 'path') return i18n.exercise_mode_path;
+		if (mode === 'apple') return i18n.exercise_mode_apple;
+		return i18n.exercise_mode_default;
+	}
+
+	function syncHintEvents(nextEvents: HintRevealEvent[]) {
+		hintEvents = nextEvents;
+		revealedHints = nextEvents.map((event) => event.hintId);
+		onHintEventsChange?.(nextEvents);
+	}
+
+	function recordHintReveal(hint: ExerciseHint) {
+		if (revealedHints.includes(hint.id)) {
+			return;
+		}
+
+		syncHintEvents([
+			...hintEvents,
+			{
+				hintId: hint.id,
+				revealedAt: Date.now(),
+				trigger: hint.trigger
+			}
+		]);
+	}
 
 	// Reset hints when exercise changes
 	$effect(() => {
 		// Clear previous timers
 		hintTimers.forEach((timer) => clearTimeout(timer));
 		hintTimers.clear();
-		revealedHints = [];
+		if (hintClockInterval) {
+			clearInterval(hintClockInterval);
+			hintClockInterval = null;
+		}
+		syncHintEvents([]);
 		exerciseStartTime = Date.now();
+		hintClock = Date.now();
 
 		// Set up timed hints
 		if (exercise.config.hints) {
+			const hasTimedHints = exercise.config.hints.some((hint) => hint.trigger === 'time');
+			if (hasTimedHints) {
+				hintClockInterval = setInterval(() => {
+					hintClock = Date.now();
+				}, 1000);
+			}
+
 			exercise.config.hints.forEach((hint) => {
 				if (hint.trigger === 'time' && hint.delaySeconds) {
 					const timer = setTimeout(() => {
-						if (!revealedHints.includes(hint.id)) {
-							revealedHints = [...revealedHints, hint.id];
-						}
+						hintClock = Date.now();
+						recordHintReveal(hint);
 					}, hint.delaySeconds * 1000);
 					hintTimers.set(hint.id, timer);
 				}
@@ -43,11 +92,15 @@
 
 	onDestroy(() => {
 		hintTimers.forEach((timer) => clearTimeout(timer));
+		if (hintClockInterval) {
+			clearInterval(hintClockInterval);
+		}
 	});
 
 	function revealHint(hintId: string) {
-		if (!revealedHints.includes(hintId)) {
-			revealedHints = [...revealedHints, hintId];
+		const hint = exercise.config.hints?.find((entry) => entry.id === hintId);
+		if (hint) {
+			recordHintReveal(hint);
 		}
 	}
 
@@ -57,8 +110,12 @@
 		// For click hints, show all but only reveal content if clicked
 		// For time hints, only show if time has passed
 		return exercise.config.hints.filter((hint) => {
+			if (revealedHints.includes(hint.id)) {
+				return true;
+			}
+
 			if (hint.trigger === 'time') {
-				const elapsed = (Date.now() - exerciseStartTime) / 1000;
+				const elapsed = (hintClock - exerciseStartTime) / 1000;
 				return elapsed >= (hint.delaySeconds ?? 0);
 			}
 			return true; // Click hints are always shown
@@ -66,21 +123,26 @@
 	}
 
 	let availableHints = $derived(getAvailableHints());
+	let exerciseTypeLabel = $derived(getExerciseTypeLabel(exercise.type));
+	let exerciseModeLabel = $derived(
+		exercise.config.mode === 'default' ? null : getExerciseModeLabel(exercise.config.mode)
+	);
 </script>
 
 <div class="flex flex-col gap-4 overflow-y-auto rounded-xl bg-base-300 p-4 shadow-md">
 	<!-- Progress Indicator -->
 	<div class="flex items-center justify-between">
 		<span class="text-sm font-medium text-base-content/60">
-			Exercise {currentIndex + 1} of {totalExercises}
+			{i18n.course_exercise_label}
+			{currentIndex + 1} / {totalExercises}
 		</span>
 		<div class="flex gap-1">
-			{#each Array(totalExercises) as _, i (i)}
+			{#each Array.from({ length: totalExercises }, (_, index) => index) as step (step)}
 				<div
 					class="h-2 w-6 rounded-full transition-colors"
-					class:bg-primary={i === currentIndex}
-					class:bg-success={i < currentIndex}
-					class:bg-gray-400={i > currentIndex}
+					class:bg-primary={step === currentIndex}
+					class:bg-success={step < currentIndex}
+					class:bg-gray-400={step > currentIndex}
 				></div>
 			{/each}
 		</div>
@@ -91,7 +153,7 @@
 		<div class="overflow-hidden rounded-lg">
 			<img
 				src={exercise.content.image}
-				alt="Exercise illustration"
+				alt={i18n.player_exercise_image_alt}
 				class="h-40 w-full object-cover"
 			/>
 		</div>
@@ -104,9 +166,9 @@
 
 	<!-- Exercise Type Badge -->
 	<div class="flex gap-2">
-		<span class="badge badge-outline capitalize">{exercise.type}</span>
-		{#if exercise.config.mode !== 'default'}
-			<span class="badge capitalize badge-secondary">{exercise.config.mode} mode</span>
+		<span class="badge badge-outline">{exerciseTypeLabel}</span>
+		{#if exerciseModeLabel}
+			<span class="badge badge-secondary">{exerciseModeLabel}</span>
 		{/if}
 	</div>
 
@@ -121,7 +183,7 @@
 		<div class="space-y-2">
 			<div class="flex items-center gap-2 text-sm font-medium">
 				<Lightbulb class="h-4 w-4 text-warning" />
-				<span>Hints</span>
+				<span>{i18n.player_hints}</span>
 				<span class="text-base-content/50">
 					({revealedHints.length}/{exercise.config.hints.length})
 				</span>
@@ -140,17 +202,19 @@
 							</div>
 						{:else if hint.trigger === 'click'}
 							<button
-								class="btn btn-warning btn-sm w-full justify-start gap-2"
+								class="btn w-full justify-start gap-2 btn-sm btn-warning"
 								onclick={() => revealHint(hint.id)}
 							>
 								<Lightbulb class="h-4 w-4" />
-								<span>Reveal Hint {index + 1}</span>
+								<span>{i18n.player_reveal_hint.replace('{n}', String(index + 1))}</span>
 								<ChevronRight class="ml-auto h-4 w-4" />
 							</button>
 						{:else}
 							<div class="flex items-center gap-2 text-sm text-base-content/50">
 								<Clock class="h-4 w-4" />
-								<span>Hint available in {hint.delaySeconds}s</span>
+								<span
+									>{i18n.player_hint_available_in.replace('{n}', String(hint.delaySeconds))}</span
+								>
 							</div>
 						{/if}
 					</div>

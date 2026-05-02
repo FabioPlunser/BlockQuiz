@@ -19,7 +19,11 @@
 		containerClassName?: string;
 	} = $props();
 
-	const { toasts, handlers } = useToaster(toastOptions);
+	function initToaster() {
+		return useToaster(toastOptions);
+	}
+
+	const { toasts, handlers } = initToaster();
 
 	let _toasts = $derived(
 		$toasts.map((toast) => ({
@@ -59,4 +63,3 @@
 		pointer-events: none;
 	}
 </style>
-

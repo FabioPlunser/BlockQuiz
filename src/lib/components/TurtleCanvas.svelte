@@ -34,11 +34,7 @@
 	}: Props = $props();
 
 	// Convert single apple to targets array
-	let targets = $state<TargetPoint[]>(apple ? [{ ...apple, icon: 'apple' }] : []);
-
-	$effect(() => {
-		targets = apple ? [{ ...apple, icon: 'apple' }] : [];
-	});
+	let targets = $derived<TargetPoint[]>(apple ? [{ ...apple, icon: 'apple' }] : []);
 
 	function handleTargetChange(newTargets: TargetPoint[]) {
 		targets = newTargets;

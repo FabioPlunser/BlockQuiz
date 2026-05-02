@@ -22,7 +22,9 @@
 	let { items, columns, actions, class: className = '' }: Props<T> = $props();
 
 	function renderCell(item: T, column: Column<T>): string {
-		const value = column.render ? column.render(item) : (item as Record<string, unknown>)[column.key];
+		const value = column.render
+			? column.render(item)
+			: (item as Record<string, unknown>)[column.key];
 
 		if (!value) return '';
 
@@ -74,4 +76,3 @@
 		</tbody>
 	</table>
 </div>
-

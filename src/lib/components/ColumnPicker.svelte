@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends { id: string }">
 	import { Columns3, Check } from '@lucide/svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import type { Column } from './DataTable.svelte';
 
 	type Props<T> = {
@@ -50,7 +51,11 @@
 <svelte:document onclick={handleClickOutside} />
 
 <div class="column-picker-dropdown dropdown dropdown-end {className}">
-	<button class="btn btn-ghost btn-sm" onclick={() => (isOpen = !isOpen)} title="Select columns">
+	<button
+		class="btn btn-ghost btn-sm"
+		onclick={() => (isOpen = !isOpen)}
+		title={i18n.column_picker_select_columns_title}
+	>
 		<Columns3 class="h-6 w-6" />
 		<span class="hidden sm:inline">Columns</span>
 	</button>

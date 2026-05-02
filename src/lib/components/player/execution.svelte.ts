@@ -1,14 +1,20 @@
 import type { Exercise } from '$lib/types/exercise';
 import type { ICanvasEngine } from '$lib/canvas/types';
+import type { ExecutionTrace } from '$lib/sandbox';
 import type { GradingResult } from '$lib/player/executor';
-import { executeCodeSandboxed, gradeExercise } from '$lib/player/executor';
+import { executeCodeSandboxed, submitExerciseSolution } from '$lib/player/executor';
 import { Turtle } from '$lib/canvas/Turtle.svelte';
 import { Robot } from '$lib/canvas/Robot.svelte';
 import toast from '$lib/toaster';
+import { i18n } from '$lib/i18n/index.svelte';
 
 // Logging helper
 const DEBUG = false;
-function log(level: 'info' | 'debug' | 'error' | 'warn', message: string, data?: Record<string, unknown>) {
+function log(
+	level: 'info' | 'debug' | 'error' | 'warn',
+	message: string,
+	data?: Record<string, unknown>
+) {
 	if (!DEBUG && level === 'debug') return;
 	const prefix = `[ExecutionState]`;
 	const dataStr = data ? ` ${JSON.stringify(data)}` : '';
@@ -20,6 +26,7 @@ class ExecutionState {
 	private _isRunning = $state(false);
 	private _isSubmitting = $state(false);
 	private _result = $state<GradingResult | null>(null);
+	private _trace = $state<ExecutionTrace | null>(null);
 	private _executionError = $state<boolean>(false);
 	private _getCode: (() => string) | null = null;
 	private _exercise: Exercise | null = null;
@@ -41,6 +48,10 @@ class ExecutionState {
 		return this._result;
 	}
 
+	get trace() {
+		return this._trace;
+	}
+
 	get executionError() {
 		return this._executionError;
 	}
@@ -49,20 +60,38 @@ class ExecutionState {
 	initialize(exercise: Exercise, getCode: () => string) {
 		log('info', 'Initializing execution state', {
 			exerciseId: exercise.id,
-			exerciseType: exercise.type,
-			canvasSize: exercise.config.canvas
+			exerciseType: exercise.type
 		});
 
 		this._exercise = exercise;
 		this._getCode = getCode;
+		this._trace = null;
+		this._result = null;
+		this._executionError = false;
 
-		const { width, height } = exercise.config.canvas;
 		if (exercise.type === 'turtle') {
-			this._engine = new Turtle(width, height);
+			const { width, height } = exercise.canvas;
+			const engine = new Turtle(width, height);
+			engine.gridSize = exercise.canvas.gridSize;
+			this._engine = engine;
 			log('debug', 'Created Turtle engine', { width, height });
 		} else if (exercise.type === 'robot') {
-			this._engine = new Robot(width, height);
-			log('debug', 'Created Robot engine', { width, height });
+			const width = exercise.grid.width * exercise.grid.cellSize;
+			const height = exercise.grid.height * exercise.grid.cellSize;
+			const engine = new Robot(width, height, {
+				start: exercise.grid.start,
+				direction: exercise.grid.direction
+			});
+			engine.gridSize = exercise.grid.cellSize;
+			this._engine = engine;
+			log('debug', 'Created Robot engine', {
+				width,
+				height,
+				start: exercise.grid.start,
+				direction: exercise.grid.direction
+			});
+		} else {
+			this._engine = null;
 		}
 	}
 
@@ -73,6 +102,7 @@ class ExecutionState {
 			this._engine.reset();
 		}
 		this._result = null;
+		this._trace = null;
 		this._executionError = false;
 		this._isRunning = false;
 		this._isSubmitting = false;
@@ -85,8 +115,8 @@ class ExecutionState {
 			exerciseId: this._exercise?.id
 		});
 
-		if (!this._engine || !this._getCode) {
-			log('warn', 'Cannot run - missing engine or getCode');
+		if (!this._getCode || !this._exercise) {
+			log('warn', 'Cannot run - missing exercise context');
 			return;
 		}
 
@@ -100,26 +130,30 @@ class ExecutionState {
 
 			if (!code.trim()) {
 				log('warn', 'Empty code - nothing to run');
-				toast.error('No code to run. Add some blocks to your workspace.');
+				toast.error(i18n.player_no_code);
 				this._executionError = true;
 				this._isRunning = false;
 				return;
 			}
 
 			log('info', 'Executing code in sandbox...', { exerciseId: this._exercise?.id });
-			
+
 			// Execute code in secure sandbox
-			const execResult = await executeCodeSandboxed(code, this._engine);
+			const execResult = await executeCodeSandboxed(this._exercise, code, this._engine);
+			this._trace = execResult.trace;
 
 			if (!execResult.success) {
-				log('error', 'Execution failed', { 
+				log('error', 'Execution failed', {
 					error: execResult.error,
-					errorType: execResult.errorType 
+					errorType: execResult.errorType
 				});
 				toast.error(execResult.error || 'Execution failed');
 				this._executionError = true;
 			} else {
-				log('info', 'Execution successful', { commandCount: execResult.commands.length });
+				log('info', 'Execution successful', {
+					commandCount: execResult.commands.length,
+					stdout: execResult.stdout ?? ''
+				});
 			}
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : 'Unknown error';
@@ -132,9 +166,11 @@ class ExecutionState {
 	}
 
 	handleReset() {
-		if (!this._engine) return;
-		this._engine.reset();
+		if (this._engine) {
+			this._engine.reset();
+		}
 		this._result = null;
+		this._trace = null;
 		this._executionError = false;
 	}
 
@@ -146,8 +182,8 @@ class ExecutionState {
 			exerciseId: this._exercise?.id
 		});
 
-		if (!this._engine || !this._getCode || !this._exercise) {
-			log('warn', 'Cannot submit - missing engine, getCode, or exercise');
+		if (!this._getCode || !this._exercise) {
+			log('warn', 'Cannot submit - missing getCode or exercise');
 			return;
 		}
 
@@ -160,58 +196,48 @@ class ExecutionState {
 
 			if (!code.trim()) {
 				log('warn', 'Empty code - nothing to submit');
-				toast.error('No code to submit. Add some blocks first.');
+				toast.error(i18n.player_no_code_submit);
 				this._executionError = true;
 				this._isSubmitting = false;
 				return;
 			}
 
 			log('info', 'Executing code in sandbox for submission...', { exerciseId: this._exercise.id });
-			
-			// Execute code in secure sandbox
-			const execResult = await executeCodeSandboxed(code, this._engine);
 
-			if (!execResult.success) {
-				log('error', 'Execution failed during submission', { 
-					error: execResult.error,
-					errorType: execResult.errorType 
+			const submission = await submitExerciseSolution(this._exercise, code, this._engine);
+			this._trace = submission.execution.trace;
+
+			if (!submission.execution.success && this._exercise.type !== 'io') {
+				log('error', 'Execution failed during submission', {
+					error: submission.execution.error,
+					errorType: submission.execution.errorType
 				});
-				toast.error(execResult.error || 'Execution failed');
+				toast.error(submission.execution.error || 'Execution failed');
 				this._executionError = true;
 				this._isSubmitting = false;
 				return;
 			}
 
-			log('debug', 'Code executed, starting grading', {
-				commandCount: execResult.commands.length,
-				testCaseCount: this._exercise.config.grader.testCases.length
+			log('debug', 'Submission executed, grading finished', {
+				commandCount: submission.execution.commands.length,
+				stdout: submission.execution.stdout ?? '',
+				testCaseCount:
+					this._exercise.type === 'io'
+						? this._exercise.io.tests.length
+						: this._exercise.config.grader.testCases.length
 			});
-
-			// Grade the result with canvas config for proper position calculation
-			const canvasConfig = {
-				width: this._exercise.config.canvas.width,
-				height: this._exercise.config.canvas.height,
-				gridSize: this._exercise.config.canvas.gridSize
-			};
-
-			const gradingResult = gradeExercise(
-				execResult.commands,
-				this._exercise.config.grader.testCases,
-				this._exercise.type,
-				canvasConfig
-			);
 
 			log('info', 'Grading complete', {
 				exerciseId: this._exercise.id,
-				passed: gradingResult.passed,
-				score: gradingResult.score,
-				passedTests: gradingResult.passedTests,
-				totalTests: gradingResult.totalTests
+				passed: submission.grading.passed,
+				score: submission.grading.score,
+				passedTests: submission.grading.passedTests,
+				totalTests: submission.grading.totalTests
 			});
 
-			this._result = gradingResult;
+			this._result = submission.grading;
 			if (onSubmit) {
-				onSubmit(gradingResult);
+				onSubmit(submission.grading);
 			}
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : 'Unknown error';

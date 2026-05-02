@@ -4,7 +4,6 @@
 	const canvas = new Canvas2D(400, 400);
 	canvas.api.move(200);
 	canvas.api.turn(200);
-	$inspect(canvas.state);
 </script>
 
 <div class="flex h-screen w-full items-center justify-center gap-4">

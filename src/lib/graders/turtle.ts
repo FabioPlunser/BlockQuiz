@@ -7,21 +7,21 @@ export interface TurtleState {
 
 export interface TurtleTest {
 	id: string;
-	description: { de: string, en: string };
+	description: { de: string; en: string };
 	visible: boolean;
 	type: 'target' | 'commands' | 'state';
-	message?: { de: string, en: string };
+	message?: { de: string; en: string };
 	expected: {
-		target?: { x: number, y: number, tolerance?: number };
+		target?: { x: number; y: number; tolerance?: number };
 		commands?: string[];
-		state?: { x: number, y: number, angle: number, tolerance: number };
+		state?: { x: number; y: number; angle: number; tolerance: number };
 	};
 }
 
 export interface GradeResult {
 	passed: boolean;
 	score: number;
-	tests: Array<TurtleTest & { passed: boolean; message: string }>;
+	tests: Array<Omit<TurtleTest, 'message'> & { passed: boolean; message: string }>;
 }
 
 export interface CanvasConfig {
@@ -73,7 +73,6 @@ export function simulateTurtle(
 	return { x, y, angle, penDown };
 }
 
-
 export function gradeTurtle(
 	commandLog: string[],
 	tests: TurtleTest[],
@@ -81,7 +80,6 @@ export function gradeTurtle(
 ): GradeResult {
 	const results: GradeResult['tests'] = [];
 	let passed = 0;
-
 
 	for (const test of tests) {
 		let testPassed = false;
@@ -109,7 +107,8 @@ export function gradeTurtle(
 			const dy = Math.abs(state.y - test.expected.state.y);
 			const distance = Math.sqrt(dx * dx + dy * dy);
 			const angleDiff = Math.abs(state.angle - test.expected.state.angle);
-			testPassed = distance <= test.expected.state.tolerance && angleDiff <= test.expected.state.tolerance;
+			testPassed =
+				distance <= test.expected.state.tolerance && angleDiff <= test.expected.state.tolerance;
 			message = testPassed
 				? `Turtle reached the target state.`
 				: `Turtle is ${distance.toFixed(1)} away from target state.`;

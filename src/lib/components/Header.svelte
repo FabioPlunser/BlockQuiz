@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { i18n, initI18n, setLocale } from '$lib/i18n/index.svelte';
+	import { i18n, setLocale } from '$lib/i18n/index.svelte';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { getCurrentUser, logoutUser } from '$remote/auth.remote';
+	import { getCurrentUser } from '$remote/auth.remote';
 	import Navigation from './Navigation.svelte';
 	import Avatar from './Avatar.svelte';
+	import { Globe } from '@lucide/svelte';
 
-	const languages = [
-		{ code: 'en', label: 'English' },
-		{ code: 'de', label: 'Deutsch' }
-	] as const;
+	const languages = $derived([
+		{ code: 'en', label: i18n.language_english },
+		{ code: 'de', label: i18n.language_german }
+	] as const);
 
 	let user = $state<any>(null);
 	let theme = $state<'light' | 'dark'>('light');
@@ -22,9 +24,6 @@
 	};
 
 	onMount(async () => {
-		// Initialize i18n with all available languages
-		await initI18n([...languages]);
-
 		if (typeof window !== 'undefined') {
 			const stored = localStorage.getItem('theme');
 			const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -50,7 +49,7 @@
 </script>
 
 <header class="mb-8 flex items-center justify-between">
-	<a href="/" class="flex items-center gap-2 text-lg font-semibold text-slate-800">
+	<a href={resolve('/')} class="flex items-center gap-2 text-lg font-semibold text-slate-800">
 		<span
 			class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-xl font-bold text-white shadow-lg shadow-sky-200"
 		>
@@ -71,12 +70,15 @@
 		{/if}
 
 		<div class="flex items-center gap-3">
-			<label class="swap swap-rotate">
-				<!-- this hidden checkbox controls the state -->
+			<label
+				class="swap swap-rotate rounded-full focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+				title={i18n.theme_toggle_label}
+			>
 				<input
 					type="checkbox"
-					class="theme-controller hidden"
-					value="synthwave"
+					class="sr-only"
+					aria-label={i18n.theme_toggle_label}
+					checked={theme === 'dark'}
 					onchange={toggleTheme}
 				/>
 
@@ -107,15 +109,15 @@
 				<button
 					tabindex="0"
 					class="btn btn-circle text-lg btn-ghost btn-sm"
-					aria-label="Select language"
+					aria-label={i18n.language_select}
 				>
-					<i class="lni lni-globe-1 scale-150"></i>
+					<Globe class="h-5 w-5" />
 				</button>
 				<ul
 					tabindex="-1"
 					class="dropdown-content menu z-10 w-fit gap-1 rounded-xl bg-white p-2 shadow-md"
 				>
-					{#each languages as lang}
+					{#each languages as lang (lang.code)}
 						<li>
 							<button
 								onclick={() => changeLanguage(lang.code)}

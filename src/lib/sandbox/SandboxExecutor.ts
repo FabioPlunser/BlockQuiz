@@ -1,43 +1,43 @@
-/**
- * SandboxExecutor - Manages iframe sandbox for secure code execution.
- * 
- * Creates an iframe with sandbox="allow-scripts" to isolate student code.
- * Communicates via postMessage protocol.
- */
-
+import {
+	DEFAULT_SANDBOX_MAX_COMMANDS,
+	DEFAULT_SANDBOX_MAX_ITERATIONS,
+	DEFAULT_SANDBOX_TIMEOUT,
+	createSandboxChannelId
+} from './runtime';
 import type {
+	ExecuteMessage,
+	LogMessage,
+	ParentToSandboxMessage,
+	ReadyMessage,
+	ResultMessage,
+	SandboxConnectMessage,
+	SandboxExecutionRequest,
 	SandboxExecutionResult,
 	SandboxExecutorOptions,
-	ExecuteMessage,
-	ResultMessage,
 	SandboxToParentMessage
 } from './types';
 
-// =============================================================================
-// Default Configuration
-// =============================================================================
-
 const DEFAULT_OPTIONS: Required<SandboxExecutorOptions> = {
 	sandboxUrl: '/sandbox.html',
-	timeout: 2000,
-	maxCommands: 10000,
-	maxIterations: 10000,
+	timeout: DEFAULT_SANDBOX_TIMEOUT,
+	maxCommands: DEFAULT_SANDBOX_MAX_COMMANDS,
+	maxIterations: DEFAULT_SANDBOX_MAX_ITERATIONS,
 	debug: false
 };
 
-// =============================================================================
-// SandboxExecutor Class
-// =============================================================================
+type PendingRequest = {
+	resolve: (result: SandboxExecutionResult) => void;
+	reject: (error: Error) => void;
+	timeoutId: ReturnType<typeof setTimeout>;
+};
 
 export class SandboxExecutor {
 	private iframe: HTMLIFrameElement | null = null;
+	private controlPort: MessagePort | null = null;
 	private isReady = false;
 	private readyPromise: Promise<void> | null = null;
-	private pendingRequests = new Map<string, {
-		resolve: (result: SandboxExecutionResult) => void;
-		reject: (error: Error) => void;
-		timeoutId: ReturnType<typeof setTimeout>;
-	}>();
+	private channelId = createSandboxChannelId();
+	private pendingRequests = new Map<string, PendingRequest>();
 	private options: Required<SandboxExecutorOptions>;
 	private messageHandler: ((event: MessageEvent) => void) | null = null;
 
@@ -45,89 +45,114 @@ export class SandboxExecutor {
 		this.options = { ...DEFAULT_OPTIONS, ...options };
 	}
 
-	// ===========================================================================
-	// Public API
-	// ===========================================================================
-
-	/**
-	 * Initialize the sandbox iframe.
-	 * Call this before executing code.
-	 */
 	async initialize(): Promise<void> {
-		if (this.isReady) return;
-		if (this.readyPromise) return this.readyPromise;
-
-		this.readyPromise = this.createSandbox();
+		if (this.isReady) {
+			return;
+		}
+		if (!this.readyPromise) {
+			this.readyPromise = this.createSandbox();
+		}
 		await this.readyPromise;
 	}
 
-	/**
-	 * Execute code in the sandbox.
-	 * Returns commands recorded during execution.
-	 */
-	async execute(code: string, apiMethods: string[]): Promise<SandboxExecutionResult> {
-		// Ensure sandbox is ready
+	async execute(request: SandboxExecutionRequest): Promise<SandboxExecutionResult> {
 		await this.initialize();
 
-		if (!this.iframe?.contentWindow) {
+		if (!this.controlPort) {
 			return {
 				success: false,
-				commands: [],
-				error: 'Sandbox not initialized',
+				trace: { durationMs: 0, commands: [] },
+				error: 'Sandbox control channel is unavailable.',
 				errorType: 'runtime'
 			};
 		}
 
 		return new Promise((resolve, reject) => {
 			const id = this.generateId();
-			
-			// Set up timeout
+			const timeoutMs = request.timeout ?? this.options.timeout;
 			const timeoutId = setTimeout(() => {
 				this.pendingRequests.delete(id);
 				resolve({
 					success: false,
-					commands: [],
-					error: `Execution timed out after ${this.options.timeout}ms`,
+					trace: { durationMs: timeoutMs, commands: [] },
+					error: `Execution timed out after ${timeoutMs}ms.`,
 					errorType: 'timeout'
 				});
-			}, this.options.timeout + 500); // Add buffer for message passing
+			}, timeoutMs + 250);
 
-			// Store pending request
-			this.pendingRequests.set(id, { resolve, reject, timeoutId });
+			this.pendingRequests.set(id, {
+				resolve,
+				reject,
+				timeoutId
+			});
 
-			// Send execute message
 			const message: ExecuteMessage = {
 				type: 'execute',
+				channelId: this.channelId,
 				id,
-				code,
-				apiMethods,
-				timeout: this.options.timeout,
-				maxCommands: this.options.maxCommands,
-				maxIterations: this.options.maxIterations
+				code: request.code,
+				exerciseType: request.exerciseType,
+				apiMethods: request.apiMethods,
+				timeout: request.timeout ?? this.options.timeout,
+				maxCommands: request.maxCommands ?? this.options.maxCommands,
+				maxIterations: request.maxIterations ?? this.options.maxIterations,
+				seed: request.seed,
+				stdin: request.stdin,
+				visual: request.visual
 			};
 
-			this.iframe!.contentWindow!.postMessage(message, '*');
+			this.controlPort?.postMessage(message);
 		});
 	}
 
-	/**
-	 * Destroy the sandbox and clean up resources.
-	 */
-	destroy(): void {
-		// Clear all pending requests
-		for (const [id, { timeoutId, reject }] of this.pendingRequests) {
-			clearTimeout(timeoutId);
-			reject(new Error('Sandbox destroyed'));
-		}
-		this.pendingRequests.clear();
+	async reset(): Promise<void> {
+		await this.initialize();
 
-		// Remove message listener
+		if (!this.controlPort) {
+			return;
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			const id = this.generateId();
+			const timeoutId = setTimeout(() => {
+				this.pendingRequests.delete(id);
+				reject(new Error('Sandbox reset timed out.'));
+			}, 1000);
+
+			this.pendingRequests.set(id, {
+				resolve: () => resolve(),
+				reject,
+				timeoutId
+			});
+
+			const message: ParentToSandboxMessage = {
+				type: 'reset',
+				channelId: this.channelId,
+				id
+			};
+
+			this.controlPort?.postMessage(message);
+		});
+	}
+
+	destroy(): void {
+		for (const [id, pending] of this.pendingRequests) {
+			clearTimeout(pending.timeoutId);
+			pending.reject(new Error('Sandbox destroyed.'));
+			this.pendingRequests.delete(id);
+		}
+
 		if (this.messageHandler) {
 			window.removeEventListener('message', this.messageHandler);
 			this.messageHandler = null;
 		}
 
-		// Remove iframe
+		if (this.controlPort) {
+			this.controlPort.onmessage = null;
+			this.controlPort.close();
+			this.controlPort = null;
+		}
+
 		if (this.iframe) {
 			this.iframe.remove();
 			this.iframe = null;
@@ -135,119 +160,141 @@ export class SandboxExecutor {
 
 		this.isReady = false;
 		this.readyPromise = null;
+		this.channelId = createSandboxChannelId();
 	}
 
-	/**
-	 * Check if sandbox is ready.
-	 */
 	get ready(): boolean {
 		return this.isReady;
 	}
 
-	// ===========================================================================
-	// Private Methods
-	// ===========================================================================
-
 	private createSandbox(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			// Create iframe
 			this.iframe = document.createElement('iframe');
 			this.iframe.style.display = 'none';
 			this.iframe.style.width = '0';
 			this.iframe.style.height = '0';
 			this.iframe.style.border = 'none';
-			
-			// Set sandbox attributes - only allow scripts, nothing else
 			this.iframe.sandbox.add('allow-scripts');
-			
-			// Set source
 			this.iframe.src = this.options.sandboxUrl;
 
-			// Set up message handler
-			this.messageHandler = (event: MessageEvent) => {
-				this.handleMessage(event);
+			const channel = new MessageChannel();
+			this.controlPort = channel.port1;
+			this.controlPort.onmessage = (event) => {
+				this.handlePortMessage(event);
 			};
-			window.addEventListener('message', this.messageHandler);
+			this.controlPort.start();
 
-			// Handle load errors
-			this.iframe.onerror = () => {
-				reject(new Error('Failed to load sandbox'));
-			};
-
-			// Wait for ready message with timeout
 			const readyTimeout = setTimeout(() => {
-				reject(new Error('Sandbox initialization timed out'));
+				reject(new Error('Sandbox initialization timed out.'));
 			}, 5000);
 
-			const readyHandler = (event: MessageEvent) => {
-				const message = event.data as SandboxToParentMessage;
-				if (message?.type === 'ready') {
+			this.messageHandler = (event: MessageEvent) => {
+				if (!this.iframe?.contentWindow) {
+					return;
+				}
+
+				if (event.source !== this.iframe.contentWindow) {
+					return;
+				}
+
+				const message = event.data as Partial<SandboxToParentMessage> | undefined;
+				if (!message || typeof message !== 'object') {
+					return;
+				}
+
+				if (event.origin !== 'null') {
+					return;
+				}
+
+				if (message.type === 'ready') {
+					const readyMessage = message as ReadyMessage;
+					if (readyMessage.channelId !== this.channelId) {
+						return;
+					}
+
 					clearTimeout(readyTimeout);
 					this.isReady = true;
 					resolve();
 				}
 			};
-			window.addEventListener('message', readyHandler, { once: true });
 
-			// Append to document
+			window.addEventListener('message', this.messageHandler);
+
+			this.iframe.onload = () => {
+				if (!this.iframe?.contentWindow) {
+					reject(new Error('Sandbox window is unavailable.'));
+					return;
+				}
+
+				const connectMessage: SandboxConnectMessage = {
+					type: 'connect',
+					channelId: this.channelId,
+					parentOrigin: window.location.origin
+				};
+
+				this.iframe.contentWindow.postMessage(connectMessage, '*', [channel.port2]);
+			};
+
+			this.iframe.onerror = () => {
+				clearTimeout(readyTimeout);
+				reject(new Error('Failed to load sandbox.'));
+			};
+
 			document.body.appendChild(this.iframe);
 		});
 	}
 
-	private handleMessage(event: MessageEvent): void {
-		const message = event.data as SandboxToParentMessage;
-		
-		if (!message || typeof message !== 'object') return;
+	private handlePortMessage(event: MessageEvent): void {
+		const message = event.data as SandboxToParentMessage | undefined;
+		if (!message || typeof message !== 'object') {
+			return;
+		}
+
+		if ('channelId' in message && message.channelId !== this.channelId) {
+			return;
+		}
 
 		switch (message.type) {
 			case 'result': {
 				const result = message as ResultMessage;
 				const pending = this.pendingRequests.get(result.id);
-				
-				if (pending) {
-					clearTimeout(pending.timeoutId);
-					this.pendingRequests.delete(result.id);
-					
-					pending.resolve({
-						success: result.success,
-						commands: result.commands,
-						error: result.error,
-						errorType: result.errorType
-					});
+				if (!pending) {
+					return;
 				}
-				break;
+
+				clearTimeout(pending.timeoutId);
+				this.pendingRequests.delete(result.id);
+				pending.resolve({
+					success: result.success,
+					trace: result.trace,
+					error: result.error,
+					errorType: result.errorType
+				});
+				return;
 			}
 
 			case 'log': {
-				if (this.options.debug) {
-					const logMessage = message as { level: 'log' | 'warn' | 'error'; args: unknown[] };
-					console[logMessage.level]('[Sandbox]', ...logMessage.args);
+				if (!this.options.debug) {
+					return;
 				}
-				break;
+
+				const logMessage = message as LogMessage;
+				console[logMessage.level]('[Sandbox]', ...logMessage.args);
+				return;
 			}
 
-			case 'ready': {
-				// Handled in createSandbox
-				break;
-			}
+			default:
+				return;
 		}
 	}
 
 	private generateId(): string {
-		return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+		return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 	}
 }
 
-// =============================================================================
-// Singleton Instance
-// =============================================================================
-
 let sandboxInstance: SandboxExecutor | null = null;
 
-/**
- * Get the singleton sandbox executor instance.
- * Creates one if it doesn't exist.
- */
 export function getSandboxExecutor(options?: SandboxExecutorOptions): SandboxExecutor {
 	if (!sandboxInstance) {
 		sandboxInstance = new SandboxExecutor(options);
@@ -255,13 +302,9 @@ export function getSandboxExecutor(options?: SandboxExecutorOptions): SandboxExe
 	return sandboxInstance;
 }
 
-/**
- * Destroy the singleton sandbox executor.
- */
 export function destroySandboxExecutor(): void {
 	if (sandboxInstance) {
 		sandboxInstance.destroy();
 		sandboxInstance = null;
 	}
 }
-

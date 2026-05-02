@@ -10,5 +10,6 @@ const dbUrl = env.DATABASE_URL;
 const sqlitePath = dbUrl.replace(/^file:/, '');
 
 const client = new Database(sqlitePath);
+client.exec('PRAGMA foreign_keys = ON');
 
 export const db = drizzle(client, { schema });

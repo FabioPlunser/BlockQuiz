@@ -3,5 +3,5 @@
  */
 
 export * from './types';
+export * from './runtime';
 export { SandboxExecutor, getSandboxExecutor, destroySandboxExecutor } from './SandboxExecutor';
-

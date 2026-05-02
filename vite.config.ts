@@ -1,36 +1,37 @@
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
-	test: {
-		expect: { requireAssertions: true },
-		projects: [
-			{
-				extends: './vite.config.ts',
-				test: {
-					name: 'client',
-					environment: 'browser',
-					browser: {
-						enabled: true,
-						provider: 'playwright',
-						instances: [{ browser: 'chromium' }]
-					},
-					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-					exclude: ['src/lib/server/**', 'src/lib/canvas/**/*.spec.ts'],
-					setupFiles: ['./vitest-setup-client.ts']
+	build: {
+		chunkSizeWarningLimit: 700,
+		rollupOptions: {
+			onwarn(warning, defaultHandler) {
+				if (
+					warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+					warning.exporter?.includes('@better-auth/core/api')
+				) {
+					return;
 				}
+
+				defaultHandler(warning);
 			},
-			{
-				extends: './vite.config.ts',
-				test: {
-					name: 'server',
-					environment: 'node',
-					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+			output: {
+				manualChunks(id) {
+					if (id.includes('node_modules/blockly/core')) {
+						return 'blockly-core';
+					}
+
+					if (id.includes('node_modules/blockly/blocks')) {
+						return 'blockly-blocks';
+					}
+
+					if (id.includes('node_modules/blockly/javascript')) {
+						return 'blockly-javascript';
+					}
 				}
 			}
-		]
+		}
 	}
 });

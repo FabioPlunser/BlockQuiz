@@ -4,6 +4,7 @@
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 	import { Debounced } from 'runed';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import { Search, RefreshCw } from '@lucide/svelte';
 	import Boundary from '$cp/Boundary.svelte';
 
@@ -59,34 +60,38 @@
 	//-----------------------------------------------------------------------------
 	type LogWithId = LogEntry & { id: string };
 
-	const tableColumns: Column<LogWithId>[] = [
+	let tableColumns = $derived<Column<LogWithId>[]>([
 		{
 			key: 'timestamp',
-			label: 'Timestamp',
+			label: i18n.logs_timestamp,
 			sortable: true,
 			class: 'whitespace-nowrap',
 			cellSnippet: 'timestamp' // Reference by key
 		},
 		{
 			key: 'level',
-			label: 'Level',
+			label: i18n.logs_level,
 			sortable: true,
 			cellSnippet: 'level' // Reference by key
 		},
 		{
 			key: 'message',
-			label: 'Message',
+			label: i18n.logs_message,
 			sortable: true,
 			class: 'font-medium'
 			// No cellSnippet - will use defaultCell
 		},
 		{
 			key: 'details',
-			label: 'Details',
+			label: i18n.logs_details,
 			cellSnippet: 'details' // Reference by key
 		}
-	];
+	]);
 </script>
+
+<svelte:head>
+	<title>{i18n.logs_title} | BlockQuiz</title>
+</svelte:head>
 
 <!-- Define snippets in template - these will be passed as props -->
 {#snippet levelCell(log: LogWithId)}
@@ -98,7 +103,7 @@
 {#snippet detailsCell(log: LogWithId)}
 	<div class="collapse-arrow collapse rounded-box bg-base-300">
 		<input type="checkbox" />
-		<div class="collapse-title min-h-0 py-2 font-mono text-xs">View JSON</div>
+		<div class="collapse-title min-h-0 py-2 font-mono text-xs">{i18n.logs_view_json}</div>
 		<div class="collapse-content">
 			<pre class="overflow-x-auto p-2 text-xs"><code>{JSON.stringify(log, null, 2)}</code></pre>
 		</div>
@@ -112,6 +117,8 @@
 {/snippet}
 
 <div class="mx-auto w-full space-y-6 p-6">
+	<h1 class="text-2xl font-bold">{i18n.logs_title}</h1>
+
 	<!-- Toolbar -->
 	<div
 		class="flex flex-row items-center gap-6 rounded-box bg-base-200/50 p-4 text-sm text-base-content/80 shadow-sm"
@@ -120,14 +127,19 @@
 		<div class="flex w-full flex-col gap-2 md:max-w-md">
 			<div class="flex flex-col gap-2 sm:flex-row">
 				<label class="input-bordered input flex w-full items-center gap-2">
-					<input type="text" class="grow" placeholder="Search logs..." bind:value={searchQuery} />
+					<input
+						type="text"
+						class="grow"
+						placeholder={i18n.logs_search_placeholder}
+						bind:value={searchQuery}
+					/>
 					<Search class="h-4 w-4 opacity-60" />
 				</label>
 				<select class="select-bordered select w-full sm:w-40" bind:value={selectedLevel}>
-					<option value="all">All Levels</option>
-					<option value="info">Info</option>
-					<option value="warn">Warning</option>
-					<option value="error">Error</option>
+					<option value="all">{i18n.logs_all_levels}</option>
+					<option value="info">{i18n.logs_level_info}</option>
+					<option value="warn">{i18n.logs_level_warning}</option>
+					<option value="error">{i18n.logs_level_error}</option>
 				</select>
 			</div>
 		</div>
@@ -148,7 +160,7 @@
 						disabled={logs.loading}
 					>
 						<RefreshCw class="h-4 w-4 {logs.loading ? 'animate-spin' : ''}" />
-						{logs.loading ? 'Refreshing…' : 'Refresh now'}
+						{logs.loading ? i18n.logs_refreshing : i18n.logs_refresh}
 					</button>
 				</div>
 			{/if}
@@ -172,7 +184,7 @@
 						totalItems={_logs.totalFiltered}
 						serverSidePagination={true}
 						onPageChange={handlePageChange}
-						emptyMessage="No logs found matching your criteria."
+						emptyMessage={i18n.logs_empty}
 						tableClass="[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10"
 						cellSnippets={{
 							timestamp: timestampCell,

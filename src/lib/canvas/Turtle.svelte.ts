@@ -5,11 +5,11 @@ import { initBlocks } from '$lib/blockly/BlocklyFactory';
 
 export class Turtle extends Canvas2D {
 	override readonly engineId = 'turtle';
-	
-	pen = $state(false);
-	color = $state('#000000');
-	_path = $state<PathSegment[]>([]);
-	
+
+	pen = false;
+	color = '#000000';
+	_path: PathSegment[] = [];
+
 	override get path(): PathSegment[] {
 		return this._path;
 	}
@@ -60,12 +60,15 @@ export class Turtle extends Canvas2D {
 		super.move(distance);
 		if (this.pen) {
 			// Add path segment
-			this._path.push({
-				from,
-				to: { x: this.state.x, y: this.state.y },
-				color: this.color,
-				width: 2
-			});
+			this._path = [
+				...this._path,
+				{
+					from,
+					to: { x: this.state.x, y: this.state.y },
+					color: this.color,
+					width: 2
+				}
+			];
 		}
 	}
 

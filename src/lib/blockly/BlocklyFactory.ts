@@ -1,12 +1,11 @@
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
+import 'blockly/blocks';
 import { javascriptGenerator as jG } from 'blockly/javascript';
 import {
 	type BlockDef,
 	type BlocklyConfig,
 	type BlocklyCategoryConfig,
-	type BlockCategory,
-	BlocklyToolboxKind,
-	type BlocklyToolboxConfig
+	BlocklyToolboxKind
 } from './types';
 
 export function initBlocks(blocks: BlockDef[], prefix: string) {
@@ -59,19 +58,11 @@ export function initBlocks(blocks: BlockDef[], prefix: string) {
 					argValues.push(`'${value}'`);
 				} else if (arg.type === 'number') {
 					// Get number input - will be a math_number block
-					const val = jG.valueToCode(
-						blockInstance,
-						arg.name,
-						(jG as any).ORDER_ATOMIC ?? 0
-					);
+					const val = jG.valueToCode(blockInstance, arg.name, (jG as any).ORDER_ATOMIC ?? 0);
 					argValues.push(val || String(arg.default ?? 0));
 				} else if (arg.type === 'string' || arg.type === 'color') {
 					// Get string/color input
-					const val = jG.valueToCode(
-						blockInstance,
-						arg.name,
-						(jG as any).ORDER_ATOMIC ?? 0
-					);
+					const val = jG.valueToCode(blockInstance, arg.name, (jG as any).ORDER_ATOMIC ?? 0);
 					argValues.push(val || `'${arg.default ?? ''}'`);
 				}
 			}

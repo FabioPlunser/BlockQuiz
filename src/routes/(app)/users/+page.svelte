@@ -5,10 +5,11 @@
 	import Loading from '$cp/Loading.svelte';
 	import Modal from '$cp/Modal.svelte';
 	import type { User } from '$db/types';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import { handleServerResult } from '$lib/utils/toast';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
-	import { Search, RotateCcw, UserPlus } from '@lucide/svelte';
+	import { Search, UserPlus } from '@lucide/svelte';
 
 	//-----------------------------------------------------------------------------
 	// Types
@@ -27,6 +28,13 @@
 		active: undefined
 	};
 
+	function getRoleLabel(role: string) {
+		if (role === Role.ADMIN) return i18n.role_admin;
+		if (role === Role.AUTHOR) return i18n.role_author;
+		if (role === Role.TEACHER) return i18n.role_teacher;
+		return i18n.role_student;
+	}
+
 	//-----------------------------------------------------------------------------
 	// State
 	//-----------------------------------------------------------------------------
@@ -36,7 +44,7 @@
 	let createUserModal = $state(false);
 	let search = $state('');
 	let selectedUser = $state<User | undefined>(undefined);
-	let currentPage = $state(1);
+	let locale = $derived(i18n.locale === 'de' ? 'de-DE' : 'en-US');
 
 	// Column visibility
 	let visibleColumns = new PersistedState<string[]>('usersVisibleColumns', [
@@ -68,12 +76,6 @@
 		filters.active = value === 'all' ? undefined : value === 'active';
 	}
 
-	function resetFilters() {
-		filters = { ...DEFAULT_FILTERS };
-		search = '';
-		handleStatusChange('all');
-	}
-
 	// async function updateFieldKey(
 	// 	event: KeyboardEvent & { currentTarget: HTMLInputElement },
 	// 	id: string,
@@ -102,47 +104,51 @@
 	//-----------------------------------------------------------------------------
 	// Table columns
 	//-----------------------------------------------------------------------------
-	const tableColumns: Column<User>[] = [
+	let tableColumns = $derived<Column<User>[]>([
 		{
 			key: 'email',
-			label: 'Email',
+			label: i18n.users_table_email,
 			sortable: true,
 			class: 'w-2/6',
 			cellSnippet: 'email'
 		},
 		{
 			key: 'role',
-			label: 'Role',
+			label: i18n.users_table_role,
 			sortable: true,
 			class: 'w-1/6',
 			cellSnippet: 'role'
 		},
 		{
 			key: 'status',
-			label: 'Status',
+			label: i18n.users_status_label,
 			sortable: true,
 			class: 'w-1/6',
 			cellSnippet: 'status'
 		},
 		{
 			key: 'userId',
-			label: 'User ID',
+			label: i18n.users_user_id,
 			class: 'w-2/6',
 			cellSnippet: 'userId'
 		},
 		{
 			key: 'createdAt',
-			label: 'Created At',
+			label: i18n.users_created_at,
 			sortable: true,
 			class: 'w-2/6',
 			cellSnippet: 'createdAt'
 		}
-	];
+	]);
 	async function update(user: User) {
 		const result = await updateUser({ ...user }).updates(users);
-		handleServerResult(result, 'Updates User successfully', 'Updating User failed');
+		handleServerResult(result, i18n.toast_user_updated, i18n.toast_user_update_failed);
 	}
 </script>
+
+<svelte:head>
+	<title>{i18n.users_title} | BlockQuiz</title>
+</svelte:head>
 
 <!-- Cell snippets for editable fields -->
 {#snippet emailCell(user: User)}
@@ -170,7 +176,7 @@
 		}}
 	>
 		{#each ROLES as role (role)}
-			<option value={role}>{role}</option>
+			<option value={role}>{getRoleLabel(role)}</option>
 		{/each}
 	</select>
 {/snippet}
@@ -188,7 +194,7 @@
 		<span
 			class={`badge border-0 ${user.active ? 'badge-success' : 'badge-ghost text-base-content/70'}`}
 		>
-			{user.active ? 'Active' : 'Inactive'}
+			{user.active ? i18n.users_status_active : i18n.users_status_inactive}
 		</span>
 	</label>
 {/snippet}
@@ -199,7 +205,7 @@
 
 {#snippet createdAtCell(user: User)}
 	<span class="font-mono text-xs text-base-content/70">
-		{new Date(user.createdAt).toLocaleDateString('de-DE')}
+		{new Date(user.createdAt).toLocaleDateString(locale)}
 	</span>
 {/snippet}
 
@@ -211,7 +217,7 @@
 			resetPasswordModal = true;
 		}}
 	>
-		Reset PWD
+		{i18n.users_reset_password}
 	</button>
 {/snippet}
 
@@ -227,7 +233,7 @@
 							id="search"
 							type="text"
 							class="grow"
-							placeholder="Name or email"
+							placeholder={i18n.users_name_or_email}
 							bind:value={search}
 						/>
 						<Search class="h-4 w-4 opacity-60" />
@@ -237,9 +243,9 @@
 				<!-- Role Filter -->
 				<div class="form-control sm:max-w-xs">
 					<select id="role" class="select-bordered select" bind:value={filters.role}>
-						<option value={undefined}>All roles</option>
+						<option value={undefined}>{i18n.users_all_roles}</option>
 						{#each ROLES as role (role)}
-							<option value={role}>{role}</option>
+							<option value={role}>{getRoleLabel(role)}</option>
 						{/each}
 					</select>
 				</div>
@@ -252,9 +258,9 @@
 						value={statusFilter}
 						onchange={(event) => handleStatusChange(event.currentTarget.value as StatusFilter)}
 					>
-						<option value="all">All</option>
-						<option value="active">Active</option>
-						<option value="inactive">Inactive</option>
+						<option value="all">{i18n.users_all_status}</option>
+						<option value="active">{i18n.users_status_active}</option>
+						<option value="inactive">{i18n.users_status_inactive}</option>
 					</select>
 				</div>
 
@@ -265,7 +271,7 @@
 			<!-- Add User -->
 			<button class="btn btn-sm btn-primary" onclick={() => (createUserModal = true)}>
 				<UserPlus class="h-4 w-4" />
-				Add user
+				{i18n.users_add_button}
 			</button>
 		</div>
 	</section>
@@ -275,7 +281,7 @@
 		{#snippet failed(error, reset)}
 			<div class="alert alert-error">
 				<span class="text-red-500">{JSON.stringify(error)}</span>
-				<button class="btn btn-sm" onclick={reset}>Try again</button>
+				<button class="btn btn-sm" onclick={reset}>{i18n.try_again}</button>
 			</div>
 		{/snippet}
 		{#snippet pending()}
@@ -290,7 +296,7 @@
 				bind:visibleColumns={visibleColumns.current}
 				showSearch={false}
 				showPagination={false}
-				emptyMessage="No users found"
+				emptyMessage={i18n.users_empty}
 				rowActions={userActions}
 				cellSnippets={{
 					email: emailCell,
@@ -307,12 +313,12 @@
 <!-- Reset Password Modal -->
 <Modal remoteFunction={resetPassword} bind:open={resetPasswordModal}>
 	<label class="form-control">
-		<span class="label-text text-sm font-semibold">New Password</span>
+		<span class="label-text text-sm font-semibold">{i18n.users_new_password}</span>
 		<input {...resetPassword.fields.email.as('text')} value={selectedUser?.email ?? ''} hidden />
 		<input
 			{...resetPassword.fields.password.as('password')}
 			class="input-bordered input"
-			placeholder="At least 8 characters"
+			placeholder={i18n.users_password_hint}
 		/>
 	</label>
 	{#each resetPassword.fields.allIssues() as issuer (issuer.path)}
@@ -322,7 +328,7 @@
 	{/each}
 	{#snippet controls()}
 		<button class="btn btn-primary" type="submit" onclick={(e) => e.stopPropagation()}>
-			Reset Password
+			{i18n.users_reset_password}
 		</button>
 	{/snippet}
 </Modal>
@@ -331,32 +337,32 @@
 <Modal remoteFunction={createUser} bind:open={createUserModal}>
 	<div class="grid items-center gap-4 md:grid-cols-2">
 		<label class="form-control">
-			<span class="label-text text-sm font-semibold">Email</span>
+			<span class="label-text text-sm font-semibold">{i18n.form_email_label}</span>
 			<input
 				{...createUser.fields.email.as('text')}
 				class="input-bordered input"
-				placeholder="email"
+				placeholder={i18n.form_email_placeholder}
 			/>
 		</label>
 		<label class="form-control">
-			<span class="label-text text-sm font-semibold">Active</span>
-			<input {...createUser.fields.active.as('checkbox')} class="checkbox" placeholder="email" />
+			<span class="label-text text-sm font-semibold">{i18n.users_status_active}</span>
+			<input {...createUser.fields.active.as('checkbox')} class="checkbox" />
 		</label>
 	</div>
 	<div class="grid gap-4 md:grid-cols-2">
 		<label class="form-control">
-			<span class="label-text text-sm font-semibold">Temp password</span>
+			<span class="label-text text-sm font-semibold">{i18n.users_temp_password}</span>
 			<input
 				{...createUser.fields.password.as('password')}
 				class="input-bordered input"
-				placeholder="At least 8 characters"
+				placeholder={i18n.users_password_hint}
 			/>
 		</label>
 		<label class="form-control">
-			<span class="label-text text-sm font-semibold">Role</span>
+			<span class="label-text text-sm font-semibold">{i18n.users_table_role}</span>
 			<select {...createUser.fields.role.as('select')} class="select-bordered select">
 				{#each ROLES as role (role)}
-					<option value={role}>{role}</option>
+					<option value={role}>{getRoleLabel(role)}</option>
 				{/each}
 			</select>
 		</label>
@@ -369,6 +375,6 @@
 		{/each}
 	</div>
 	{#snippet controls()}
-		<button class="btn btn-primary" type="submit"> Create user </button>
+		<button class="btn btn-primary" type="submit">{i18n.users_create_submit}</button>
 	{/snippet}
 </Modal>

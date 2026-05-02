@@ -1,7 +1,6 @@
 import { query } from '$app/server';
-import { db } from '$server/db';
-import { eq, and } from 'drizzle-orm';
-import { translations } from '$server/db/schema';
+import { db } from '$db/client';
+import { translations } from '$db/schema';
 
 /**
  * Fetches all translations for a given locale from the database
@@ -30,5 +29,5 @@ export const getTranslations = query(async () => {
 export const getAvailableLocales = query(async () => {
 	const result = await db.selectDistinct({ locale: translations.locale }).from(translations);
 
-	return result.map((r) => r.locale);
+	return result.map((translation) => translation.locale);
 });

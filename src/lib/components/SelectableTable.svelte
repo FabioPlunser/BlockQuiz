@@ -1,7 +1,7 @@
 <script lang="ts" generics="T extends { id: string }">
 	import { Search } from '@lucide/svelte';
+	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import type { LocalizedString } from '$lib/types/exercise';
-	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import type { Snippet } from 'svelte';
 
@@ -33,7 +33,7 @@
 		items = $bindable(),
 		columns = $bindable(),
 		searchQuery = $bindable(''),
-		searchPlaceholder = 'Search',
+		searchPlaceholder = i18n.search,
 		showSearch = true,
 		showSelectAll = true,
 		selectedIds = $bindable([]),
@@ -103,14 +103,13 @@
 		if (typeof column.cellSnippet !== 'string') {
 			return column.cellSnippet;
 		}
-		console.log(column);
-		console.log(cellSnippets);
+
 		// Otherwise, look it up in cellSnippets dictionary
 		return cellSnippets[column.cellSnippet];
 	}
 </script>
 
-{#snippet defaultSnippet(exercise)}
+{#snippet defaultSnippet()}
 	<span>Error rendering snippet</span>
 {/snippet}
 
