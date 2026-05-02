@@ -115,4 +115,3 @@ export function useToasterStore(toastOptions: DefaultToastOptions = {}) {
 		pausedAt
 	};
 }
-

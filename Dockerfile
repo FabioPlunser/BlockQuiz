@@ -12,8 +12,11 @@ RUN bun install --frozen-lockfile
 # Copy source files
 COPY . .
 
+RUN mkdir -p /app/data
+ENV DATABASE_URL=file:./data/build.db
+
 # Build the application
-RUN bun run build
+RUN bun --bun run build
 
 # Stage 2: Runtime
 FROM oven/bun:1-slim
@@ -24,6 +27,7 @@ WORKDIR /app
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/scripts ./scripts
 
 # Copy drizzle migrations for database setup
 COPY --from=builder /app/drizzle ./drizzle
@@ -39,5 +43,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Run the production server with Bun
-CMD ["bun", "./build"]
-
+CMD ["sh", "-c", "bun --bun run db:push && bun ./build"]

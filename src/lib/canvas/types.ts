@@ -82,7 +82,7 @@ export interface SideScrollState {
 // Legacy Canvas2D interface (for backward compatibility)
 // =============================================================================
 
-export interface Canvas2DState extends PositionState {}
+export type Canvas2DState = PositionState;
 
 export interface TurtleState extends Canvas2DState {
 	tolerance: number;

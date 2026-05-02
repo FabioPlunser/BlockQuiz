@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Header from '$cp/Header.svelte';
-	import favicon from '$lib/assets/Favicon.png';
+	import favicon from '$lib/assets/favicon.png';
+	import { i18n } from '$lib/i18n/index.svelte';
 	let { children } = $props();
 </script>
 
@@ -17,6 +18,6 @@
 	</main>
 
 	<footer class="mt-10 text-center text-xs text-slate-500">
-		&copy; {new Date().getFullYear()} BlockQuiz. Designed for curious minds aged 8–12.
+		&copy; {new Date().getFullYear()} BlockQuiz. {i18n.app_footer_tagline}
 	</footer>
 </div>

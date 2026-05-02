@@ -1,9 +1,14 @@
 <script lang="ts">
-	import { getCurrentUser, logoutUser } from '$remote/auth.remote';
+	import { i18n } from '$lib/i18n/index.svelte';
+	import { logoutUser } from '$remote/auth.remote';
 </script>
 
 <div class="dropdown dropdown-center">
-	<button tabindex="0" class="btn btn-circle text-lg btn-ghost btn-sm" aria-label="Avatar">
+	<button
+		tabindex="0"
+		class="btn btn-circle text-lg btn-ghost btn-sm"
+		aria-label={i18n.avatar_label}
+	>
 		<svg
 			width="80"
 			height="80"
@@ -28,7 +33,7 @@
 	>
 		<li>
 			<form {...logoutUser}>
-				<button class="">Logout</button>
+				<button class="">{i18n.account_logout}</button>
 			</form>
 		</li>
 	</ul>

@@ -1,8 +1,19 @@
-import { db } from '$lib/server/db/client';
-import { courseExercises, courses, exercises, user } from '$lib/server/db/schema';
-import { dehydrateExercise } from '$lib/types/exercise';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { Database } from 'bun:sqlite';
+import { account, courseExercises, courses, exercises, user } from '../src/lib/server/db/schema';
+import { dehydrateExercise } from '../src/lib/types/exercise';
+
+if (!process.env.DATABASE_URL) {
+	throw new Error('DATABASE_URL is not set');
+}
+
+const sqlitePath = process.env.DATABASE_URL.replace(/^file:/, '');
+const client = new Database(sqlitePath);
+const db = drizzle(client, { schema: { courseExercises, courses, exercises, user } });
 
 const teacherId = 'seed-teacher';
+const teacherEmail = 'seed-teacher@example.com';
+const teacherPassword = process.env.SEED_TEACHER_PASSWORD ?? 'BlockQuiz123!';
 const now = Date.now();
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
@@ -64,7 +75,7 @@ await db
 	.values({
 		id: teacherId,
 		name: 'Seed Teacher',
-		email: 'seed-teacher@example.com',
+		email: teacherEmail,
 		emailVerified: true,
 		role: 'teacher',
 		active: true,
@@ -72,6 +83,25 @@ await db
 		updatedAt: new Date(now)
 	})
 	.onConflictDoNothing();
+
+await db
+	.insert(account)
+	.values({
+		id: `${teacherId}-credential`,
+		accountId: teacherEmail,
+		providerId: 'credential',
+		userId: teacherId,
+		password: await Bun.password.hash(teacherPassword),
+		createdAt: new Date(now),
+		updatedAt: new Date(now)
+	})
+	.onConflictDoUpdate({
+		target: account.id,
+		set: {
+			password: await Bun.password.hash(teacherPassword),
+			updatedAt: new Date(now)
+		}
+	});
 
 // ─── Courses ───────────────────────────────────────────────────────────────────
 
@@ -135,8 +165,11 @@ const ioEvenOdd = await seedExercise({
 	},
 	config: {
 		toolbox: [
+			'text_prompt_ext',
 			'text_print',
 			'text',
+			'variables_get',
+			'variables_set',
 			'math_number',
 			'math_arithmetic',
 			'controls_if',
@@ -223,7 +256,14 @@ const ioDoubleIt = await seedExercise({
 		image: ''
 	},
 	config: {
-		toolbox: ['text_print', 'math_number', 'math_arithmetic'],
+		toolbox: [
+			'text_prompt_ext',
+			'text_print',
+			'variables_get',
+			'variables_set',
+			'math_number',
+			'math_arithmetic'
+		],
 		starterXml: EMPTY_STARTER_XML,
 		hasStarterBlocks: false,
 		hints: [
@@ -289,11 +329,15 @@ const ioSum = await seedExercise({
 	},
 	config: {
 		toolbox: [
+			'text_prompt_ext',
 			'math_arithmetic',
 			'controls_repeat_ext',
 			'controls_for',
 			'text_print',
-			'math_number'
+			'math_number',
+			'variables_get',
+			'variables_set',
+			'math_change'
 		],
 		starterXml: EMPTY_STARTER_XML,
 		hasStarterBlocks: false,
@@ -375,13 +419,17 @@ const ioPrintGrid = await seedExercise({
 	},
 	config: {
 		toolbox: [
+			'text_prompt_ext',
 			'text_print',
 			'text',
 			'text_join',
+			'text_append',
 			'math_number',
 			'math_arithmetic',
 			'controls_for',
-			'controls_repeat_ext'
+			'controls_repeat_ext',
+			'variables_get',
+			'variables_set'
 		],
 		starterXml: EMPTY_STARTER_XML,
 		hasStarterBlocks: false,
@@ -656,14 +704,7 @@ const turtleTriangle = await seedExercise({
 					visible: false,
 					type: 'commands',
 					expected: {
-						commands: [
-							'move:3',
-							'turn:120',
-							'move:3',
-							'turn:120',
-							'move:3',
-							'turn:120'
-						]
+						commands: ['move:3', 'turn:120', 'move:3', 'turn:120', 'move:3', 'turn:120']
 					}
 				}
 			]
@@ -895,7 +936,11 @@ const robotCollect = await seedExercise({
 			height: 400,
 			gridSize: 50,
 			pathOverlay: [],
-			targets: [{ x: 150, y: 200 }, { x: 200, y: 200 }, { x: 250, y: 200 }],
+			targets: [
+				{ x: 150, y: 200 },
+				{ x: 200, y: 200 },
+				{ x: 250, y: 200 }
+			],
 			walls: []
 		},
 		grid: {
@@ -906,7 +951,11 @@ const robotCollect = await seedExercise({
 			direction: 'north',
 			walls: [],
 			targets: [],
-			collectibles: [{ x: 150, y: 200 }, { x: 200, y: 200 }, { x: 250, y: 200 }]
+			collectibles: [
+				{ x: 150, y: 200 },
+				{ x: 200, y: 200 },
+				{ x: 250, y: 200 }
+			]
 		},
 		grader: {
 			appleTolerance: 25,

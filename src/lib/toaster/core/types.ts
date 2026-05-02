@@ -27,7 +27,10 @@ export type ValueOrFunction<TValue, TArg> = TValue | ValueFunction<TValue, TArg>
 export const resolveValue = <TValue, TArg>(
 	valOrFunction: ValueOrFunction<TValue, TArg>,
 	arg: TArg
-): TValue => (typeof valOrFunction === 'function' ? (valOrFunction as ValueFunction<TValue, TArg>)(arg) : valOrFunction);
+): TValue =>
+	typeof valOrFunction === 'function'
+		? (valOrFunction as ValueFunction<TValue, TArg>)(arg)
+		: valOrFunction;
 
 export interface Toast {
 	type: ToastType;
@@ -54,7 +57,10 @@ export type DOMToast = Toast & {
 };
 
 export type ToastOptions = Partial<
-	Pick<Toast, 'id' | 'icon' | 'duration' | 'ariaProps' | 'className' | 'style' | 'position' | 'iconTheme'>
+	Pick<
+		Toast,
+		'id' | 'icon' | 'duration' | 'ariaProps' | 'className' | 'style' | 'position' | 'iconTheme'
+	>
 >;
 
 export type DefaultToastOptions = ToastOptions & {
@@ -69,4 +75,3 @@ export interface ToasterProps {
 	containerStyle?: string;
 	containerClassName?: string;
 }
-

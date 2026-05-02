@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ExerciseType, ExerciseMode } from '$lib/types/exercise';
+	import { i18n } from '$lib/i18n/index.svelte';
 
 	let {
 		type = $bindable('turtle'),
@@ -23,47 +24,47 @@
 		availableFor: ExerciseType[];
 	}
 
-	const typeOptions: TypeOption[] = [
+	let typeOptions = $derived<TypeOption[]>([
 		{
 			value: 'io',
-			label: 'Input/Output',
-			description: 'Text-based input and output exercises',
+			label: i18n.cms_type_option_io_label,
+			description: i18n.cms_type_option_io_description,
 			icon: '⌨️'
 		},
 		{
 			value: 'turtle',
-			label: 'Turtle Graphics',
-			description: 'Draw shapes using turtle movement',
+			label: i18n.cms_type_option_turtle_label,
+			description: i18n.cms_type_option_turtle_description,
 			icon: '🐢'
 		},
 		{
 			value: 'robot',
-			label: 'Robot',
-			description: 'Navigate a robot through a grid',
+			label: i18n.cms_type_option_robot_label,
+			description: i18n.cms_type_option_robot_description,
 			icon: '🤖'
 		}
-	];
+	]);
 
-	const modeOptions: ModeOption[] = [
+	let modeOptions = $derived<ModeOption[]>([
 		{
 			value: 'default',
-			label: 'Default',
-			description: 'Standard exercise mode',
+			label: i18n.cms_mode_option_default_label,
+			description: i18n.cms_mode_option_default_description,
 			availableFor: ['io', 'turtle', 'robot']
 		},
 		{
 			value: 'path',
-			label: 'Follow Path',
-			description: 'Follow a predefined path exactly',
+			label: i18n.cms_mode_option_path_label,
+			description: i18n.cms_mode_option_path_description,
 			availableFor: ['turtle', 'robot']
 		},
 		{
 			value: 'apple',
-			label: 'Reach Target',
-			description: 'Navigate to reach the target (apple) while avoiding walls',
+			label: i18n.cms_mode_option_apple_label,
+			description: i18n.cms_mode_option_apple_description,
 			availableFor: ['turtle', 'robot']
 		}
-	];
+	]);
 
 	// Filter modes based on selected type
 	let availableModes = $derived(modeOptions.filter((m) => m.availableFor.includes(type)));
@@ -78,10 +79,10 @@
 
 <div class="type-mode-selector space-y-4">
 	<!-- Exercise Type Selection -->
-	<div class="form-control">
-		<label class="label">
-			<span class="label-text font-medium">Exercise Type</span>
-		</label>
+	<fieldset class="form-control">
+		<legend class="label">
+			<span class="label-text font-medium">{i18n.cms_type_mode_type_label}</span>
+		</legend>
 		<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
 			{#each typeOptions as option (option.value)}
 				<label
@@ -109,14 +110,14 @@
 				</label>
 			{/each}
 		</div>
-	</div>
+	</fieldset>
 
 	<!-- Exercise Mode Selection (conditional on type) -->
 	{#if availableModes.length > 1}
-		<div class="form-control">
-			<label class="label">
-				<span class="label-text font-medium">Exercise Mode</span>
-			</label>
+		<fieldset class="form-control">
+			<legend class="label">
+				<span class="label-text font-medium">{i18n.cms_type_mode_mode_label}</span>
+			</legend>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
 				{#each availableModes as option (option.value)}
 					<label
@@ -139,13 +140,13 @@
 					</label>
 				{/each}
 			</div>
-		</div>
+		</fieldset>
 	{/if}
 
 	<!-- Summary -->
 	<div class="rounded-lg bg-base-200 p-3">
 		<div class="text-sm">
-			<span class="font-medium">Selected:</span>
+			<span class="font-medium">{i18n.cms_type_mode_selected_label}:</span>
 			<span class="ml-2">
 				{typeOptions.find((t) => t.value === type)?.icon}
 				{typeOptions.find((t) => t.value === type)?.label}
@@ -158,4 +159,3 @@
 		</div>
 	</div>
 </div>
-

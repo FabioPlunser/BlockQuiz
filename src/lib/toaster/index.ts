@@ -30,4 +30,3 @@ export { default as LoaderIcon } from './components/LoaderIcon.svelte';
 
 // Default export
 export { default } from './core/toast';
-

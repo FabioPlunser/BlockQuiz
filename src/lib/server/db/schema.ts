@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, check } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 const nowMs = () => sql`(unixepoch() * 1000)`;
@@ -63,6 +63,8 @@ export const courses = sqliteTable('courses', {
 	id: text('id').primaryKey(),
 	content: text('content', { mode: 'json' }).notNull(),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
+	archivedAt: integer('archived_at', { mode: 'number' }),
+	archivedBy: text('archived_by'),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
 	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull().default(nowMs()),
 	createdBy: text('createdBy').notNull()
@@ -108,6 +110,8 @@ export const exercises = sqliteTable('exercises', {
 		.notNull()
 		.default('{"valid":false,"issues":[]}'),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
+	archivedAt: integer('archived_at', { mode: 'number' }),
+	archivedBy: text('archived_by').references(() => user.id),
 	order: integer('order', { mode: 'number' }).notNull().default(0),
 	createdBy: text('created_by')
 		.notNull()
@@ -129,28 +133,39 @@ export const exerciseVersions = sqliteTable('exercise_versions', {
 });
 
 // Attempts table
-export const attempts = sqliteTable('attempts', {
-	id: text('id').primaryKey(),
-	exerciseId: text('exercise_id')
-		.notNull()
-		.references(() => exercises.id, { onDelete: 'cascade' }),
-	userId: text('user_id').references(() => user.id),
-	clientId: text('client_id'),
-	actorType: text('actor_type', { enum: ['user', 'guest'] }).notNull().default('user'),
-	workspaceXml: text('workspace_xml').notNull().default(''),
-	generatedCode: text('generated_code').notNull().default(''),
-	resultJson: text('result_json').notNull(),
-	locale: text('locale', { enum: ['de', 'en'] })
-		.notNull()
-		.default('de'),
-	startedAt: integer('started_at', { mode: 'number' }).notNull(),
-	endedAt: integer('ended_at', { mode: 'number' }).notNull().default(nowMs()),
-	score: integer('score').notNull().default(0),
-	passed: integer('passed', { mode: 'boolean' }).notNull().default(false),
-	hintEventsJson: text('hint_events_json').notNull().default('[]'),
-	analyticsJson: text('analytics_json').notNull().default('{}'),
-	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs())
-});
+export const attempts = sqliteTable(
+	'attempts',
+	{
+		id: text('id').primaryKey(),
+		exerciseId: text('exercise_id')
+			.notNull()
+			.references(() => exercises.id, { onDelete: 'cascade' }),
+		userId: text('user_id').references(() => user.id),
+		clientId: text('client_id'),
+		actorType: text('actor_type', { enum: ['user', 'guest'] })
+			.notNull()
+			.default('user'),
+		workspaceXml: text('workspace_xml').notNull().default(''),
+		generatedCode: text('generated_code').notNull().default(''),
+		resultJson: text('result_json').notNull(),
+		locale: text('locale', { enum: ['de', 'en'] })
+			.notNull()
+			.default('de'),
+		startedAt: integer('started_at', { mode: 'number' }).notNull(),
+		endedAt: integer('ended_at', { mode: 'number' }).notNull().default(nowMs()),
+		score: integer('score').notNull().default(0),
+		passed: integer('passed', { mode: 'boolean' }).notNull().default(false),
+		hintEventsJson: text('hint_events_json').notNull().default('[]'),
+		analyticsJson: text('analytics_json').notNull().default('{}'),
+		createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs())
+	},
+	(table) => [
+		check(
+			'attempt_actor_check',
+			sql`(${table.actorType} = 'user' AND ${table.userId} IS NOT NULL AND ${table.clientId} IS NULL) OR (${table.actorType} = 'guest' AND ${table.userId} IS NULL AND ${table.clientId} IS NOT NULL)`
+		)
+	]
+);
 
 // Audit logs table
 export const auditLogs = sqliteTable('audit_logs', {

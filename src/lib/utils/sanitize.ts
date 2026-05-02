@@ -1,4 +1,4 @@
-import DOMPurify from 'dompurify';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * Sanitizes HTML content to prevent XSS attacks
@@ -6,12 +6,6 @@ import DOMPurify from 'dompurify';
  * @returns Sanitized HTML string safe for use with {@html}
  */
 export function sanitizeHtml(html: string): string {
-	if (typeof window === 'undefined') {
-		// Server-side: return as-is or use a server-side sanitizer
-		// For now, we'll just return it since DOMPurify needs DOM
-		return html;
-	}
-
 	return DOMPurify.sanitize(html, {
 		ALLOWED_TAGS: [
 			'p',
@@ -37,6 +31,6 @@ export function sanitizeHtml(html: string): string {
 		],
 		ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
 		ALLOWED_URI_REGEXP:
-			/^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+			/^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i
 	});
 }

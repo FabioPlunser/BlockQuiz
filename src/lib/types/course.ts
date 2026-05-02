@@ -18,6 +18,8 @@ export interface Course {
 	exerciseIds: string[];
 	userIds: string[];
 	published: boolean;
+	archivedAt?: number | null;
+	archivedBy?: string | null;
 }
 
 export interface CourseFormData {

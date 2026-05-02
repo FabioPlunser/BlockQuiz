@@ -46,9 +46,10 @@ export function instrumentLoops(code: string, tickFunctionName: string): string 
 	return withForTrap.replace(/\bdo\s*\{/g, `do { ${tickFunctionName}();`);
 }
 
-export function normalizeSandboxError(
-	error: unknown
-): { error: string; errorType: SandboxErrorType } {
+export function normalizeSandboxError(error: unknown): {
+	error: string;
+	errorType: SandboxErrorType;
+} {
 	const fallback = 'Execution failed.';
 	const message =
 		error instanceof Error ? error.message : typeof error === 'string' ? error : fallback;

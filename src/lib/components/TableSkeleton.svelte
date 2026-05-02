@@ -7,7 +7,7 @@
 		<table class="table skeleton">
 			<thead>
 				<tr>
-					{#each headers as head}
+					{#each headers as head, index (index)}
 						<th class="w-2/6">{head}</th>
 					{/each}
 				</tr>

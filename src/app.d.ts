@@ -10,6 +10,7 @@ declare global {
 		}
 		interface User extends BaseUser {
 			role: string;
+			active: boolean;
 		}
 		interface PageState {
 			courseId: string | null;

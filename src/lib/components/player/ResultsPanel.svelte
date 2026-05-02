@@ -66,7 +66,8 @@
 						{result.score}%
 					</div>
 					<div class="text-xs text-base-content/50">
-						{result.passedTests}/{result.totalTests} {i18n.player_tests}
+						{result.passedTests}/{result.totalTests}
+						{i18n.player_tests}
 					</div>
 				</div>
 			</div>
@@ -96,7 +97,8 @@
 
 					{#if hiddenCount > 0}
 						<div class="text-xs text-base-content/50 italic">
-							+ {hiddenCount} {hiddenCount > 1 ? i18n.player_hidden_tests : i18n.player_hidden_test}
+							+ {hiddenCount}
+							{hiddenCount > 1 ? i18n.player_hidden_tests : i18n.player_hidden_test}
 						</div>
 					{/if}
 				</div>

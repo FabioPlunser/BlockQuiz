@@ -1,12 +1,13 @@
 import { query } from '$app/server';
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import Fuse from 'fuse.js';
 import type { IFuseOptions } from 'fuse.js';
+import { desc } from 'drizzle-orm';
+import { db } from '$db/client';
+import { auditLogs } from '$db/schema';
 import { auditLogQuerySchema, type AuditLogQueryInput } from '$remote/schemas/logsSchema';
 import { requireAuth } from '$lib/utils/requireAuth';
 import { Role } from '$lib/roles';
-import { sleep } from '$lib/utils/sleep';
 
 export interface LogEntry {
 	timestamp: string;
@@ -28,32 +29,66 @@ export interface AuditLogResponse {
 }
 
 const fuseOptions: IFuseOptions<LogEntry> = {
-	keys: ['message', 'level', 'timestamp', 'service', 'user'],
+	keys: ['message', 'level', 'timestamp', 'service', 'user', 'action', 'actorUserId'],
 	threshold: 0.4,
 	ignoreLocation: true
 };
 
-export const getAuditLogs = query(auditLogQuerySchema, async (filters: AuditLogQueryInput) => {
-	requireAuth(Role.ADMIN);
+async function readAppLogEntries(): Promise<LogEntry[]> {
 	try {
-		const logPath = path.join(process.cwd(), 'logs', 'app.log');
+		const fileContent = await readFile('logs/app.log', 'utf-8');
+		if (!fileContent.trim()) return [];
 
-		// Check if file exists (readFile throws if not)
-		const fileContent = await readFile(logPath, 'utf-8');
-
-		// Parse JSON lines
-		const logs = fileContent
+		return fileContent
 			.trim()
 			.split('\n')
 			.map((line) => {
 				try {
-					return JSON.parse(line);
-				} catch (e) {
+					return JSON.parse(line) as LogEntry;
+				} catch {
 					return null;
 				}
 			})
-			.filter((l): l is LogEntry => l !== null)
-			.reverse() // Show newest first
+			.filter((log): log is LogEntry => log !== null);
+	} catch {
+		return [];
+	}
+}
+
+async function readDatabaseAuditEntries(): Promise<LogEntry[]> {
+	const rows = await db.select().from(auditLogs).orderBy(desc(auditLogs.ts));
+
+	return rows.map((row) => {
+		let details: unknown = row.detailsJson;
+		if (row.detailsJson) {
+			try {
+				details = JSON.parse(row.detailsJson);
+			} catch {
+				details = row.detailsJson;
+			}
+		}
+
+		return {
+			id: row.id,
+			__key: row.id,
+			timestamp: new Date(row.ts).toISOString(),
+			level: 'info',
+			message: row.action,
+			action: row.action,
+			actorUserId: row.actorUserId,
+			details,
+			source: 'audit_logs'
+		} satisfies LogEntry;
+	});
+}
+
+export const getAuditLogs = query(auditLogQuerySchema, async (filters: AuditLogQueryInput) => {
+	requireAuth(Role.ADMIN);
+	try {
+		const logs = [...(await readDatabaseAuditEntries()), ...(await readAppLogEntries())]
+			.sort((left, right) => {
+				return new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime();
+			})
 			.map((log, index) => {
 				const fallbackKeyParts = [
 					log.timestamp ?? 'unknown',

@@ -1,6 +1,6 @@
 # Block-based Learning Platform (8–12) — MVP
 
-Web-based, block-programming learning platform for kids (8–12) with auto-grading. Focused, Brilliant-style exercises with minimal toolboxes, sandboxed execution, and DE/EN localization. MVP ships two exercise types (I/O and Turtle/Canvas), client-side sandbox + graders, and a lightweight authoring flow.
+Web-based, block-programming learning platform for kids (8-12) with auto-grading. Focused exercises use minimal toolboxes, sandboxed execution, DE/EN localization, and a teacher-facing CMS. The MVP supports I/O, turtle, and robot exercises.
 
 ## Why
 
@@ -11,11 +11,11 @@ Web-based, block-programming learning platform for kids (8–12) with auto-gradi
 ## Core Features (MVP)
 
 - Exercises: 10 curated tasks (loops, conditions, variables, simple functions)
-- Two exercise types: I/O (stdin/stdout) and Turtle/Canvas
+- Three exercise types: I/O (stdin/stdout), Turtle/Canvas, and grid Robot
 - Client-side sandbox (iframe), seeded RNG, loop-trap, timeouts
-- Autograding: visible/hidden tests, normalization, Turtle end-state/command-log
-- Authoring: JSON/DB schema, toolbox per exercise, hints, translations (DE/EN)
-- i18n: Paraglide for UI; content localized per exercise
+- Autograding: visible/hidden tests, normalization, end-state/path/command checks
+- Authoring: CMS-backed courses and exercises, toolbox per exercise, hints, translations (DE/EN)
+- i18n: built-in DE/EN dictionaries; content localized per exercise
 - Deployment: Docker, privacy-by-default
 
 ## Tech Stack
@@ -23,9 +23,9 @@ Web-based, block-programming learning platform for kids (8–12) with auto-gradi
 - SvelteKit (Svelte 5, Tailwind, typography)
 - Bun (runtime and package manager)
 - Blockly
-- SQLite + Drizzle ORM (migrations)
-- Paraglide i18n (UI strings), exercise content DE/EN in JSON/DB
-- Playwright (E2E), Vitest (unit)
+- SQLite + Drizzle ORM schema
+- Custom DE/EN i18n, exercise content DE/EN in JSON/DB
+- Vitest unit tests, Playwright browser tests, and production smoke checks
 - Docker Compose
 
 ## Quick Start
@@ -45,16 +45,27 @@ bun install
 cp .env.example .env
 # Edit .env as needed (DATABASE_URL is required)
 
-# Run database migrations
-DATABASE_URL=file:./data/dev.db bun run db:push
+# Initialize/update the SQLite schema
+DATABASE_URL=file:./data/dev.db bun --bun run db:push
 
-# Start the development server (uses Bun runtime for bun:sqlite)
+# Start the development server
 bun --bun run dev
 ```
 
 The dev server will be available at `http://localhost:5173`.
 
-> **Important:** Use `bun --bun run dev` instead of `bun run dev` to ensure the Bun runtime is used for `bun:sqlite` database access.
+Use `bun --bun run ...` for app scripts so tooling runs in Bun mode and `bun:sqlite` works consistently.
+
+### Local Verification
+
+```bash
+bun --bun run check
+bun --bun run test
+bun --bun run test:e2e
+bun --bun run build
+bun --bun run smoke
+bun --bun run docker:smoke
+```
 
 ## Docker Deployment
 
@@ -79,7 +90,9 @@ docker compose -f docker-compose.dev.yml down
 The development server will be available at `http://localhost:5173`.
 
 **Features:**
+
 - Hot reloading via volume mounts
+- Schema is initialized automatically before the dev server starts
 - Source code changes are reflected immediately
 - Database persisted in `./data/dev.db`
 - Node modules cached in a named volume
@@ -89,6 +102,10 @@ The development server will be available at `http://localhost:5173`.
 Build and run the production container:
 
 ```bash
+# Required once per shell/session for production auth
+export BETTER_AUTH_URL=http://localhost:3000
+export AUTH_SECRET=$(openssl rand -base64 32)
+
 # Build and start the production container
 docker compose -f docker-compose.prod.yml up -d
 
@@ -105,34 +122,54 @@ docker compose -f docker-compose.prod.yml up -d --build
 The production server will be available at `http://localhost:3000`.
 
 **Features:**
+
 - Optimized multi-stage build
+- Schema is initialized automatically before the server starts
 - Automatic restart on failure
 - Health checks enabled
 - Database persisted in `./data/prod.db`
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | SQLite database path (format: `file:./data/[name].db`) | Required |
-| `NODE_ENV` | Environment (`development` or `production`) | `development` |
-| `PORT` | Server port (production only) | `3000` |
-| `AUTH_SECRET` | Session secret for authentication | Optional |
+| Variable          | Description                                            | Default                      |
+| ----------------- | ------------------------------------------------------ | ---------------------------- |
+| `DATABASE_URL`    | SQLite database path (format: `file:./data/[name].db`) | Required                     |
+| `NODE_ENV`        | Environment (`development` or `production`)            | `development`                |
+| `PORT`            | Server port (production only)                          | `3000`                       |
+| `AUTH_SECRET`     | Session secret for authentication                      | Required in production       |
+| `BETTER_AUTH_URL` | Public app URL used by authentication callbacks        | Required in production       |
+| `ORIGIN`          | Public origin used by the Bun adapter                  | `BETTER_AUTH_URL` in Compose |
+| `APP_PORT`        | Host port for production Docker Compose                | `3000`                       |
+| `DATA_DIR`        | Host data directory for production Docker Compose      | `./data`                     |
+| `LOGS_DIR`        | Host log directory for production Docker Compose       | `./logs`                     |
 
 ### Database Management
 
 The SQLite database is stored in the `./data/` directory and persisted via Docker volumes.
+For this thesis build, `db:push` is the canonical clean-schema initialization path used by
+Docker startup and smoke tests. The Drizzle migration files are historical development artifacts;
+do not rely on `db:migrate` as a production upgrade path for arbitrary older databases.
 
 ```bash
-# Run migrations (development)
-docker compose -f docker-compose.dev.yml exec app bun run db:push
+# Initialize/update schema (development)
+docker compose -f docker-compose.dev.yml exec app bun --bun run db:push
 
-# Run migrations (production - before first start)
-DATABASE_URL=file:./data/prod.db bun run db:push
+# Initialize/update schema manually (production, normally handled by compose startup)
+DATABASE_URL=file:./data/prod.db bun --bun run db:push
 
 # Open Drizzle Studio (local only)
-DATABASE_URL=file:./data/dev.db bun run db:studio
+DATABASE_URL=file:./data/dev.db bun --bun run db:studio
 ```
+
+## Import/Export JSON
+
+CMS course and exercise imports use documented JSON transfer envelopes. See `docs/import-export.md` for the supported shapes and examples.
+
+Database setup and verification are documented in `docs/database.md`.
+
+Public and authenticated route behavior is documented in `docs/access-policy.md`.
+
+Imported courses and exercises are saved as drafts, so teachers can review them before publishing.
 
 ### Database Backup
 
@@ -147,21 +184,25 @@ cp ./data/prod.db.backup ./data/prod.db
 ### Troubleshooting
 
 **Container won't start:**
+
 - Check logs: `docker compose -f docker-compose.[dev|prod].yml logs`
 - Ensure `./data/` directory exists and is writable
 - Verify environment variables are set correctly
 
 **Database errors:**
+
 - Ensure `DATABASE_URL` points to a valid path
-- Run migrations if the database is new
+- Run `bun --bun run db:push` if the database is new
 - Check file permissions on `./data/` directory
 
 **Hot reloading not working (dev):**
+
 - Ensure you're using `docker-compose.dev.yml`
 - Check that volume mounts are correct
 - Try restarting the container
 
 **Port conflicts:**
+
 - Change the port mapping in the compose file (e.g., `"8080:3000"`)
 
 ## Repo Structure
@@ -172,32 +213,42 @@ cp ./data/prod.db.backup ./data/prod.db
 - `src/lib/graders/` — I/O and Turtle graders
 - `src/lib/components/` — Svelte components
 - `src/lib/server/db/` — Drizzle schema and client
-- `drizzle/` — database migrations
+- `drizzle/` — historical database migration artifacts
 - `data/` — SQLite database files
 - `static/` — static assets
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `bun --bun run dev` | Start development server (with Bun runtime) |
-| `bun run build` | Build for production |
-| `bun run preview` | Preview production build |
-| `bun run check` | Type-check the codebase |
-| `bun run lint` | Lint and format check |
-| `bun run format` | Format code with Prettier |
-| `bun run test` | Run unit tests |
-| `bun run db:push` | Push schema changes to database |
-| `bun run db:generate` | Generate migrations |
-| `bun run db:migrate` | Run migrations |
-| `bun run db:studio` | Open Drizzle Studio |
+| Command                      | Description                                   |
+| ---------------------------- | --------------------------------------------- |
+| `bun --bun run dev`          | Start development server (with Bun runtime)   |
+| `bun --bun run build`        | Build for production                          |
+| `bun --bun run preview`      | Preview production build                      |
+| `bun --bun run check`        | Type-check the codebase                       |
+| `bun --bun run lint`         | Lint and format check                         |
+| `bun --bun run format`       | Format code with Prettier                     |
+| `bun --bun run test`         | Run unit tests                                |
+| `bun --bun run test:e2e`     | Run focused Playwright browser tests          |
+| `bun --bun run smoke`        | Smoke-test the production build               |
+| `bun --bun run docker:smoke` | Build and smoke-test production Docker image  |
+| `bun --bun run db:push`      | Initialize/update SQLite schema               |
+| `bun --bun run db:generate`  | Generate Drizzle migrations                   |
+| `bun --bun run db:migrate`   | Run historical Drizzle migrations             |
+| `bun --bun run db:studio`    | Open Drizzle Studio                           |
+| `bun --bun run db:verify`    | Verify temp schema setup and seed idempotency |
 
 ## Security & Privacy
 
-- Sandbox iframe with strict CSP; no network from learner code
-- Privacy-by-default mode (no PII, local analytics only, no external calls)
-- Logs short retention, anonymized if enabled
+- Learner execution uses sandboxing layers, command/loop/time limits, and server-side authoritative grading
+- Guest mode can run without an account; authenticated mode stores account and attempt data locally in SQLite
+- Teacher/research exports derive from stored attempts; research export uses pseudonymous identifiers
 - Self-hosted deployment for full data control
+
+## Known Limitations
+
+- The current SQLite setup path is `db:push`; arbitrary old-database migrations are not guaranteed.
+- Server-side authoritative grading still runs in process and is not a separate container sandbox.
+- Browser E2E coverage is focused on critical flows; complex CMS/export workflows are still not exhaustive.
 
 ## License and Contributions
 
@@ -206,4 +257,4 @@ cp ./data/prod.db.backup ./data/prod.db
 
 ## Status
 
-- Initial scaffolding underway. See PROJECT_STATUS.md for detailed progress.
+- Active MVP implementation with CMS, learner player, guest/demo flow, sandbox execution, graders, seed content, and Docker setup. Use `plan.md` for the remaining delivery checklist.

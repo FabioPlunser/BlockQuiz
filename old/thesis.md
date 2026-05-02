@@ -20,9 +20,11 @@ Design and Implementation of a Web-Based Block Programming Learning Platform wit
 ## Abstract (1 page)
 
 ### German
+
 Diese Bachelorarbeit präsentiert die Konzeption und Implementierung einer webbasierten Lernplattform für blockbasierte Programmierung, die sich an Kinder im Alter von 6–12 Jahren richtet. Im Gegensatz zu bestehenden Lösungen wie Scratch oder MakeCode liegt der Fokus auf kurzen, fokussierten Übungen mit automatischem Grading und einem Content-Management-System (CMS) für Lehrkräfte. Die Plattform unterstützt verschiedene Übungstypen (Turtle-Grafik, Roboter-Navigation) und bietet mehrsprachige Unterstützung (DE/EN). Ein besonderer Schwerpunkt liegt auf Datenschutz und einfacher Bereitstellung in Schulnetzwerken via Docker. Die Evaluation durch eine Pilotstudie mit 4–6 Kindern zeigt [Ergebnisse]. Die Arbeit diskutiert Architekturentscheidungen, pädagogische Designprinzipien und zukünftige Erweiterungsmöglichkeiten.
 
 ### English
+
 This bachelor thesis presents the design and implementation of a web-based learning platform for block-based programming targeting children ages 6–12. Unlike existing solutions such as Scratch or MakeCode, the focus lies on short, focused exercises with automated grading and a Content Management System (CMS) for teachers. The platform supports multiple exercise types (turtle graphics, robot navigation) and provides multilingual support (DE/EN). Special emphasis is placed on privacy and easy deployment in school networks via Docker. Evaluation through a pilot study with 4–6 children shows [results]. The thesis discusses architectural decisions, pedagogical design principles, and future extension possibilities.
 
 ---
@@ -49,18 +51,21 @@ This bachelor thesis presents the design and implementation of a web-based learn
 ### 1.1 Motivation and Context
 
 **Topics to cover:**
+
 - Digital education initiative in Austria ("Digitale Grundbildung" - mandatory since 2022/23)
 - Importance of computational thinking for children
 - Gap between available tools and classroom needs
 - Need for teacher-friendly content creation tools
 
 **Key points to argue:**
+
 - Existing platforms (Scratch, MakeCode) are powerful but often too open-ended
 - Teachers need guided, curriculum-aligned exercises they can customize
 - Privacy concerns with cloud-based platforms in schools
 - Auto-grading reduces teacher workload while providing immediate feedback
 
 **Statistics/Sources to include:**
+
 - Austrian curriculum requirements
 - Studies on block-based programming effectiveness
 - Teacher adoption barriers
@@ -68,6 +73,7 @@ This bachelor thesis presents the design and implementation of a web-based learn
 ### 1.2 Problem Statement
 
 **The problem:**
+
 - Existing block-based programming platforms lack:
   1. **Teacher CMS** - Easy exercise creation without programming knowledge
   2. **Curriculum alignment** - Short, focused exercises instead of open projects
@@ -88,6 +94,7 @@ This bachelor thesis presents the design and implementation of a web-based learn
 ### 1.4 Contributions
 
 This thesis contributes:
+
 1. A **teacher-focused CMS** for block-based exercise creation
 2. A **reactive state architecture** using Svelte 5 runes for exercise engines
 3. A **sandbox execution model** with loop traps and API whitelisting
@@ -107,16 +114,17 @@ Brief overview of each chapter.
 
 **Platforms to analyze:**
 
-| Platform | Strengths | Weaknesses | Our Differentiation |
-|----------|-----------|------------|---------------------|
-| **Scratch** (MIT) | Creative expression, community | Too open-ended, no grading | Focused exercises, auto-grading |
-| **MakeCode** (Microsoft) | Hardware integration, polished | Complex, hardware-focused | Web-only, simpler |
-| **Blockly** (Google) | Library, customizable | Just a library, no platform | We build the platform |
-| **Code.org** | Curriculum, grading | Proprietary, US-focused | Open-source, EU/Austrian |
-| **Snap!** (Berkeley) | Advanced features | Too complex for 6-8 | Age-appropriate |
-| **Tynker** | Gamified, engaging | Commercial, cloud-only | Free, self-hostable |
+| Platform                 | Strengths                      | Weaknesses                  | Our Differentiation             |
+| ------------------------ | ------------------------------ | --------------------------- | ------------------------------- |
+| **Scratch** (MIT)        | Creative expression, community | Too open-ended, no grading  | Focused exercises, auto-grading |
+| **MakeCode** (Microsoft) | Hardware integration, polished | Complex, hardware-focused   | Web-only, simpler               |
+| **Blockly** (Google)     | Library, customizable          | Just a library, no platform | We build the platform           |
+| **Code.org**             | Curriculum, grading            | Proprietary, US-focused     | Open-source, EU/Austrian        |
+| **Snap!** (Berkeley)     | Advanced features              | Too complex for 6-8         | Age-appropriate                 |
+| **Tynker**               | Gamified, engaging             | Commercial, cloud-only      | Free, self-hostable             |
 
 **Key papers to cite:**
+
 - Resnick et al. (2009) - Scratch: Programming for All
 - Weintrop & Wilensky (2015) - Block vs. text programming
 - Price & Barnes (2015) - Comparing block vs. flow representations
@@ -124,12 +132,14 @@ Brief overview of each chapter.
 ### 2.2 Auto-Grading in Programming Education
 
 **Topics:**
+
 - Approaches to automated assessment
 - Immediate feedback benefits (Shute, 2008)
 - Test-based vs. state-based grading
 - Handling non-determinism
 
 **Systems to compare:**
+
 - Code.org's grading approach
 - CodeRunner (Moodle plugin)
 - Academic auto-graders (JavaBrat, Web-CAT)
@@ -157,12 +167,14 @@ Brief overview of each chapter.
 ### 2.4 Age-Appropriate Design (6-12 years)
 
 **Developmental considerations:**
+
 - Piaget's stages (concrete operational: 7-11)
 - Attention span differences
 - Reading level requirements
 - Abstract vs. concrete thinking
 
 **Design guidelines:**
+
 - Large, colorful blocks
 - Minimal text
 - Visual feedback
@@ -171,6 +183,7 @@ Brief overview of each chapter.
 ### 2.5 Privacy and Data Protection
 
 **Topics:**
+
 - GDPR requirements for children's data
 - Privacy by Design principles
 - Austrian school data protection guidelines
@@ -182,16 +195,17 @@ Brief overview of each chapter.
 
 ### 3.1 Stakeholders
 
-| Stakeholder | Needs | Priorities |
-|-------------|-------|------------|
+| Stakeholder         | Needs                                          | Priorities            |
+| ------------------- | ---------------------------------------------- | --------------------- |
 | **Students (6-12)** | Fun, achievable challenges, immediate feedback | Usability, engagement |
-| **Teachers** | Easy content creation, progress tracking | CMS, minimal setup |
-| **School IT** | Easy deployment, maintenance | Docker, privacy |
-| **Parents** | Safe, educational, privacy | No tracking, GDPR |
+| **Teachers**        | Easy content creation, progress tracking       | CMS, minimal setup    |
+| **School IT**       | Easy deployment, maintenance                   | Docker, privacy       |
+| **Parents**         | Safe, educational, privacy                     | No tracking, GDPR     |
 
 ### 3.2 Use Cases
 
 **UC1: Teacher Creates Exercise**
+
 1. Teacher opens CMS
 2. Selects exercise type (Turtle/Robot)
 3. Writes title/description (DE/EN)
@@ -202,6 +216,7 @@ Brief overview of each chapter.
 8. Publishes to course
 
 **UC2: Student Solves Exercise**
+
 1. Student opens course
 2. Sees exercise description
 3. Drags blocks to create program
@@ -211,6 +226,7 @@ Brief overview of each chapter.
 7. Moves to next exercise
 
 **UC3: School IT Deploys Platform**
+
 1. Installs Docker
 2. Runs `docker-compose up`
 3. Creates admin account
@@ -220,30 +236,35 @@ Brief overview of each chapter.
 ### 3.3 Functional Requirements
 
 **FR1: Exercise Management**
+
 - FR1.1: Multiple exercise types (Turtle, Robot, I/O)
 - FR1.2: Multilingual content (DE/EN)
 - FR1.3: Age-band tagging (6-8, 8-10, 10-12)
 - FR1.4: Progressive hints system
 
 **FR2: Exercise Execution**
+
 - FR2.1: Blockly workspace with customizable toolbox
 - FR2.2: Code generation from blocks
 - FR2.3: Sandboxed execution
 - FR2.4: Infinite loop protection
 
 **FR3: Auto-Grading**
+
 - FR3.1: State-based grading (position, angle)
 - FR3.2: Command sequence matching
 - FR3.3: Partial credit scoring
 - FR3.4: Immediate feedback
 
 **FR4: Course Management**
+
 - FR4.1: Group exercises into courses
 - FR4.2: Sequential/random ordering
 - FR4.3: Assign to classes/age groups
 - FR4.4: Progress tracking
 
 **FR5: User Management**
+
 - FR5.1: Teacher/Student/Admin roles
 - FR5.2: Class grouping
 - FR5.3: Guest mode (no account required)
@@ -252,28 +273,33 @@ Brief overview of each chapter.
 ### 3.4 Non-Functional Requirements
 
 **NFR1: Security**
+
 - Sandboxed code execution
 - No student code access to DOM/network
 - CSP headers
 - Input validation
 
 **NFR2: Privacy**
+
 - GDPR compliance
 - Local deployment option
 - Minimal data collection
 - No third-party services
 
 **NFR3: Performance**
+
 - Page load < 2s
 - Code execution < 2s
 - Responsive on tablets
 
 **NFR4: Usability**
+
 - Age-appropriate UI
 - Keyboard accessible
 - Screenreader support
 
 **NFR5: Maintainability**
+
 - Modular architecture
 - TypeScript strict mode
 - Documented APIs
@@ -286,41 +312,41 @@ Brief overview of each chapter.
 
 #### Decision 1: Blockly vs. Custom Block Editor
 
-| Option | Pros | Cons | Decision |
-|--------|------|------|----------|
-| Google Blockly | Mature, documented, accessible | Large bundle size | ✅ Chosen |
-| Custom implementation | Full control, smaller | Development time | ❌ |
-| Scratch Blocks | Scratch-like feel | Less flexible | ❌ |
+| Option                | Pros                           | Cons              | Decision  |
+| --------------------- | ------------------------------ | ----------------- | --------- |
+| Google Blockly        | Mature, documented, accessible | Large bundle size | ✅ Chosen |
+| Custom implementation | Full control, smaller          | Development time  | ❌        |
+| Scratch Blocks        | Scratch-like feel              | Less flexible     | ❌        |
 
 **Rationale:** Blockly provides excellent documentation, accessibility features, and proven reliability. The bundle size trade-off is acceptable.
 
 #### Decision 2: Client-Side vs. Server-Side Execution
 
-| Option | Pros | Cons | Decision |
-|--------|------|------|----------|
-| Client-side (iframe sandbox) | No server load, immediate | Limited isolation | ✅ Chosen |
-| Server-side (VM/container) | Better isolation | Complexity, latency | ❌ |
-| WebAssembly sandbox | Best isolation | Development time | Future work |
+| Option                       | Pros                      | Cons                | Decision    |
+| ---------------------------- | ------------------------- | ------------------- | ----------- |
+| Client-side (iframe sandbox) | No server load, immediate | Limited isolation   | ✅ Chosen   |
+| Server-side (VM/container)   | Better isolation          | Complexity, latency | ❌          |
+| WebAssembly sandbox          | Best isolation            | Development time    | Future work |
 
 **Rationale:** For educational code from children, client-side execution with loop traps is sufficient. Server-side would add complexity without proportional benefit.
 
 #### Decision 3: Database Choice
 
-| Option | Pros | Cons | Decision |
-|--------|------|------|----------|
-| SQLite | No setup, portable, embedded | Single-writer | ✅ Chosen |
-| PostgreSQL | Scalable, concurrent | Requires server | Future (SaaS) |
-| JSON files | Simplest | No queries, no relations | ❌ |
+| Option     | Pros                         | Cons                     | Decision      |
+| ---------- | ---------------------------- | ------------------------ | ------------- |
+| SQLite     | No setup, portable, embedded | Single-writer            | ✅ Chosen     |
+| PostgreSQL | Scalable, concurrent         | Requires server          | Future (SaaS) |
+| JSON files | Simplest                     | No queries, no relations | ❌            |
 
 **Rationale:** SQLite with Drizzle ORM provides the best balance for single-school deployments. Easy to upgrade to Postgres later.
 
 #### Decision 4: State Management Architecture
 
-| Option | Pros | Cons | Decision |
-|--------|------|------|----------|
-| Svelte 5 runes ($state) | Native, reactive, simple | New paradigm | ✅ Chosen |
-| Svelte stores | Established | Verbose for complex state | ❌ |
-| External (Redux, Zustand) | Feature-rich | Extra dependency | ❌ |
+| Option                    | Pros                     | Cons                      | Decision  |
+| ------------------------- | ------------------------ | ------------------------- | --------- |
+| Svelte 5 runes ($state)   | Native, reactive, simple | New paradigm              | ✅ Chosen |
+| Svelte stores             | Established              | Verbose for complex state | ❌        |
+| External (Redux, Zustand) | Feature-rich             | Extra dependency          | ❌        |
 
 **Rationale:** Svelte 5 runes in `.svelte.ts` files enable reactive classes that work seamlessly with components.
 
@@ -382,48 +408,52 @@ Brief overview of each chapter.
 ### 4.3 Exercise Type Framework
 
 **Abstract Base: Canvas2D**
+
 ```typescript
 class Canvas2D {
-  // Reactive state
-  x = $state(0);
-  y = $state(0);
-  commands = $state<Command[]>([]);
-  
-  // Abstract methods for grading
-  get state(): EngineState;
-  reset(): void;
-  compareTo(target: EngineState): ComparisonResult;
+	// Reactive state
+	x = $state(0);
+	y = $state(0);
+	commands = $state<Command[]>([]);
+
+	// Abstract methods for grading
+	get state(): EngineState;
+	reset(): void;
+	compareTo(target: EngineState): ComparisonResult;
 }
 ```
 
 **Concrete Implementation: Turtle**
+
 ```typescript
 class Turtle extends Canvas2D {
-  angle = $state(0);
-  penDown = $state(true);
-  
-  move(distance: number): void;
-  turn(degrees: number): void;
+	angle = $state(0);
+	penDown = $state(true);
+
+	move(distance: number): void;
+	turn(degrees: number): void;
 }
 ```
 
 **Concrete Implementation: GridRobot**
+
 ```typescript
 class GridRobot extends Canvas2D {
-  cellX = $state(0);
-  cellY = $state(0);
-  inventory = $state<Item[]>([]);
-  
-  moveUp(): void;
-  moveDown(): void;
-  collect(): void;
-  eat(): void;
+	cellX = $state(0);
+	cellY = $state(0);
+	inventory = $state<Item[]>([]);
+
+	moveUp(): void;
+	moveDown(): void;
+	collect(): void;
+	eat(): void;
 }
 ```
 
 ### 4.4 Teacher CMS Design
 
 **Exercise Editor Workflow:**
+
 1. Select type → Loads appropriate canvas component
 2. Configure metadata → Title, description, age range
 3. Draw target → Visual path/grid editor
@@ -438,11 +468,13 @@ Teachers draw the target visually (click to add path points, place walls/items) 
 ### 4.5 Security Model
 
 **Threat Model:**
+
 - Malicious student code (infinite loops, DOM access)
 - XSS through user content
 - Unauthorized data access
 
 **Mitigations:**
+
 1. **Iframe sandbox** - `sandbox="allow-scripts"`
 2. **Loop trap** - Command counter injected into code
 3. **API whitelist** - Only exercise-specific functions available
@@ -457,12 +489,14 @@ Teachers draw the target visually (click to add path points, place walls/items) 
 ### 5.1 Frontend Architecture
 
 **Technology Stack:**
+
 - SvelteKit 2 (framework)
 - Svelte 5 (UI library with runes)
 - Tailwind CSS + DaisyUI (styling)
 - Google Blockly (block editor)
 
 **Component Hierarchy:**
+
 ```
 App
 ├── Layout
@@ -488,23 +522,25 @@ App
 ### 5.2 Reactive State with Svelte 5 Runes
 
 **Why `.svelte.ts` files:**
+
 ```typescript
 // src/lib/canvas/Turtle.svelte.ts
 
 // $state works outside .svelte components!
 export class Turtle {
-  x = $state(200);  // Reactive!
-  y = $state(200);  // Reactive!
-  
-  move(dist: number) {
-    this.x += dist * Math.sin(this.angle);
-    this.y -= dist * Math.cos(this.angle);
-    // UI automatically updates!
-  }
+	x = $state(200); // Reactive!
+	y = $state(200); // Reactive!
+
+	move(dist: number) {
+		this.x += dist * Math.sin(this.angle);
+		this.y -= dist * Math.cos(this.angle);
+		// UI automatically updates!
+	}
 }
 ```
 
 **Benefits:**
+
 1. Logic separated from UI
 2. Testable without components
 3. Reactive updates "just work"
@@ -513,6 +549,7 @@ export class Turtle {
 ### 5.3 Sandbox Execution
 
 **Execution Flow:**
+
 ```
 1. Blockly workspace → XML
 2. XML → JavaScript code (Blockly generator)
@@ -524,25 +561,24 @@ export class Turtle {
 ```
 
 **Loop Trap Implementation:**
+
 ```typescript
 function injectLoopTrap(code: string, max: number): string {
-  // Insert counter at loop heads
-  return code.replace(
-    /for\s*\(/g, 
-    `for (let __c=0; __c<${max}; __c++, `
-  );
+	// Insert counter at loop heads
+	return code.replace(/for\s*\(/g, `for (let __c=0; __c<${max}; __c++, `);
 }
 ```
 
 **API Whitelist:**
+
 ```typescript
 const sandboxAPI = {
-  turtle: {
-    move: (d) => engine.move(d),
-    turn: (d) => engine.turn(d),
-    // Only whitelisted methods
-  },
-  // No: window, document, fetch, localStorage
+	turtle: {
+		move: (d) => engine.move(d),
+		turn: (d) => engine.turn(d)
+		// Only whitelisted methods
+	}
+	// No: window, document, fetch, localStorage
 };
 ```
 
@@ -551,30 +587,34 @@ const sandboxAPI = {
 **Grading Strategies:**
 
 1. **State-based** (position, angle, inventory)
+
    ```typescript
    function gradeState(actual: State, expected: State): boolean {
-     return Math.abs(actual.x - expected.x) < tolerance &&
-            Math.abs(actual.y - expected.y) < tolerance;
+   	return (
+   		Math.abs(actual.x - expected.x) < tolerance && Math.abs(actual.y - expected.y) < tolerance
+   	);
    }
    ```
 
 2. **Command sequence** (exact steps)
+
    ```typescript
    function gradeCommands(actual: Command[], expected: Command[]): boolean {
-     return JSON.stringify(actual) === JSON.stringify(expected);
+   	return JSON.stringify(actual) === JSON.stringify(expected);
    }
    ```
 
 3. **Path comparison** (shape drawn)
    ```typescript
    function gradePath(actual: Point[], expected: Point[]): number {
-     // Compare point-by-point with tolerance
+   	// Compare point-by-point with tolerance
    }
    ```
 
 ### 5.5 Database Schema
 
 **ER Diagram:**
+
 ```
 ┌──────────┐     ┌──────────────┐     ┌──────────┐
 │  Users   │────<│ Enrollments  │>────│ Classes  │
@@ -590,22 +630,23 @@ const sandboxAPI = {
 ### 5.6 API Design (Remote Functions)
 
 **Pattern:**
+
 ```typescript
 // src/lib/remote/exercises.remote.ts
 export const exerciseRemote = {
-  list: async () => {
-    const res = await fetch('/api/exercises');
-    return exerciseSchema.array().parse(await res.json());
-  },
-  
-  create: async (data: ExerciseInput) => {
-    const validated = exerciseInputSchema.parse(data);
-    const res = await fetch('/api/exercises', {
-      method: 'POST',
-      body: JSON.stringify(validated)
-    });
-    return exerciseSchema.parse(await res.json());
-  }
+	list: async () => {
+		const res = await fetch('/api/exercises');
+		return exerciseSchema.array().parse(await res.json());
+	},
+
+	create: async (data: ExerciseInput) => {
+		const validated = exerciseInputSchema.parse(data);
+		const res = await fetch('/api/exercises', {
+			method: 'POST',
+			body: JSON.stringify(validated)
+		});
+		return exerciseSchema.parse(await res.json());
+	}
 };
 ```
 
@@ -637,15 +678,16 @@ export const exerciseRemote = {
 
 ### 6.2 Age-Appropriate Design
 
-| Age | Characteristics | Design Implications |
-|-----|-----------------|---------------------|
-| 6-8 | Concrete thinking, limited reading | Large blocks, minimal text, simple sequences |
-| 8-10 | Basic abstraction, longer attention | Loops, simple conditions, short descriptions |
-| 10-12 | Abstract reasoning developing | Variables, nested logic, text-based options |
+| Age   | Characteristics                     | Design Implications                          |
+| ----- | ----------------------------------- | -------------------------------------------- |
+| 6-8   | Concrete thinking, limited reading  | Large blocks, minimal text, simple sequences |
+| 8-10  | Basic abstraction, longer attention | Loops, simple conditions, short descriptions |
+| 10-12 | Abstract reasoning developing       | Variables, nested logic, text-based options  |
 
 ### 6.3 Example Exercise Designs
 
 **Example 1: "Draw a Square" (Age 7-8)**
+
 ```
 Learning Goal: Using loops for repetition
 Concepts: repeat block, sequence
@@ -658,6 +700,7 @@ Hints:
 ```
 
 **Example 2: "Hungry Robot" (Age 8-10)**
+
 ```
 Learning Goal: Using conditionals
 Concepts: if block, sensors
@@ -673,11 +716,13 @@ Hints:
 ### 6.4 Hint System Design
 
 **Progressive Disclosure:**
+
 - Hint 1: Strategy-level (what approach)
 - Hint 2: Structure-level (what blocks)
 - Hint 3: Near-solution (specific steps)
 
 **Tracking:**
+
 - Record which hints were viewed
 - Use in analytics
 - Consider in scoring (optional penalty)
@@ -701,18 +746,19 @@ Hints:
 **Problem:** Blockly expects direct DOM manipulation; Svelte 5 is reactive.
 
 **Solution:** Use `$effect` for lifecycle, export functions for imperative access.
+
 ```svelte
 <script>
-  let workspace: Blockly.Workspace;
-  
-  $effect(() => {
-    workspace = Blockly.inject(div, config);
-    return () => workspace.dispose();
-  });
-  
-  export function getCode() {
-    return generator.workspaceToCode(workspace);
-  }
+	let workspace: Blockly.Workspace;
+
+	$effect(() => {
+		workspace = Blockly.inject(div, config);
+		return () => workspace.dispose();
+	});
+
+	export function getCode() {
+		return generator.workspaceToCode(workspace);
+	}
 </script>
 ```
 
@@ -721,11 +767,12 @@ Hints:
 **Problem:** Canvas needs to redraw when state changes.
 
 **Solution:** Svelte 5 `$effect` triggers on state access.
+
 ```typescript
 $effect(() => {
-  // Accesses reactive properties
-  const pos = { x: turtle.x, y: turtle.y };
-  redrawCanvas();
+	// Accesses reactive properties
+	const pos = { x: turtle.x, y: turtle.y };
+	redrawCanvas();
 });
 ```
 
@@ -734,6 +781,7 @@ $effect(() => {
 **Problem:** Student code must not access DOM/network.
 
 **Solution:** iframe + restricted API object.
+
 ```typescript
 const sandbox = document.createElement('iframe');
 sandbox.sandbox.add('allow-scripts');
@@ -748,14 +796,15 @@ sandbox.contentWindow.postMessage({ code, api });
 **Problem:** Need to detect infinite loops without full parsing.
 
 **Solution:** Regex-based injection + command counter.
+
 ```typescript
 let commandCount = 0;
 const MAX_COMMANDS = 10000;
 
 function checkLimit() {
-  if (++commandCount > MAX_COMMANDS) {
-    throw new Error('Too many commands');
-  }
+	if (++commandCount > MAX_COMMANDS) {
+		throw new Error('Too many commands');
+	}
 }
 
 // Inject into every function call
@@ -765,50 +814,52 @@ code = code.replace(/(\w+)\(/g, '(checkLimit(),$1(');
 ### 7.3 Code Examples
 
 **Exercise Engine (Turtle):**
+
 ```typescript
 export class Turtle extends Canvas2D {
-  angle = $state(0);
-  penDown = $state(true);
-  
-  move(distance: number) {
-    const rad = this.angle * Math.PI / 180;
-    this.x += distance * Math.sin(rad);
-    this.y -= distance * Math.cos(rad);
-    this.record('move', distance);
-  }
+	angle = $state(0);
+	penDown = $state(true);
+
+	move(distance: number) {
+		const rad = (this.angle * Math.PI) / 180;
+		this.x += distance * Math.sin(rad);
+		this.y -= distance * Math.cos(rad);
+		this.record('move', distance);
+	}
 }
 ```
 
 **Grader:**
+
 ```typescript
-export function gradeTurtle(
-  engine: Turtle,
-  test: TurtleTest
-): GradeResult {
-  const state = engine.state;
-  const expected = test.expected;
-  
-  const passed = 
-    Math.abs(state.x - expected.x) < test.tolerance &&
-    Math.abs(state.y - expected.y) < test.tolerance;
-    
-  return { passed, score: passed ? 1 : 0 };
+export function gradeTurtle(engine: Turtle, test: TurtleTest): GradeResult {
+	const state = engine.state;
+	const expected = test.expected;
+
+	const passed =
+		Math.abs(state.x - expected.x) < test.tolerance &&
+		Math.abs(state.y - expected.y) < test.tolerance;
+
+	return { passed, score: passed ? 1 : 0 };
 }
 ```
 
 ### 7.4 Testing Strategy
 
 **Unit Tests:**
+
 - Engine methods (move, turn calculations)
 - Grader logic (state comparison)
 - Loop trap detection
 
 **Integration Tests:**
+
 - Blockly → Code generation → Execution → Grading
 - Exercise CRUD operations
 - User authentication flows
 
 **E2E Tests (Playwright):**
+
 - Teacher creates and publishes exercise
 - Student completes exercise
 - Progress is persisted
@@ -826,12 +877,14 @@ export function gradeTurtle(
 ### 8.2 Methodology
 
 **Pilot Study Design:**
+
 - Participants: 4-6 children (ages 6-12, mixed)
 - Method: Think-aloud protocol
 - Duration: 30-45 minutes per session
 - Exercises: 3-5 turtle + 2-3 robot exercises
 
 **Data Collection:**
+
 - Screen recording (with consent)
 - Observer notes
 - Time per exercise
@@ -840,24 +893,26 @@ export function gradeTurtle(
 
 ### 8.3 Metrics
 
-| Metric | Measurement | Target |
-|--------|-------------|--------|
-| Completion rate | % exercises passed | > 70% |
-| Time on task | Minutes per exercise | < 10 min |
-| Hint usage | Average hints per exercise | < 2 |
-| Error rate | Failed attempts before success | < 5 |
-| Satisfaction | 5-point scale ("Was it fun?") | > 4 |
+| Metric          | Measurement                    | Target   |
+| --------------- | ------------------------------ | -------- |
+| Completion rate | % exercises passed             | > 70%    |
+| Time on task    | Minutes per exercise           | < 10 min |
+| Hint usage      | Average hints per exercise     | < 2      |
+| Error rate      | Failed attempts before success | < 5      |
+| Satisfaction    | 5-point scale ("Was it fun?")  | > 4      |
 
 ### 8.4 Results
 
 [To be filled after pilot study]
 
 **Quantitative:**
+
 - Completion rates by exercise and age group
 - Time distributions
 - Hint usage patterns
 
 **Qualitative:**
+
 - Common difficulties observed
 - UI confusion points
 - Positive feedback themes
@@ -882,22 +937,26 @@ export function gradeTurtle(
 
 ### 9.2 Comparison to Research Questions
 
-**RQ1 (Teacher CMS):**  
+**RQ1 (Teacher CMS):**
+
 - Visual path drawing enables non-programmers to create exercises
 - Toolbox builder simplifies block selection
 - Preview mode allows testing before publishing
 
-**RQ2 (Secure Sandbox):**  
+**RQ2 (Secure Sandbox):**
+
 - iframe + loop trap prevents harmful code
 - API whitelist restricts available functions
 - Deterministic grading achieved via seeded RNG
 
-**RQ3 (Extensible Framework):**  
+**RQ3 (Extensible Framework):**
+
 - Canvas2D base class enables new exercise types
 - Grader interface allows custom grading logic
 - Blockly integration is modular
 
-**RQ4 (Usability):**  
+**RQ4 (Usability):**
+
 - [Results from pilot study]
 
 ### 9.3 Limitations
@@ -925,11 +984,13 @@ export function gradeTurtle(
 ### 9.4 Threats to Validity
 
 **Internal:**
+
 - Observer effect (children behave differently when watched)
 - Selection bias (volunteer participants)
 - Exercise ordering effects
 
 **External:**
+
 - Small, non-random sample
 - Single geographic location
 - Short interaction time
@@ -953,18 +1014,21 @@ The pilot evaluation demonstrated [key findings].
 ### 10.2 Future Work
 
 **Short-term (6 months):**
+
 - Additional exercise types (I/O, pixel art)
 - LLM-powered hint generation
 - Class management features
 - Mobile optimization
 
 **Medium-term (1-2 years):**
+
 - Visual block builder for teachers
 - Multi-tenant SaaS deployment
 - SSO integration (SAML, OIDC)
 - Analytics dashboard
 
 **Long-term (research):**
+
 - Longitudinal learning studies
 - Adaptive difficulty algorithms
 - AI-generated exercises
@@ -981,6 +1045,7 @@ BlocklyQuiz addresses a real need in Austrian schools for curriculum-aligned, te
 [Bibliography in appropriate format - IEEE/ACM]
 
 Key references to include:
+
 - Resnick et al. (2009) - Scratch
 - Papert (1980) - Mindstorms
 - Sweller (1988) - Cognitive Load Theory
@@ -997,20 +1062,20 @@ Key references to include:
 
 ```json
 {
-  "$schema": "...",
-  "type": "object",
-  "properties": {
-    "id": { "type": "string" },
-    "type": { "enum": ["turtle", "robot", "io"] },
-    "title": {
-      "type": "object",
-      "properties": {
-        "de": { "type": "string" },
-        "en": { "type": "string" }
-      }
-    },
-    // ... full schema
-  }
+	"$schema": "...",
+	"type": "object",
+	"properties": {
+		"id": { "type": "string" },
+		"type": { "enum": ["turtle", "robot", "io"] },
+		"title": {
+			"type": "object",
+			"properties": {
+				"de": { "type": "string" },
+				"en": { "type": "string" }
+			}
+		}
+		// ... full schema
+	}
 }
 ```
 
@@ -1018,10 +1083,10 @@ Key references to include:
 
 ```json
 {
-  "id": "turtle-square-1",
-  "type": "turtle",
-  "title": { "de": "Zeichne ein Quadrat", "en": "Draw a Square" },
-  // ... complete example
+	"id": "turtle-square-1",
+	"type": "turtle",
+	"title": { "de": "Zeichne ein Quadrat", "en": "Draw a Square" }
+	// ... complete example
 }
 ```
 
@@ -1035,6 +1100,7 @@ Key references to include:
 ### D. Code Listings
 
 Selected code examples:
+
 - Turtle class implementation
 - Grader algorithm
 - Sandbox executor
@@ -1046,4 +1112,3 @@ Selected code examples:
 - Student exercise view
 - Course browser
 - Results display
-

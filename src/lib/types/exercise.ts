@@ -1,4 +1,11 @@
 import type { Point, TargetPoint } from '$lib/canvas/types';
+import {
+	LOGIC_BLOCKS,
+	LOOP_BLOCKS,
+	MATH_BLOCKS,
+	TEXT_BLOCKS,
+	VARIABLE_BLOCKS
+} from '$lib/blockly/presets';
 
 export interface LocalizedString {
 	de: string;
@@ -186,6 +193,8 @@ export interface ExerciseBase {
 	createdBy: string;
 	createdAt: number;
 	updatedAt: number;
+	archivedAt?: number | null;
+	archivedBy?: string | null;
 	config: ExerciseCompatConfig;
 }
 
@@ -225,6 +234,19 @@ export type ExerciseListItem = ExerciseFormData & { id: string };
 export type StoredExerciseConfig = ExerciseCompatConfig;
 
 const EMPTY_POINT: Point = { x: 0, y: 0 };
+
+const ALLOWED_TOOLBOX_BLOCKS = new Set([
+	...LOGIC_BLOCKS,
+	...LOOP_BLOCKS,
+	...MATH_BLOCKS,
+	...TEXT_BLOCKS,
+	...VARIABLE_BLOCKS,
+	'move',
+	'turn',
+	'pen',
+	'color',
+	'collect'
+]);
 
 export const DEFAULT_LOCALIZED_STRING: LocalizedString = {
 	de: '',
@@ -539,7 +561,9 @@ function normalizeVisualExpected(value: unknown) {
 		target: normalizeTestCaseTarget(record.target),
 		commands: normalizeStringArray(record.commands),
 		state: normalizeTestCaseState(record.state),
-		path: Array.isArray(record.path) ? record.path.map((point) => normalizePoint(point)) : undefined,
+		path: Array.isArray(record.path)
+			? record.path.map((point) => normalizePoint(point))
+			: undefined,
 		collect: normalizeTestCaseCollect(record.collect)
 	};
 }
@@ -606,15 +630,24 @@ function normalizeTurtleCanvas(value: unknown): TurtleCanvasConfig {
 function normalizeTurtleGrader(value: unknown): TurtleGraderConfig {
 	const record = isRecord(value) ? value : {};
 	return {
-		appleTolerance: normalizeNumber(record.appleTolerance, DEFAULT_TURTLE_GRADER_CONFIG.appleTolerance),
-		wallTolerance: normalizeNumber(record.wallTolerance, DEFAULT_TURTLE_GRADER_CONFIG.wallTolerance),
+		appleTolerance: normalizeNumber(
+			record.appleTolerance,
+			DEFAULT_TURTLE_GRADER_CONFIG.appleTolerance
+		),
+		wallTolerance: normalizeNumber(
+			record.wallTolerance,
+			DEFAULT_TURTLE_GRADER_CONFIG.wallTolerance
+		),
 		testCases: Array.isArray(record.testCases)
 			? record.testCases.map((test) => normalizeVisualTestCase(test, 'turtle') as TurtleTestCase)
 			: []
 	};
 }
 
-function deriveRobotGridFromCanvas(canvas: TurtleCanvasConfig, source: Record<string, unknown>): RobotGridConfig {
+function deriveRobotGridFromCanvas(
+	canvas: TurtleCanvasConfig,
+	source: Record<string, unknown>
+): RobotGridConfig {
 	return {
 		width: Math.max(1, Math.round(canvas.width / Math.max(canvas.gridSize, 1))),
 		height: Math.max(1, Math.round(canvas.height / Math.max(canvas.gridSize, 1))),
@@ -673,7 +706,10 @@ function normalizeRobotGrader(value: unknown): RobotGraderConfig {
 		testCases: Array.isArray(record.testCases)
 			? record.testCases.map((test) => normalizeVisualTestCase(test, 'robot') as RobotTestCase)
 			: [],
-		appleTolerance: normalizeNumber(record.appleTolerance, DEFAULT_ROBOT_GRADER_CONFIG.appleTolerance),
+		appleTolerance: normalizeNumber(
+			record.appleTolerance,
+			DEFAULT_ROBOT_GRADER_CONFIG.appleTolerance
+		),
 		wallTolerance: normalizeNumber(record.wallTolerance, DEFAULT_ROBOT_GRADER_CONFIG.wallTolerance)
 	};
 }
@@ -736,7 +772,33 @@ function isXmlLikelyParseable(xml: string): boolean {
 		return true;
 	}
 
-	return trimmed.startsWith('<xml') && trimmed.endsWith('</xml>');
+	if (!trimmed.startsWith('<xml') || !trimmed.endsWith('</xml>')) {
+		return false;
+	}
+
+	if (typeof DOMParser === 'function') {
+		const document = new DOMParser().parseFromString(trimmed, 'text/xml');
+		return document.documentElement.nodeName === 'xml' && !document.querySelector('parsererror');
+	}
+
+	return true;
+}
+
+function collectStarterBlockTypes(xml: string): string[] {
+	const blockTypes = new Set<string>();
+	const blockTypePattern = /<(?:block|shadow)\b[^>]*\btype=["']([^"']+)["']/g;
+	let match: RegExpExecArray | null;
+
+	while ((match = blockTypePattern.exec(xml))) {
+		blockTypes.add(match[1]);
+	}
+
+	return [...blockTypes];
+}
+
+function normalizeStarterBlockType(blockType: string, exerciseType: ExerciseType) {
+	const prefix = `${exerciseType}_`;
+	return blockType.startsWith(prefix) ? blockType.slice(prefix.length) : blockType;
 }
 
 function validateLocalizedField(
@@ -746,10 +808,14 @@ function validateLocalizedField(
 	issues: PublishValidationIssue[]
 ) {
 	if (!value.de.trim()) {
-		issues.push(createValidationIssue(`${field}.de.missing`, `${field}.de`, `${label} (DE) is required.`));
+		issues.push(
+			createValidationIssue(`${field}.de.missing`, `${field}.de`, `${label} (DE) is required.`)
+		);
 	}
 	if (!value.en.trim()) {
-		issues.push(createValidationIssue(`${field}.en.missing`, `${field}.en`, `${label} (EN) is required.`));
+		issues.push(
+			createValidationIssue(`${field}.en.missing`, `${field}.en`, `${label} (EN) is required.`)
+		);
 	}
 }
 
@@ -765,11 +831,31 @@ export function validateExercise(exercise: Exercise): PublishValidationResult {
 	const issues: PublishValidationIssue[] = [];
 
 	validateLocalizedField(exercise.content.title, 'content.title', 'Title', issues);
-	validateLocalizedField(exercise.content.description, 'content.description', 'Description', issues);
+	validateLocalizedField(
+		exercise.content.description,
+		'content.description',
+		'Description',
+		issues
+	);
 
 	if (exercise.toolbox.some((block) => !block.trim())) {
 		issues.push(
-			createValidationIssue('toolbox.invalid', 'toolbox', 'Toolbox contains an empty or invalid block id.')
+			createValidationIssue(
+				'toolbox.invalid',
+				'toolbox',
+				'Toolbox contains an empty or invalid block id.'
+			)
+		);
+	}
+
+	const unknownToolboxBlock = exercise.toolbox.find((block) => !ALLOWED_TOOLBOX_BLOCKS.has(block));
+	if (unknownToolboxBlock) {
+		issues.push(
+			createValidationIssue(
+				'toolbox.unknownBlock',
+				'toolbox',
+				`Toolbox contains an unknown block id: ${unknownToolboxBlock}.`
+			)
 		);
 	}
 
@@ -783,22 +869,60 @@ export function validateExercise(exercise: Exercise): PublishValidationResult {
 		);
 	}
 
+	if (exercise.starterXml.trim()) {
+		for (const blockType of collectStarterBlockTypes(exercise.starterXml)) {
+			const normalizedBlockType = normalizeStarterBlockType(blockType, exercise.type);
+			if (!ALLOWED_TOOLBOX_BLOCKS.has(normalizedBlockType)) {
+				issues.push(
+					createValidationIssue(
+						'starterXml.unknownBlock',
+						'starterXml',
+						`Starter XML contains an unknown block id: ${blockType}.`
+					)
+				);
+				continue;
+			}
+
+			if (!exercise.toolbox.includes(normalizedBlockType)) {
+				issues.push(
+					createValidationIssue(
+						'starterXml.blockOutsideToolbox',
+						'starterXml',
+						`Starter XML uses a block that is not available in the toolbox: ${blockType}.`
+					)
+				);
+			}
+		}
+	}
+
 	const tests = collectExerciseTests(exercise);
 	if (tests.length === 0) {
-		issues.push(createValidationIssue('tests.missing', 'tests', 'At least one test case is required.'));
+		issues.push(
+			createValidationIssue('tests.missing', 'tests', 'At least one test case is required.')
+		);
 	}
 	if (tests.length > 0 && !tests.some((test) => !test.visible)) {
 		issues.push(
-			createValidationIssue('tests.hiddenMissing', 'tests', 'At least one hidden test case is required.')
+			createValidationIssue(
+				'tests.hiddenMissing',
+				'tests',
+				'At least one hidden test case is required.'
+			)
 		);
 	}
 
 	if (exercise.type === 'io') {
 		if (exercise.io.mode !== 'stdin-stdout') {
-			issues.push(createValidationIssue('io.mode.invalid', 'io.mode', 'Only stdin-stdout mode is supported.'));
+			issues.push(
+				createValidationIssue('io.mode.invalid', 'io.mode', 'Only stdin-stdout mode is supported.')
+			);
 		}
 	} else if (exercise.type === 'turtle') {
-		if (exercise.canvas.width <= 0 || exercise.canvas.height <= 0 || exercise.canvas.gridSize <= 0) {
+		if (
+			exercise.canvas.width <= 0 ||
+			exercise.canvas.height <= 0 ||
+			exercise.canvas.gridSize <= 0
+		) {
 			issues.push(
 				createValidationIssue(
 					'canvas.invalid',
@@ -845,6 +969,8 @@ type ExerciseInput = Record<string, unknown> & {
 	createdBy?: unknown;
 	createdAt?: unknown;
 	updatedAt?: unknown;
+	archivedAt?: unknown;
+	archivedBy?: unknown;
 	validation?: unknown;
 	validationJson?: unknown;
 	image?: string | null;
@@ -878,7 +1004,9 @@ export function canonicalizeExercise(input: ExerciseInput): Exercise {
 		order: normalizeNumber(input.order, 0),
 		createdBy: normalizeString(input.createdBy),
 		createdAt: normalizeNumber(input.createdAt, Date.now()),
-		updatedAt: normalizeNumber(input.updatedAt, Date.now())
+		updatedAt: normalizeNumber(input.updatedAt, Date.now()),
+		archivedAt: typeof input.archivedAt === 'number' ? input.archivedAt : null,
+		archivedBy: typeof input.archivedBy === 'string' ? input.archivedBy : null
 	} satisfies Omit<ExerciseBase, 'validation' | 'config'>;
 
 	let exercise: Exercise;
@@ -949,7 +1077,9 @@ export function canonicalizeExercise(input: ExerciseInput): Exercise {
 
 	const storedValidation = normalizePublishValidation(input.validation ?? input.validationJson);
 	const hasStoredValidation =
-		isRecord(input.validation) || isRecord(input.validationJson) || storedValidation.issues.length > 0;
+		isRecord(input.validation) ||
+		isRecord(input.validationJson) ||
+		storedValidation.issues.length > 0;
 	const validation = hasStoredValidation ? storedValidation : validateExercise(exercise);
 
 	return {
@@ -971,11 +1101,33 @@ export function dehydrateExercise(exerciseInput: ExerciseInput): {
 			title: clone(exercise.content.title),
 			description: clone(exercise.content.description),
 			image: exercise.content.image ?? '',
-			workedExample: exercise.content.workedExample ? clone(exercise.content.workedExample) : undefined
+			workedExample: exercise.content.workedExample
+				? clone(exercise.content.workedExample)
+				: undefined
 		},
 		config: buildStoredConfig(exercise),
 		validation: exercise.validation
 	};
+}
+
+export function stripExerciseForLearners(exerciseInput: Exercise): Exercise {
+	if (exerciseInput.type === 'io') {
+		return canonicalizeExercise({
+			...exerciseInput,
+			io: {
+				...exerciseInput.io,
+				tests: exerciseInput.io.tests.filter((test) => test.visible)
+			}
+		});
+	}
+
+	return canonicalizeExercise({
+		...exerciseInput,
+		grader: {
+			...exerciseInput.grader,
+			testCases: exerciseInput.grader.testCases.filter((test) => test.visible)
+		}
+	});
 }
 
 export function createDefaultExercise(type: ExerciseType = 'turtle', courseId = ''): Exercise {

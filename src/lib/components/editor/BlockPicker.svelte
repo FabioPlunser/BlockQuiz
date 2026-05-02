@@ -3,6 +3,7 @@
 	import { Turtle } from '$lib/canvas/Turtle.svelte';
 	import { Robot } from '$lib/canvas/Robot.svelte';
 	import type { ExerciseType } from '$lib/types/exercise';
+	import { i18n } from '$lib/i18n/index.svelte';
 
 	let {
 		selectedBlocks = $bindable([]),
@@ -12,166 +13,463 @@
 		exerciseType: ExerciseType;
 	} = $props();
 
-	// Get engine-specific blocks
 	const turtle = new Turtle(400, 400);
 	const robot = new Robot(400, 400);
 
-	interface BlockCategory {
+	type BlockOption = {
+		id: string;
+		label: string;
+		searchText: string;
+	};
+
+	type BlockCategory = {
+		id: string;
 		name: string;
-		color: string;
-		blocks: { id: string; label: string }[];
-	}
+		description: string;
+		group: string;
+		colorClass: string;
+		blocks: BlockOption[];
+	};
 
-	function getCategories(): BlockCategory[] {
-		const categories: BlockCategory[] = [];
+	type BlockPreset = {
+		id: string;
+		label: string;
+		description: string;
+		blocks: string[];
+	};
 
-		// Engine-specific blocks
-		if (exerciseType === 'turtle') {
-			categories.push({
-				name: 'Turtle',
-				color: 'bg-green-500',
-				blocks: turtle.blockDefs.map((b) => ({ id: b.id, label: b.id }))
-			});
-		} else if (exerciseType === 'robot') {
-			categories.push({
-				name: 'Robot',
-				color: 'bg-blue-500',
-				blocks: robot.blockDefs.map((b) => ({ id: b.id, label: b.id }))
-			});
-		}
+	let search = $state('');
 
-		// Built-in Blockly blocks
-		categories.push(
-			{
-				name: 'Logic',
-				color: 'bg-indigo-500',
-				blocks: LOGIC_BLOCKS.map((id) => ({ id, label: formatBlockName(id) }))
-			},
-			{
-				name: 'Loops',
-				color: 'bg-teal-500',
-				blocks: LOOP_BLOCKS.map((id) => ({ id, label: formatBlockName(id) }))
-			},
-			{
-				name: 'Math',
-				color: 'bg-purple-500',
-				blocks: MATH_BLOCKS.map((id) => ({ id, label: formatBlockName(id) }))
-			},
-			{
-				name: 'Text',
-				color: 'bg-amber-500',
-				blocks: TEXT_BLOCKS.map((id) => ({ id, label: formatBlockName(id) }))
-			}
-		);
-
-		return categories;
-	}
-
-	function formatBlockName(id: string): string {
+	function formatBuiltinBlockName(id: string): string {
 		return id
 			.replace(/_/g, ' ')
 			.replace(/controls /i, '')
 			.replace(/logic /i, '')
 			.replace(/math /i, '')
 			.replace(/text /i, '')
-			.trim();
+			.trim()
+			.replace(/\b\w/g, (letter) => letter.toUpperCase());
+	}
+
+	function formatEngineBlockName(label: string, fallbackId: string): string {
+		const cleaned = label.replace(/%\d+/g, '').replace(/\s+/g, ' ').trim();
+		return cleaned
+			? cleaned.replace(/\b\w/g, (letter) => letter.toUpperCase())
+			: formatBuiltinBlockName(fallbackId);
+	}
+
+	function buildEngineCategories(): BlockCategory[] {
+		if (exerciseType === 'io') {
+			return [];
+		}
+
+		const engineBlocks =
+			exerciseType === 'turtle'
+				? turtle.blockDefs.map((block) => ({
+						id: block.id,
+						label: formatEngineBlockName(block.message, block.id)
+					}))
+				: robot.blockDefs.map((block) => ({
+						id: block.id,
+						label: formatEngineBlockName(block.message, block.id)
+					}));
+
+		if (engineBlocks.length === 0) {
+			return [];
+		}
+
+		const movement = engineBlocks.filter((block) => ['move', 'turn'].includes(block.id));
+		const drawing = engineBlocks.filter((block) => !['move', 'turn'].includes(block.id));
+		const actorName = exerciseType === 'turtle' ? i18n.toolbox_turtle : i18n.toolbox_robot;
+		const categories: BlockCategory[] = [];
+
+		if (movement.length > 0) {
+			categories.push({
+				id: `${exerciseType}-movement`,
+				name:
+					exerciseType === 'turtle'
+						? i18n.cms_blockpicker_turtle_movement
+						: i18n.cms_blockpicker_robot_movement,
+				description:
+					exerciseType === 'turtle'
+						? i18n.cms_blockpicker_turtle_movement_desc
+						: i18n.cms_blockpicker_robot_movement_desc,
+				group: i18n.cms_blockpicker_group_character,
+				colorClass: exerciseType === 'turtle' ? 'bg-emerald-500' : 'bg-sky-500',
+				blocks: movement.map((block) => ({
+					...block,
+					searchText: `${block.label} ${block.id} ${actorName} movement`.toLowerCase()
+				}))
+			});
+		}
+
+		if (drawing.length > 0) {
+			categories.push({
+				id: `${exerciseType}-extras`,
+				name:
+					exerciseType === 'turtle'
+						? i18n.cms_blockpicker_turtle_extras
+						: i18n.cms_blockpicker_robot_extras,
+				description:
+					exerciseType === 'turtle'
+						? i18n.cms_blockpicker_turtle_extras_desc
+						: i18n.cms_blockpicker_robot_extras_desc,
+				group: i18n.cms_blockpicker_group_character,
+				colorClass: 'bg-orange-500',
+				blocks: drawing.map((block) => ({
+					...block,
+					searchText: `${block.label} ${block.id} ${actorName} extras`.toLowerCase()
+				}))
+			});
+		}
+
+		return categories;
+	}
+
+	function buildBuiltinCategory(
+		id: string,
+		name: string,
+		description: string,
+		colorClass: string,
+		blocks: string[]
+	): BlockCategory {
+		return {
+			id,
+			name,
+			description,
+			group: i18n.cms_blockpicker_group_thinking,
+			colorClass,
+			blocks: blocks.map((blockId) => {
+				const label = formatBuiltinBlockName(blockId);
+				return {
+					id: blockId,
+					label,
+					searchText: `${label} ${blockId} ${name}`.toLowerCase()
+				};
+			})
+		};
+	}
+
+	function getCategories(): BlockCategory[] {
+		return [
+			...buildEngineCategories(),
+			buildBuiltinCategory(
+				'logic',
+				i18n.toolbox_logic,
+				i18n.cms_blockpicker_logic_desc,
+				'bg-violet-500',
+				LOGIC_BLOCKS
+			),
+			buildBuiltinCategory(
+				'loops',
+				i18n.toolbox_loops,
+				i18n.cms_blockpicker_loops_desc,
+				'bg-teal-500',
+				LOOP_BLOCKS
+			),
+			buildBuiltinCategory(
+				'math',
+				i18n.toolbox_math,
+				i18n.cms_blockpicker_math_desc,
+				'bg-rose-500',
+				MATH_BLOCKS
+			),
+			buildBuiltinCategory(
+				'text',
+				i18n.toolbox_text,
+				i18n.cms_blockpicker_text_desc,
+				'bg-amber-500',
+				TEXT_BLOCKS
+			)
+		];
+	}
+
+	function getPresets(categories: BlockCategory[]): BlockPreset[] {
+		const availableIds = new Set(
+			categories.flatMap((category) => category.blocks.map((block) => block.id))
+		);
+		const engineIds = categories
+			.filter((category) => category.group === 'Character blocks')
+			.flatMap((category) => category.blocks.map((block) => block.id));
+
+		const filterAvailable = (ids: string[]) =>
+			[...new Set(ids)].filter((id) => availableIds.has(id));
+
+		if (exerciseType === 'io') {
+			return [
+				{
+					id: 'beginner-io',
+					label: i18n.cms_blockpicker_preset_beginner_io_label,
+					description: i18n.cms_blockpicker_preset_beginner_io_desc,
+					blocks: filterAvailable([...TEXT_BLOCKS, 'math_number'])
+				},
+				{
+					id: 'challenge',
+					label: i18n.cms_blockpicker_preset_challenge_label,
+					description: i18n.cms_blockpicker_preset_challenge_desc,
+					blocks: filterAvailable([
+						...TEXT_BLOCKS,
+						...LOGIC_BLOCKS,
+						...LOOP_BLOCKS,
+						'math_number',
+						'math_arithmetic'
+					])
+				},
+				{
+					id: 'everything',
+					label: i18n.cms_blockpicker_preset_everything_label,
+					description: i18n.cms_blockpicker_preset_everything_desc,
+					blocks: filterAvailable(
+						categories.flatMap((category) => category.blocks.map((block) => block.id))
+					)
+				}
+			];
+		}
+
+		return [
+			{
+				id: 'starter',
+				label: i18n.cms_blockpicker_preset_starter_label,
+				description: i18n.cms_blockpicker_preset_starter_desc,
+				blocks: filterAvailable([...engineIds, 'controls_repeat_ext', 'math_number'])
+			},
+			{
+				id: 'challenge',
+				label: i18n.cms_blockpicker_preset_challenge_label,
+				description: i18n.cms_blockpicker_preset_challenge_desc,
+				blocks: filterAvailable([
+					...engineIds,
+					...LOOP_BLOCKS,
+					...LOGIC_BLOCKS,
+					'math_number',
+					'math_arithmetic'
+				])
+			},
+			{
+				id: 'everything',
+				label: i18n.cms_blockpicker_preset_everything_label,
+				description: i18n.cms_blockpicker_preset_everything_desc,
+				blocks: filterAvailable(
+					categories.flatMap((category) => category.blocks.map((block) => block.id))
+				)
+			}
+		];
 	}
 
 	function toggleBlock(id: string, checked: boolean) {
 		if (checked) {
 			selectedBlocks = [...new Set([...selectedBlocks, id])];
-		} else {
-			selectedBlocks = selectedBlocks.filter((b) => b !== id);
+			return;
 		}
+
+		selectedBlocks = selectedBlocks.filter((blockId) => blockId !== id);
 	}
 
-	function selectAll(category: BlockCategory) {
-		const ids = category.blocks.map((b) => b.id);
-		selectedBlocks = [...new Set([...selectedBlocks, ...ids])];
+	function setSelectedBlocks(nextIds: string[]) {
+		selectedBlocks = [...new Set(nextIds)];
 	}
 
-	function deselectAll(category: BlockCategory) {
-		const ids = new Set(category.blocks.map((b) => b.id));
-		selectedBlocks = selectedBlocks.filter((b) => !ids.has(b));
+	function selectCategory(category: BlockCategory) {
+		setSelectedBlocks([...selectedBlocks, ...category.blocks.map((block) => block.id)]);
 	}
 
-	function selectAllBlocks() {
-		const allIds = getCategories().flatMap((c) => c.blocks.map((b) => b.id));
-		selectedBlocks = [...new Set(allIds)];
+	function clearCategory(category: BlockCategory) {
+		const ids = new Set(category.blocks.map((block) => block.id));
+		selectedBlocks = selectedBlocks.filter((blockId) => !ids.has(blockId));
 	}
 
-	function deselectAllBlocks() {
-		selectedBlocks = [];
+	function applyPreset(preset: BlockPreset) {
+		setSelectedBlocks(preset.blocks);
 	}
 
-	let categories = $derived(getCategories());
+	const categories = $derived(getCategories());
+	const presets = $derived(getPresets(categories));
+	const totalBlockCount = $derived(categories.flatMap((category) => category.blocks).length);
+	const blockLookup = $derived.by(() => {
+		const lookup: Record<string, string> = {};
+		for (const category of categories) {
+			for (const block of category.blocks) {
+				lookup[block.id] = block.label;
+			}
+		}
+		return lookup;
+	});
+	const selectedSummary = $derived(
+		selectedBlocks.map((id) => ({ id, label: blockLookup[id] ?? formatBuiltinBlockName(id) }))
+	);
+	const visibleCategories = $derived.by(() => {
+		const query = search.trim().toLowerCase();
+		if (!query) {
+			return categories;
+		}
+
+		return categories
+			.map((category) => ({
+				...category,
+				blocks: category.blocks.filter(
+					(block) =>
+						block.searchText.includes(query) ||
+						category.name.toLowerCase().includes(query) ||
+						category.group.toLowerCase().includes(query)
+				)
+			}))
+			.filter((category) => category.blocks.length > 0);
+	});
 </script>
 
-<div class="block-picker">
-	<div class="mb-3 flex items-center justify-between">
-		<div class="flex gap-2">
-			<button type="button" class="btn btn-ghost" onclick={selectAllBlocks}> Select All </button>
-			<button type="button" class="btn btn-ghost" onclick={deselectAllBlocks}> Clear All </button>
-		</div>
-	</div>
+<div class="space-y-4">
+	<section class="rounded-xl border border-base-300 bg-base-200 p-4">
+		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+			<div class="space-y-2">
+				<h3 class="text-base font-semibold">{i18n.cms_blockpicker_title}</h3>
+				<p class="max-w-2xl text-sm text-base-content/70">
+					{i18n.cms_blockpicker_hint}
+				</p>
+				<div class="flex flex-wrap items-center gap-2 text-sm text-base-content/70">
+					<span class="badge badge-outline"
+						>{selectedBlocks.length} {i18n.cms_blockpicker_selected}</span
+					>
+					<span class="badge badge-outline">{totalBlockCount} {i18n.cms_blockpicker_available}</span
+					>
+				</div>
+			</div>
 
-	<div class="mb-3 text-sm text-base-content/60">
-		Selected: {selectedBlocks.length} blocks
-	</div>
+			<label class="form-control w-full max-w-md gap-2">
+				<span class="label-text text-sm font-medium">{i18n.cms_blockpicker_search_label}</span>
+				<input
+					type="search"
+					class="input-bordered input w-full"
+					placeholder={i18n.cms_blockpicker_search_placeholder}
+					bind:value={search}
+				/>
+			</label>
+		</div>
+
+		<div class="mt-4 space-y-2">
+			<div class="text-sm font-medium">{i18n.cms_blockpicker_presets_title}</div>
+			<div class="grid gap-2 md:grid-cols-3">
+				{#each presets as preset (preset.id)}
+					<button
+						type="button"
+						class="rounded-xl border border-base-300 bg-base-100 p-3 text-left transition hover:border-primary/40 hover:bg-base-100"
+						onclick={() => applyPreset(preset)}
+					>
+						<div class="font-medium">{preset.label}</div>
+						<div class="mt-1 text-sm text-base-content/70">{preset.description}</div>
+						<div class="mt-2 text-xs text-base-content/50">{preset.blocks.length} blocks</div>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<div class="mt-4 flex flex-wrap gap-2">
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm"
+				onclick={() =>
+					setSelectedBlocks(
+						categories.flatMap((category) => category.blocks.map((block) => block.id))
+					)}
+			>
+				{i18n.cms_blockpicker_select_all}
+			</button>
+			<button type="button" class="btn btn-ghost btn-sm" onclick={() => setSelectedBlocks([])}>
+				{i18n.cms_blockpicker_clear}
+			</button>
+		</div>
+
+		<div class="mt-4 space-y-2">
+			<div class="text-sm font-medium">{i18n.cms_blockpicker_selected_summary}</div>
+			{#if selectedSummary.length > 0}
+				<div class="flex flex-wrap gap-2">
+					{#each selectedSummary as block (block.id)}
+						<button
+							type="button"
+							class="badge gap-2 badge-outline px-3 py-3"
+							onclick={() => toggleBlock(block.id, false)}
+							aria-label={i18n.cms_blockpicker_remove_selected.replace('{name}', block.label)}
+						>
+							<span>{block.label}</span>
+							<span aria-hidden="true">x</span>
+						</button>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-sm text-base-content/60">{i18n.cms_blockpicker_none_selected}</p>
+			{/if}
+		</div>
+	</section>
 
 	<div class="space-y-4">
-		{#each categories as category (category.name)}
-			<div class="card bg-base-200">
-				<div class="card-body p-3">
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							<span class={`h-3 w-3 rounded ${category.color}`}></span>
-							<h4 class="text-sm font-medium">{category.name}</h4>
-							<span class="badge badge-ghost badge-sm">
-								{category.blocks.filter((b) => selectedBlocks.includes(b.id)).length}/{category
-									.blocks.length}
-							</span>
+		{#if visibleCategories.length > 0}
+			{#each visibleCategories as category (category.id)}
+				<section class="rounded-xl border border-base-300 bg-base-100 p-4">
+					<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+						<div class="space-y-2">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class={`h-3 w-3 rounded-full ${category.colorClass}`}></span>
+								<span class="badge badge-outline badge-sm">{category.group}</span>
+								<span class="badge badge-ghost badge-sm">
+									{category.blocks.filter((block) => selectedBlocks.includes(block.id))
+										.length}/{category.blocks.length}
+								</span>
+							</div>
+							<div>
+								<h4 class="text-base font-semibold">{category.name}</h4>
+								<p class="text-sm text-base-content/70">{category.description}</p>
+							</div>
 						</div>
-						<div class="flex gap-1">
+
+						<div class="flex flex-wrap gap-2">
 							<button
 								type="button"
-								class="btn btn-ghost btn-xs"
-								onclick={() => selectAll(category)}
+								class="btn btn-ghost btn-sm"
+								onclick={() => selectCategory(category)}
 							>
-								All
+								{i18n.cms_blockpicker_category_select}
 							</button>
 							<button
 								type="button"
-								class="btn btn-ghost btn-xs"
-								onclick={() => deselectAll(category)}
+								class="btn btn-ghost btn-sm"
+								onclick={() => clearCategory(category)}
 							>
-								None
+								{i18n.cms_blockpicker_category_clear}
 							</button>
 						</div>
 					</div>
 
-					<div class="mt-2 flex flex-wrap gap-2">
+					<div class="mt-4 grid gap-2 sm:grid-cols-2">
 						{#each category.blocks as block (block.id)}
+							{@const selected = selectedBlocks.includes(block.id)}
 							<label
-								class="badge cursor-pointer badge-lg transition-all select-none"
-								class:badge-primary={selectedBlocks.includes(block.id)}
-								class:badge-outline={!selectedBlocks.includes(block.id)}
+								class={[
+									'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition',
+									selected
+										? 'border-primary bg-primary/10'
+										: 'border-base-300 bg-base-100 hover:border-base-content/20'
+								]}
 							>
 								<input
 									type="checkbox"
-									class="hidden"
-									checked={selectedBlocks.includes(block.id)}
-									onchange={(e) => toggleBlock(block.id, e.currentTarget.checked)}
+									class="checkbox mt-0.5 checkbox-sm"
+									checked={selected}
+									onchange={(event) => toggleBlock(block.id, event.currentTarget.checked)}
 								/>
-								{block.label}
+								<span class="min-w-0">
+									<span class="block font-medium">{block.label}</span>
+									<span class="block text-xs text-base-content/55">{block.id}</span>
+								</span>
 							</label>
 						{/each}
 					</div>
-				</div>
+				</section>
+			{/each}
+		{:else}
+			<div
+				class="rounded-xl border border-dashed border-base-300 bg-base-100 p-6 text-center text-sm text-base-content/60"
+			>
+				{i18n.cms_blockpicker_no_matches}
 			</div>
-		{/each}
+		{/if}
 	</div>
 </div>
-
-<style>
-</style>

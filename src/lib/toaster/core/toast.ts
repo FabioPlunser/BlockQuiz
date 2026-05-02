@@ -11,7 +11,11 @@ import { genId } from './utils';
 
 type ToastHandler = (message: Renderable, options?: ToastOptions) => string;
 
-const createToast = (message: Renderable, type: ToastType = 'blank', opts?: ToastOptions): Toast => ({
+const createToast = (
+	message: Renderable,
+	type: ToastType = 'blank',
+	opts?: ToastOptions
+): Toast => ({
 	createdAt: Date.now(),
 	visible: true,
 	type,

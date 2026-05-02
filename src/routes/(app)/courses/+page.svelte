@@ -17,6 +17,7 @@
 		submitAttempt
 	} from '$lib/remote/courses.remote';
 	import { getLocalized } from '$lib/i18n/index.svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { BookOpen, Play, CircleCheckBig, Upload } from '@lucide/svelte';
@@ -29,12 +30,16 @@
 	let viewMode = new PersistedState<'cards' | 'table'>('studentCoursesViewMode', 'cards');
 
 	let courses = $derived(getUserCourses({}));
-	$inspect(courses.current);
 
 	// Modal state
 	let selectedCourse = $state<Course | null>(null);
 	let selectedExercises = $state<Exercise[]>([]);
-	let selectedCourseProgress = $state<Record<string, { passed: boolean; bestScore: number; attemptCount: number }>>({});
+	let selectedCourseProgress = $state<
+		Record<string, { passed: boolean; bestScore: number; attemptCount: number }>
+	>({});
+	let selectedSnapshots = $state<Record<string, { workspaceXml?: string; resultJson?: string }>>(
+		{}
+	);
 	let selectedCourseExerciseIndex = $state(0);
 	let isLoadingExercises = $state(false);
 	let hasImportableGuestState = $state(false);
@@ -78,15 +83,15 @@
 	// --------------------------------------------------------------------
 	// Table columns
 	// --------------------------------------------------------------------
-	const tableColumns = [
+	let tableColumns = $derived([
 		{
 			key: 'title',
-			label: 'Title',
+			label: i18n.courses_title_label,
 			render: (c: Course) => c.content?.title
 		},
 		{
 			key: 'description',
-			label: 'Description',
+			label: i18n.courses_description_label,
 			render: (c: Course) => {
 				const desc = getLocalized(c.content?.description);
 				return desc.length > 80 ? desc.slice(0, 80) + '...' : desc;
@@ -95,19 +100,19 @@
 		},
 		{
 			key: 'exercises',
-			label: 'Exercises',
+			label: i18n.courses_exercises_label,
 			render: (c: Course) => String(c.exerciseIds?.length ?? 0)
 		},
 		{
 			key: 'progress',
-			label: 'Progress',
+			label: i18n.courses_progress,
 			render: (c: Course) => {
 				const progress = courseProgress.get(c.id);
 				if (!progress) return '-';
 				return `${progress.completedCount}/${progress.totalCount}`;
 			}
 		}
-	];
+	]);
 
 	// --------------------------------------------------------------------
 	// Handlers
@@ -124,19 +129,20 @@
 			]);
 			selectedExercises = exerciseResult;
 			selectedCourseProgress = progress.exerciseProgress ?? {};
+			selectedSnapshots = progress.latestSnapshots ?? {};
 			const firstIncompleteIndex = exerciseResult.findIndex(
 				(exercise) => !progress.exerciseProgress?.[exercise.id]?.passed
 			);
 			selectedCourseExerciseIndex = firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
 
 			if (selectedExercises.length === 0) {
-				toast.error('This course has no exerciess yet');
+				toast.error(i18n.courses_no_exercises_toast);
 				isLoadingExercises = false;
 				return;
 			}
 		} catch (err) {
 			console.error('Failed to load exercises:', err);
-			toast.error('Failed to load course exercises. Please try again.');
+			toast.error(i18n.courses_load_failed);
 		} finally {
 			isLoadingExercises = false;
 		}
@@ -146,6 +152,7 @@
 		selectedCourse = null;
 		selectedExercises = [];
 		selectedCourseProgress = {};
+		selectedSnapshots = {};
 		selectedCourseExerciseIndex = 0;
 
 		// Refresh progress after playing
@@ -153,14 +160,18 @@
 	}
 
 	async function persistAuthenticatedAttempt(attempt: AttemptSubmission) {
-		await submitAttempt({
+		return submitAttempt({
 			exerciseId: attempt.exerciseId,
+			workspaceXml: attempt.workspaceXml,
+			generatedCode: attempt.generatedCode,
 			resultJson: attempt.resultJson,
 			score: attempt.score,
 			passed: attempt.passed,
 			startedAt: attempt.startedAt,
 			endedAt: attempt.endedAt,
-			locale: attempt.locale
+			locale: attempt.locale,
+			hintEventsJson: attempt.hintEventsJson,
+			analyticsJson: attempt.analyticsJson
 		});
 	}
 
@@ -175,9 +186,9 @@
 			const result = await importGuestAttempts({ attempts: guestAttempts });
 
 			if (!result.success || result.importedCount === 0) {
-				toast('No new guest attempts to import.', { position: 'top-right' });
+				toast(i18n.courses_no_guest_attempts, { position: 'top-right' });
 			} else {
-				toast.success(`Imported ${result.importedCount} guest attempt(s) into your account.`, {
+				toast.success(i18n.courses_guest_imported, {
 					position: 'top-right'
 				});
 			}
@@ -186,7 +197,7 @@
 			refreshGuestState();
 		} catch (err) {
 			console.error('Failed to import guest attempts:', err);
-			toast.error('Failed to import guest progress. Please try again.', {
+			toast.error(i18n.courses_import_failed, {
 				position: 'top-right'
 			});
 		} finally {
@@ -236,20 +247,26 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{i18n.courses_my_title} | BlockQuiz</title>
+</svelte:head>
+
 {#if !selectedCourse}
 	<div class="p-4">
 		<Boundary loading={courses.loading}>
 			<div class="mb-4">
-				<h1 class="text-2xl font-bold">My Courses</h1>
-				<p class="text-base-content/60">Courses assigned to you</p>
+				<h1 class="text-2xl font-bold">{i18n.courses_my_title}</h1>
+				<p class="text-base-content/60">{i18n.courses_my_subtitle}</p>
 			</div>
 
 			{#if hasImportableGuestState}
-				<div class="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sky-900 lg:flex-row lg:items-center lg:justify-between">
+				<div
+					class="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sky-900 lg:flex-row lg:items-center lg:justify-between"
+				>
 					<div>
-						<div class="font-medium">Guest progress found on this device</div>
+						<div class="font-medium">{i18n.courses_guest_progress}</div>
 						<p class="text-sm text-sky-800/80">
-							Import it into your account to continue with your authenticated history.
+							{i18n.courses_guest_import_hint}
 						</p>
 					</div>
 					<button
@@ -262,7 +279,7 @@
 						{:else}
 							<Upload class="h-4 w-4" />
 						{/if}
-						Import Guest Progress
+						{i18n.courses_import_guest}
 					</button>
 				</div>
 			{/if}
@@ -270,7 +287,7 @@
 			<CMSToolbar
 				bind:viewMode={viewMode.current}
 				bind:searchQuery
-				searchPlaceholder="Search courses..."
+				searchPlaceholder={i18n.courses_search_placeholder}
 				showViewToggle={true}
 				showSearch={true}
 			/>
@@ -278,12 +295,12 @@
 			{#if filteredCourses.length === 0}
 				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
 					<BookOpen class="mx-auto h-12 w-12 text-base-content/40" />
-					<h3 class="mt-4 text-lg font-medium">No courses found</h3>
+					<h3 class="mt-4 text-lg font-medium">{i18n.courses_no_found}</h3>
 					<p class="mt-1 text-base-content/60">
 						{#if searchQuery}
-							No courses match your search.
+							{i18n.courses_no_match}
 						{:else}
-							You haven't been assigned to any courses yet.
+							{i18n.courses_not_assigned}
 						{/if}
 					</p>
 				</div>
@@ -301,7 +318,11 @@
 	<div class="card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
 		{#if course.content?.image}
 			<figure>
-				<img src={course.content.image} alt="Course" class="max-h-48 w-full object-cover" />
+				<img
+					src={course.content.image}
+					alt={i18n.courses_image_alt}
+					class="max-h-48 w-full object-cover"
+				/>
 			</figure>
 		{/if}
 		<div class="card-body">
@@ -314,7 +335,7 @@
 			{#if progress.total > 0}
 				<div class="mt-2">
 					<div class="mb-1 flex items-center justify-between text-xs">
-						<span class="text-base-content/60">Progress</span>
+						<span class="text-base-content/60">{i18n.courses_progress}</span>
 						<span class="font-medium">{progress.completed}/{progress.total}</span>
 					</div>
 					<progress class="progress w-full progress-primary" value={progress.percent} max="100"
@@ -325,19 +346,14 @@
 			<div class="mt-2 flex flex-wrap gap-1">
 				{#if course.exerciseIds?.length}
 					<span class="badge badge-sm badge-accent">
-						{course.exerciseIds.length} Exercises
+						{course.exerciseIds.length}
+						{i18n.courses_exercises_label}
 					</span>
 				{/if}
-				<span class="badge badge-sm badge-accent">
-					{course.createdBy}
-				</span>
-				<span class="badge badge-sm badge-accent">
-					{new Date(course.createdAt).toLocaleDateString('de-De')}
-				</span>
 				{#if progress.percent === 100}
 					<span class="badge gap-1 badge-sm badge-success">
 						<CircleCheckBig class="h-3 w-3" />
-						Completed
+						{i18n.courses_completed}
 					</span>
 				{/if}
 			</div>
@@ -353,7 +369,11 @@
 					{:else}
 						<Play />
 					{/if}
-					{progress.percent === 100 ? 'Review' : progress.percent > 0 ? 'Continue' : 'Start'}
+					{progress.percent === 100
+						? i18n.courses_review
+						: progress.percent > 0
+							? i18n.courses_continue
+							: i18n.courses_start}
 				</button>
 			</div>
 		</div>
@@ -365,14 +385,13 @@
 		class="btn gap-1 btn-sm btn-primary"
 		onclick={() => handlePlayCourse(course)}
 		disabled={isLoadingExercises && selectedCourse?.id === course.id}
-		title="Play Course"
 	>
 		{#if isLoadingExercises && selectedCourse?.id === course.id}
 			<span class="loading loading-xs loading-spinner"></span>
 		{:else}
 			<Play class="h-4 w-4" />
 		{/if}
-		Play
+		{i18n.courses_play}
 	</button>
 {/snippet}
 
@@ -384,6 +403,7 @@
 		onBack={handleBack}
 		persistAttempt={persistAuthenticatedAttempt}
 		initialProgress={selectedCourseProgress}
+		initialSnapshots={selectedSnapshots}
 		initialExerciseIndex={selectedCourseExerciseIndex}
 	/>
 {/if}

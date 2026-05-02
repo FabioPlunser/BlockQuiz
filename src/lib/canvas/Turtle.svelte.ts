@@ -5,11 +5,11 @@ import { initBlocks } from '$lib/blockly/BlocklyFactory';
 
 export class Turtle extends Canvas2D {
 	override readonly engineId = 'turtle';
-	
+
 	pen = false;
 	color = '#000000';
 	_path: PathSegment[] = [];
-	
+
 	override get path(): PathSegment[] {
 		return this._path;
 	}

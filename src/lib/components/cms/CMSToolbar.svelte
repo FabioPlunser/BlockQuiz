@@ -62,12 +62,7 @@
 	{#if showSearch}
 		<label class="input-bordered input input-sm bg-base-200">
 			<Search size={16} />
-			<input
-				type="search"
-				class="grow"
-				placeholder={searchPlaceholder}
-				bind:value={searchQuery}
-			/>
+			<input type="search" class="grow" placeholder={searchPlaceholder} bind:value={searchQuery} />
 		</label>
 	{/if}
 

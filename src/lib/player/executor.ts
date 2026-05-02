@@ -121,9 +121,9 @@ function buildExecutionRequest(
 		stdin:
 			overrides.stdin ??
 			(exercise.type === 'io'
-				? exercise.io.visibleExampleInput ??
+				? (exercise.io.visibleExampleInput ??
 					exercise.io.tests.find((test) => test.visible)?.stdin ??
-					''
+					'')
 				: undefined),
 		seed: overrides.seed,
 		timeout: overrides.timeout,
@@ -143,7 +143,9 @@ function createExecutionResult(
 	errorType?: SandboxErrorType
 ): ExecutionResult {
 	const sandboxCommands = trace.commands ?? [];
-	const commands = engine ? applyCommandsToEngine(sandboxCommands, engine) : convertSandboxCommands(sandboxCommands);
+	const commands = engine
+		? applyCommandsToEngine(sandboxCommands, engine)
+		: convertSandboxCommands(sandboxCommands);
 
 	let finalState;
 	if (engine && 'state' in engine) {
@@ -218,8 +220,7 @@ export async function submitExerciseSolution(
 			});
 		}
 
-		const representativeExecution =
-			runs.find((run) => run.test.visible)?.execution ??
+		const representativeExecution = runs.find((run) => run.test.visible)?.execution ??
 			runs[0]?.execution ?? {
 				success: false,
 				trace: { durationMs: 0, commands: [], stdout: '', stderr: '', prints: [] },

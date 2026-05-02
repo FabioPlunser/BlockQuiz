@@ -11,10 +11,8 @@ import {
 import { requireAuth } from '$lib/utils/requireAuth';
 import { Role } from '$lib/roles';
 import { invalid, isRedirect } from '@sveltejs/kit';
-import { getRequestEvent } from '$app/server';
-import { getUser, getResetToken } from '$lib/helper/dbHelper';
-import { auth } from '$server/auth';
-import { BetterAuthError } from 'better-auth';
+import { getUser } from '$lib/helper/dbHelper';
+import { writeAuditLog } from '$lib/server/audit';
 
 export const getUsers = query(userFilterSchema, async (filters) => {
 	requireAuth(Role.ADMIN);
@@ -45,7 +43,7 @@ export const getUsers = query(userFilterSchema, async (filters) => {
 });
 
 export const createUser = form(createUserSchema, async (data) => {
-	requireAuth(Role.ADMIN);
+	const actor = requireAuth(Role.ADMIN);
 	if (!data.email) {
 		invalid('Email is required');
 		return { success: false as const, error: 'Email is required' };
@@ -87,6 +85,17 @@ export const createUser = form(createUserSchema, async (data) => {
 			updatedAt: now
 		});
 
+		await writeAuditLog({
+			actorUserId: actor.id,
+			action: 'user.create',
+			details: {
+				userId,
+				email: data.email,
+				role: data.role ?? Role.STUDENT,
+				active: data.active ?? true
+			}
+		});
+
 		return { success: true as const, id: userId };
 	} catch (e) {
 		console.error('Error creating user:', e);
@@ -98,7 +107,7 @@ export const createUser = form(createUserSchema, async (data) => {
 });
 
 export const updateUser = command(updateUserSchema, async (data) => {
-	requireAuth(Role.ADMIN);
+	const actor = requireAuth(Role.ADMIN);
 	const { id, email, role, active } = data;
 
 	try {
@@ -111,6 +120,11 @@ export const updateUser = command(updateUserSchema, async (data) => {
 				updatedAt: new Date()
 			})
 			.where(eq(user.id, id));
+		await writeAuditLog({
+			actorUserId: actor.id,
+			action: 'user.update',
+			details: { userId: id, email, role, active }
+		});
 		return { success: true as const, id };
 	} catch (e) {
 		if (isRedirect(e)) {
@@ -125,41 +139,30 @@ export const updateUser = command(updateUserSchema, async (data) => {
 });
 
 export const resetPassword = form(resetPasswordSchema, async (data) => {
-	const event = getRequestEvent();
+	const actor = requireAuth(Role.ADMIN);
 	const { email, password } = data;
 
 	try {
 		const _user = await getUser(email);
 		if (!_user) {
-			invalid('User not found');
-		}
-
-		const result = await auth.api.requestPasswordReset({
-			body: { email: _user.email }
-		});
-
-		if (!result.status) {
 			invalid('Password reset failed');
 		}
-
-		const token = await getResetToken(_user.email);
-		if (!token) {
-			invalid('Reset token not generated');
-		}
-
-		const resetResult = await auth.api.resetPassword({
-			headers: event.request.headers,
-			body: { newPassword: password, token }
+		const hashedPassword = await Bun.password.hash(password);
+		await db
+			.update(account)
+			.set({
+				password: hashedPassword,
+				updatedAt: new Date()
+			})
+			.where(and(eq(account.userId, _user.id), eq(account.providerId, 'credential')));
+		await writeAuditLog({
+			actorUserId: actor.id,
+			action: 'user.reset_password',
+			details: { userId: _user.id, email }
 		});
-
-		if (!resetResult.status) {
-			invalid('Password reset failed');
-		}
 	} catch (e) {
-		console.error(e);
-		if (e instanceof BetterAuthError) {
-			invalid(`Error: ${e.message}`);
-		}
+		console.error('Error resetting password:', e);
+		invalid('Password reset failed');
 		throw e;
 	}
 });

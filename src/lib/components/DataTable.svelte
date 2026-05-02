@@ -87,7 +87,9 @@
 
 	// Get cell value for search/sort
 	function getCellValue(item: T, column: Column<T>): string {
-		const value = column.render ? column.render(item) : (item as Record<string, unknown>)[column.key];
+		const value = column.render
+			? column.render(item)
+			: (item as Record<string, unknown>)[column.key];
 
 		if (!value) return '';
 

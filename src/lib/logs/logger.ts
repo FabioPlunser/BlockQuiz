@@ -1,100 +1,110 @@
-import winston from 'winston';
-import path from 'path';
+import { appendFile, mkdir } from 'node:fs/promises';
 
-// Define log directory
-const logDir = 'logs';
+type LogLevel = 'error' | 'info' | 'warn' | 'debug';
+type LogMeta = Record<string, unknown>;
 
-const baseLogger = winston.createLogger({
-	level: 'info',
-	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	defaultMeta: { service: 'blockquiz-app' },
-	transports: [
-		// Write all logs with importance level of `error` or less to `error.log`
-		// Write all logs with importance level of `info` or less to `app.log`
-		new winston.transports.File({ filename: path.join(logDir, 'error.log'), level: 'error' }),
-		new winston.transports.File({ filename: path.join(logDir, 'app.log') })
-	]
-});
+const LOG_DIR = 'logs';
+const APP_LOG_PATH = `${LOG_DIR}/app.log`;
+const ERROR_LOG_PATH = `${LOG_DIR}/error.log`;
+const SERVICE = 'blockquiz-app';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// If we're not in production then log to the `console` with the format:
-// `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
-if (process.env.NODE_ENV !== 'production') {
-	baseLogger.add(
-		new winston.transports.Console({
-			format: winston.format.simple()
-		})
-	);
+let ensureLogDirPromise: Promise<void> | null = null;
+
+function ensureLogDirectory() {
+	if (!ensureLogDirPromise) {
+		ensureLogDirPromise = mkdir(LOG_DIR, { recursive: true }).then(() => undefined);
+	}
+
+	return ensureLogDirPromise;
 }
 
-/**
- * Extracts the calling function name from the stack trace
- */
 function getCallerFunctionName(): string | undefined {
 	const stack = new Error().stack;
 	if (!stack) return undefined;
 
-	// Split stack into lines and skip the first 3 lines:
-	// 1. Error
-	// 2. getCallerFunctionName
-	// 3. The logger wrapper method (error/info/etc.)
-	// 4. The actual calling function (what we want)
 	const stackLines = stack.split('\n');
 
-	// Try to find the calling function name
-	// Stack trace format: "    at FunctionName (file:line:column)" or "    at file:line:column"
 	for (let i = 3; i < stackLines.length; i++) {
 		const line = stackLines[i];
 		if (!line) continue;
 
-		// Match patterns like:
-		// "    at resetPassword (file:line:column)"
-		// "    at async resetPassword (file:line:column)"
-		// "    at Object.resetPassword (file:line:column)"
 		const match = line.match(/at\s+(?:async\s+)?(?:Object\.)?(\w+)\s*\(/);
 		if (match && match[1]) {
-			// Skip internal logger/wrapper function names
 			const funcName = match[1];
-			if (funcName !== 'getCallerFunctionName' &&
+			if (
+				funcName !== 'getCallerFunctionName' &&
+				funcName !== 'writeLog' &&
 				funcName !== 'error' &&
 				funcName !== 'info' &&
 				funcName !== 'warn' &&
-				funcName !== 'debug') {
+				funcName !== 'debug'
+			) {
 				return funcName;
 			}
 		}
 	}
-
-	return undefined;
 }
 
-/**
- * Creates a wrapper function that automatically adds the calling function name
- */
-function createLogWrapper(originalMethod: winston.LeveledLogMethod) {
-	return function (message: string, meta?: any) {
-		const functionName = getCallerFunctionName();
-		const enhancedMeta = {
-			...(typeof meta === 'object' && meta !== null ? meta : {}),
-			...(functionName ? { function: functionName } : {})
-		};
+function getConsoleMethod(level: LogLevel) {
+	if (level === 'error') return console.error;
+	if (level === 'warn') return console.warn;
+	return console.log;
+}
 
-		// If meta was a plain object, use enhancedMeta, otherwise pass original meta
-		if (typeof meta === 'object' && meta !== null) {
-			originalMethod(message, enhancedMeta);
-		} else {
-			originalMethod(message, enhancedMeta);
-		}
+function serializeEntry(level: LogLevel, message: string, meta?: LogMeta) {
+	const functionName = getCallerFunctionName();
+	const entry = {
+		timestamp: new Date().toISOString(),
+		level,
+		message,
+		service: SERVICE,
+		...(functionName ? { function: functionName } : {}),
+		...(meta ?? {})
 	};
+
+	return `${JSON.stringify(entry)}\n`;
 }
 
-// Export a logger with wrapped methods that automatically capture function names
+function writeLog(level: LogLevel, message: string, meta?: LogMeta) {
+	const line = serializeEntry(level, message, meta);
+
+	void ensureLogDirectory()
+		.then(async () => {
+			await appendFile(APP_LOG_PATH, line);
+			if (level === 'error') {
+				await appendFile(ERROR_LOG_PATH, line);
+			}
+		})
+		.catch((error) => {
+			console.error('Failed to write log entry', error);
+		});
+
+	if (!IS_PRODUCTION) {
+		getConsoleMethod(level)(`${level}: ${message}`, meta ?? {});
+	}
+}
+
 export const logger = {
-	error: createLogWrapper(baseLogger.error.bind(baseLogger)),
-	info: createLogWrapper(baseLogger.info.bind(baseLogger)),
-	warn: createLogWrapper(baseLogger.warn.bind(baseLogger)),
-	debug: createLogWrapper(baseLogger.debug.bind(baseLogger)),
-	// Keep other methods as-is
-	log: baseLogger.log.bind(baseLogger),
-	verbose: baseLogger.verbose.bind(baseLogger),
-	silly: baseLogger.silly.bind(baseLogger)
+	error(message: string, meta?: LogMeta) {
+		writeLog('error', message, meta);
+	},
+	info(message: string, meta?: LogMeta) {
+		writeLog('info', message, meta);
+	},
+	warn(message: string, meta?: LogMeta) {
+		writeLog('warn', message, meta);
+	},
+	debug(message: string, meta?: LogMeta) {
+		writeLog('debug', message, meta);
+	},
+	log(message: string, meta?: LogMeta) {
+		writeLog('info', message, meta);
+	},
+	verbose(message: string, meta?: LogMeta) {
+		writeLog('debug', message, meta);
+	},
+	silly(message: string, meta?: LogMeta) {
+		writeLog('debug', message, meta);
+	}
 };

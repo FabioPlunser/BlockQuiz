@@ -167,7 +167,7 @@ export function gradeIoExercise(
 			passed,
 			message,
 			expected: test.visible ? test.expectedStdout : undefined,
-			actual: test.visible ? execution.stdout ?? '' : undefined
+			actual: test.visible ? (execution.stdout ?? '') : undefined
 		} satisfies GraderTestResult;
 	});
 
@@ -379,7 +379,8 @@ function gradeVisualTestCase(
 		case 'commands': {
 			const expectedCommands = test.expected.commands ?? [];
 			const expectedOutput = expectedCommands.join(', ');
-			const passed = JSON.stringify(expectedCommands) === JSON.stringify(commands.map(serializeCommand));
+			const passed =
+				JSON.stringify(expectedCommands) === JSON.stringify(commands.map(serializeCommand));
 
 			return {
 				id: test.id,

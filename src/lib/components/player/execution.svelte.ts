@@ -6,10 +6,15 @@ import { executeCodeSandboxed, submitExerciseSolution } from '$lib/player/execut
 import { Turtle } from '$lib/canvas/Turtle.svelte';
 import { Robot } from '$lib/canvas/Robot.svelte';
 import toast from '$lib/toaster';
+import { i18n } from '$lib/i18n/index.svelte';
 
 // Logging helper
 const DEBUG = false;
-function log(level: 'info' | 'debug' | 'error' | 'warn', message: string, data?: Record<string, unknown>) {
+function log(
+	level: 'info' | 'debug' | 'error' | 'warn',
+	message: string,
+	data?: Record<string, unknown>
+) {
 	if (!DEBUG && level === 'debug') return;
 	const prefix = `[ExecutionState]`;
 	const dataStr = data ? ` ${JSON.stringify(data)}` : '';
@@ -55,8 +60,7 @@ class ExecutionState {
 	initialize(exercise: Exercise, getCode: () => string) {
 		log('info', 'Initializing execution state', {
 			exerciseId: exercise.id,
-			exerciseType: exercise.type,
-			canvasSize: exercise.config.canvas
+			exerciseType: exercise.type
 		});
 
 		this._exercise = exercise;
@@ -65,13 +69,27 @@ class ExecutionState {
 		this._result = null;
 		this._executionError = false;
 
-		const { width, height } = exercise.config.canvas;
 		if (exercise.type === 'turtle') {
-			this._engine = new Turtle(width, height);
+			const { width, height } = exercise.canvas;
+			const engine = new Turtle(width, height);
+			engine.gridSize = exercise.canvas.gridSize;
+			this._engine = engine;
 			log('debug', 'Created Turtle engine', { width, height });
 		} else if (exercise.type === 'robot') {
-			this._engine = new Robot(width, height);
-			log('debug', 'Created Robot engine', { width, height });
+			const width = exercise.grid.width * exercise.grid.cellSize;
+			const height = exercise.grid.height * exercise.grid.cellSize;
+			const engine = new Robot(width, height, {
+				start: exercise.grid.start,
+				direction: exercise.grid.direction
+			});
+			engine.gridSize = exercise.grid.cellSize;
+			this._engine = engine;
+			log('debug', 'Created Robot engine', {
+				width,
+				height,
+				start: exercise.grid.start,
+				direction: exercise.grid.direction
+			});
 		} else {
 			this._engine = null;
 		}
@@ -112,22 +130,22 @@ class ExecutionState {
 
 			if (!code.trim()) {
 				log('warn', 'Empty code - nothing to run');
-				toast.error('No code to run. Add some blocks to your workspace.');
+				toast.error(i18n.player_no_code);
 				this._executionError = true;
 				this._isRunning = false;
 				return;
 			}
 
 			log('info', 'Executing code in sandbox...', { exerciseId: this._exercise?.id });
-			
+
 			// Execute code in secure sandbox
 			const execResult = await executeCodeSandboxed(this._exercise, code, this._engine);
 			this._trace = execResult.trace;
 
 			if (!execResult.success) {
-				log('error', 'Execution failed', { 
+				log('error', 'Execution failed', {
 					error: execResult.error,
-					errorType: execResult.errorType 
+					errorType: execResult.errorType
 				});
 				toast.error(execResult.error || 'Execution failed');
 				this._executionError = true;
@@ -178,21 +196,21 @@ class ExecutionState {
 
 			if (!code.trim()) {
 				log('warn', 'Empty code - nothing to submit');
-				toast.error('No code to submit. Add some blocks first.');
+				toast.error(i18n.player_no_code_submit);
 				this._executionError = true;
 				this._isSubmitting = false;
 				return;
 			}
 
 			log('info', 'Executing code in sandbox for submission...', { exerciseId: this._exercise.id });
-			
+
 			const submission = await submitExerciseSolution(this._exercise, code, this._engine);
 			this._trace = submission.execution.trace;
 
 			if (!submission.execution.success && this._exercise.type !== 'io') {
-				log('error', 'Execution failed during submission', { 
+				log('error', 'Execution failed during submission', {
 					error: submission.execution.error,
-					errorType: submission.execution.errorType 
+					errorType: submission.execution.errorType
 				});
 				toast.error(submission.execution.error || 'Execution failed');
 				this._executionError = true;

@@ -1,67 +1,50 @@
 import { form, query, getRequestEvent } from '$app/server';
 import { loginSchema } from '$remote/schemas/authSchema';
-import { redirect, invalid } from '@sveltejs/kit';
+import { redirect, invalid, isRedirect } from '@sveltejs/kit';
 import { auth } from '$server/auth';
-import { getResetToken, getUser } from '$lib/helper/dbHelper';
 import { logger } from '$lib/logs/logger';
-import { z } from 'zod';
-import { resolve } from '$app/paths';
 
-export const login = form(loginSchema, async (data, issue) => {
+function getAuthHeaders(event: ReturnType<typeof getRequestEvent>) {
+	const headers = new Headers(event.request.headers);
+	headers.set('origin', event.url.origin);
+	headers.set('referer', event.url.href);
+	return headers;
+}
+
+export const login = form(loginSchema, async (data) => {
 	const event = getRequestEvent();
 
 	try {
 		const result = await auth.api.signInEmail({
-			headers: event.request.headers,
+			headers: getAuthHeaders(event),
 			body: { email: data.email, password: data.password }
 		});
 
 		if (!result.user) {
 			logger.error('Login failed', { email: data.email });
-			invalid('User already exists');
+			invalid('Invalid email or password');
 		}
-		redirect(303, resolve('/(app)'));
-	} catch (e) {
-		if (e instanceof Error) {
-			invalid(e);
+
+		if ((result.user as { active?: boolean }).active === false) {
+			await auth.api.signOut({
+				headers: getAuthHeaders(event)
+			});
+			logger.warn('Inactive user login rejected', { email: data.email });
+			invalid('Invalid email or password');
 		}
+
+		redirect(303, '/courses');
+	} catch (error) {
+		if (isRedirect(error)) {
+			throw error;
+		}
+		invalid('Invalid email or password');
 	}
 });
 
-export const register = form(loginSchema, async (data, issue) => {
-	const event = getRequestEvent();
-
-	try {
-		const result = await auth.api.signUpEmail({
-			headers: event.request.headers,
-			body: { email: data.email, name: data.email, password: data.password, role: 'student' }
-		});
-
-		if (!result.user) {
-			invalid('Email already in use');
-		}
-		redirect(303, resolve('/(app)'));
-	} catch (e) {
-		if (e instanceof Error) {
-			console.log(e);
-			invalid(e);
-		}
-	}
-});
-
-export const userExists = query(z.string(), async (email) => {
-	try {
-		await getUser(email);
-		return {
-			exists: true
-		};
-	} catch (e) {
-		console.error(e);
-		return {
-			exists: false,
-			error: 'User does not exist'
-		};
-	}
+export const register = form(loginSchema, async (data) => {
+	logger.warn('Rejected public registration request', { email: data.email });
+	invalid('Registration is disabled. Please contact an administrator.');
 });
 
 export const logoutUser = form(async () => {
@@ -69,14 +52,18 @@ export const logoutUser = form(async () => {
 
 	try {
 		await auth.api.signOut({
-			headers: event.request.headers
+			headers: getAuthHeaders(event)
 		});
 		event.locals.user = undefined;
 		event.locals.session = undefined;
-		redirect(303, resolve('/(auth)/login'));
-	} catch (e) {
-		if (e instanceof Error) {
-			console.error(e);
+		redirect(303, '/login');
+	} catch (error) {
+		if (isRedirect(error)) {
+			throw error;
+		}
+
+		if (error instanceof Error) {
+			console.error(error);
 		}
 	}
 });
@@ -87,39 +74,6 @@ export const getCurrentUser = query(async () => {
 });
 
 export const resetPassword = form(loginSchema, async (data) => {
-	const { email, password } = data;
-
-	try {
-		const _user = await getUser(email);
-		if (!_user) {
-			logger.error(`ResetPassword: user not found ${email}`);
-			invalid('User not found');
-		}
-
-		await auth.api.requestPasswordReset({
-			body: { email: _user.email }
-		});
-
-		const token = await getResetToken(_user.email);
-		if (!token) {
-			logger.error(`ResetPassword: Reset token not generated ${_user.email}`);
-			invalid('Reset token not generated');
-		}
-
-		const resetResult = await auth.api.resetPassword({
-			body: { newPassword: password, token }
-		});
-
-		if (!resetResult) {
-			invalid('Password reset failed');
-		}
-		logger.info(`ResetPassword: Successfully reset password for ${_user.email}`, {
-			email: _user.email
-		});
-		redirect(303, resolve('/(auth)/login'));
-	} catch (e) {
-		if (e instanceof Error) {
-			invalid(e);
-		}
-	}
+	logger.warn('Rejected public password reset request', { email: data.email });
+	invalid('Password reset is currently unavailable. Please contact an administrator.');
 });

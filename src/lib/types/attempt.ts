@@ -2,6 +2,20 @@ export type AttemptLocale = 'de' | 'en';
 export type AttemptActorType = 'user' | 'guest';
 export type HintRevealTrigger = 'click' | 'time';
 
+export interface AttemptAnalytics {
+	exerciseType: 'io' | 'turtle' | 'robot';
+	totalTests: number;
+	passedTests: number;
+	hintUsageCount: number;
+	submittedAt: number;
+	workspaceBlockCount?: number;
+	generatedCodeLength?: number;
+	importedFromGuest?: {
+		clientId: string;
+		importedAt: number;
+	};
+}
+
 export interface HintRevealEvent {
 	hintId: string;
 	revealedAt: number;

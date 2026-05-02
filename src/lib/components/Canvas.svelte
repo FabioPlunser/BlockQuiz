@@ -73,15 +73,15 @@
 	}
 
 	// Safe getters for position state with NaN guards
-	let actorX = $derived(() => {
+	let actorX = $derived.by(() => {
 		if (!isPositionEngine(engine)) return engine.width / 2;
 		return Number.isFinite(engine.state.x) ? engine.state.x : engine.width / 2;
 	});
-	let actorY = $derived(() => {
+	let actorY = $derived.by(() => {
 		if (!isPositionEngine(engine)) return engine.height / 2;
 		return Number.isFinite(engine.state.y) ? engine.state.y : engine.height / 2;
 	});
-	let actorAngle = $derived(() => {
+	let actorAngle = $derived.by(() => {
 		if (!isPositionEngine(engine)) return 0;
 		return Number.isFinite(engine.state.angle) ? engine.state.angle : 0;
 	});
@@ -259,6 +259,9 @@
 	// Watch for state changes
 	watch(
 		[
+			() => engine.width,
+			() => engine.height,
+			() => gridSize,
 			() => (isPositionEngine(engine) ? engine.state : null),
 			() => pathSegments,
 			() => pathOverlay,
@@ -276,12 +279,22 @@
 		return { x: col * gridSize, y: row * gridSize };
 	}
 
-	function handleClick(event: MouseEvent) {
-		if (!editable || !drawMode || !canvas) return;
-
+	function getCanvasPoint(event: PointerEvent): Point {
 		const rect = canvas.getBoundingClientRect();
-		const rawX = event.clientX - rect.left;
-		const rawY = event.clientY - rect.top;
+		const scaleX = engine.width / Math.max(rect.width, 1);
+		const scaleY = engine.height / Math.max(rect.height, 1);
+		return {
+			x: (event.clientX - rect.left) * scaleX,
+			y: (event.clientY - rect.top) * scaleY
+		};
+	}
+
+	function handlePointerDown(event: PointerEvent) {
+		if (!editable || !drawMode || !canvas) return;
+		event.preventDefault();
+		canvas.setPointerCapture?.(event.pointerId);
+
+		const { x: rawX, y: rawY } = getCanvasPoint(event);
 		const { x, y } = snapToGrid(rawX, rawY);
 
 		if (drawMode === 'path') {
@@ -300,14 +313,12 @@
 		}
 	}
 
-	function handleMove(event: MouseEvent) {
+	function handlePointerMove(event: PointerEvent) {
 		if (!editable || drawMode !== 'path' || !canvas || pathOverlay.length === 0) {
 			dragPoint = null;
 			return;
 		}
-		const rect = canvas.getBoundingClientRect();
-		const rawX = event.clientX - rect.left;
-		const rawY = event.clientY - rect.top;
+		const { x: rawX, y: rawY } = getCanvasPoint(event);
 		dragPoint = snapToGrid(rawX, rawY);
 	}
 </script>
@@ -318,9 +329,9 @@
 		width={engine.width}
 		height={engine.height}
 		class="canvas"
-		onclick={handleClick}
-		onmousemove={handleMove}
-		onmouseleave={() => (dragPoint = null)}
+		onpointerdown={handlePointerDown}
+		onpointermove={handlePointerMove}
+		onpointerleave={() => (dragPoint = null)}
 	></canvas>
 
 	<!-- SVG Actor overlay -->
@@ -332,10 +343,10 @@
 	>
 		{#if actor}
 			<!-- Custom actor snippet provided -->
-			{@render actor({ x: actorX(), y: actorY(), angle: actorAngle() })}
+			{@render actor({ x: actorX, y: actorY, angle: actorAngle })}
 		{:else if actorType === 'turtle'}
 			<!-- Built-in Turtle actor -->
-			<g transform="translate({actorX()}, {actorY()}) rotate({actorAngle()})">
+			<g transform="translate({actorX}, {actorY}) rotate({actorAngle})">
 				<ellipse cx="0" cy="0" rx="15" ry="20" fill="#2d5016" stroke="#1a3009" stroke-width="2" />
 				<circle cx="0" cy="-22" r="6" fill="#3d6b1f" stroke="#1a3009" stroke-width="1" />
 				<circle cx="-2" cy="-24" r="1.5" fill="#fff" />
@@ -350,7 +361,7 @@
 			</g>
 		{:else if actorType === 'robot'}
 			<!-- Built-in Robot actor -->
-			<g transform="translate({actorX()}, {actorY()}) rotate({actorAngle()})">
+			<g transform="translate({actorX}, {actorY}) rotate({actorAngle})">
 				<rect
 					x="-12"
 					y="-18"
@@ -371,7 +382,7 @@
 			</g>
 		{:else if actorType === 'arrow'}
 			<!-- Simple arrow actor (minimal, good for debugging) -->
-			<g transform="translate({actorX()}, {actorY()}) rotate({actorAngle()})">
+			<g transform="translate({actorX}, {actorY}) rotate({actorAngle})">
 				<polygon points="0,-15 8,10 0,5 -8,10" fill="#6366f1" stroke="#4338ca" stroke-width="2" />
 			</g>
 		{:else if actorType === 'none'}
@@ -384,19 +395,26 @@
 	.canvas-container {
 		position: relative;
 		display: inline-block;
+		max-width: 100%;
+		overflow: auto;
 	}
 
 	.canvas {
 		display: block;
+		max-width: 100%;
+		height: auto;
 		background: white;
 		border-radius: 0.375rem;
 		border: 1px solid #d1d5db;
+		touch-action: none;
 	}
 
 	.actor-overlay {
 		position: absolute;
 		top: 0;
 		left: 0;
+		max-width: 100%;
+		height: auto;
 		pointer-events: none;
 		transform: none;
 	}

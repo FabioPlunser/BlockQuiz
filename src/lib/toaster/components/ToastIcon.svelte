@@ -21,14 +21,10 @@
 	<div class="indicator">
 		{#if type === 'loading'}
 			<LoaderIcon primary={iconTheme?.primary} secondary={iconTheme?.secondary} />
+		{:else if type === 'error'}
+			<ErrorIcon primary={iconTheme?.primary} secondary={iconTheme?.secondary} />
 		{:else}
-			<!-- <div class="status"> -->
-				{#if type === 'error'}
-					<ErrorIcon primary={iconTheme?.primary} secondary={iconTheme?.secondary} />
-				{:else}
-					<CheckmarkIcon primary={iconTheme?.primary} secondary={iconTheme?.secondary} />
-				{/if}
-			<!-- </div> -->
+			<CheckmarkIcon primary={iconTheme?.primary} secondary={iconTheme?.secondary} />
 		{/if}
 	</div>
 {/if}
@@ -41,10 +37,6 @@
 		align-items: center;
 		min-width: 20px;
 		min-height: 20px;
-	}
-
-	.status {
-		position: absolute;
 	}
 
 	.animated {

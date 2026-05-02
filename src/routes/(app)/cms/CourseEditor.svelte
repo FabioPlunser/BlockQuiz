@@ -17,8 +17,13 @@
 	import { getUsers } from '$lib/remote/users.remote';
 	import { createCourse, updateCourse } from '$lib/remote/courses.remote';
 	import { createDefaultCourseFormData } from '$types/course';
+	import {
+		validateCoursePublishReadiness,
+		type CoursePublishValidationIssue
+	} from '$lib/courses/validation';
 	import { createLocalizedFuzzySearch } from '$lib/utils/fuzzySearch';
-	import { handleServerResult } from '$lib/utils/toast';
+	import { handleServerResult, showError } from '$lib/utils/toast';
+	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 
 	// ---------------------------------------------------
 	// Props
@@ -36,20 +41,25 @@
 	// ---------------------------------------------------
 	// State
 	// ---------------------------------------------------
-	let formData = $state<CourseFormData>(
-		course
+	// Local editable form state intentionally diverges from the incoming prop while the user edits.
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let formData = $state<CourseFormData>(createDefaultCourseFormData());
+
+	$effect(() => {
+		formData = course
 			? {
 					content: course.content,
 					published: course.published,
 					exerciseIds: course.exerciseIds ?? [],
 					userIds: course.userIds ?? []
 				}
-			: createDefaultCourseFormData()
-	);
+			: createDefaultCourseFormData();
+	});
 
 	let activeSection = $state('overview');
 	let searchQueryExercises = $state('');
 	let searchQueryUsers = $state('');
+	let validationIssues = $state<CoursePublishValidationIssue[]>([]);
 
 	// Fetch exercises and users
 	let exercises = $derived(getExercises({}));
@@ -74,54 +84,63 @@
 		return createLocalizedFuzzySearch(allUsers, searchQueryUsers);
 	});
 
+	let selectedExercises = $derived.by(() => {
+		const allExercises = (exercises.current as Exercise[]) ?? [];
+		const exercisesById = new Map(allExercises.map((exercise) => [exercise.id, exercise]));
+
+		return formData.exerciseIds
+			.map((id) => exercisesById.get(id))
+			.filter((exercise): exercise is Exercise => Boolean(exercise));
+	});
+
 	// ---------------------------------------------------
 	// Table columns
 	// ---------------------------------------------------
-	const exerciseColumns = [
+	let exerciseColumns = $derived([
 		{
 			key: 'title',
-			label: 'Title',
+			label: i18n.courses_title_label,
 			render: (e: Exercise) => e.content?.title ?? { de: '', en: '' }
 		},
 		{
 			key: 'type',
-			label: 'Type',
+			label: i18n.cms_exercises_type,
 			render: (e: Exercise) => e.type
 		},
 		{
 			key: 'description',
-			label: 'Description',
+			label: i18n.courses_description_label,
 			render: (e: Exercise) => e.content?.description ?? { de: '', en: '' },
 			html: true
 		},
 		{
 			key: 'edit',
-			label: 'edit',
+			label: i18n.cms_edit,
 			cellSnippet: 'edit'
 		}
-	];
+	]);
 
-	const userColumns = [
+	let userColumns = $derived([
 		{
 			key: 'email',
-			label: 'Email',
+			label: i18n.users_table_email,
 			render: (u: User) => u.email
 		},
 		{
 			key: 'role',
-			label: 'Role',
+			label: i18n.users_table_role,
 			render: (u: User) => u.role
 		}
-	];
+	]);
 
 	// ---------------------------------------------------
 	// Sections
 	// ---------------------------------------------------
-	const sections = [
-		{ id: 'overview', label: 'Overview', icon: Info },
-		{ id: 'exercises', label: 'Exercises', icon: BookText },
-		{ id: 'users', label: 'Users', icon: Users }
-	];
+	let sections = $derived([
+		{ id: 'overview', label: i18n.cms_course_section_overview, icon: Info },
+		{ id: 'exercises', label: i18n.cms_course_section_exercises, icon: BookText },
+		{ id: 'users', label: i18n.cms_course_section_users, icon: Users }
+	]);
 
 	// ---------------------------------------------------
 	// Selection handlers
@@ -142,6 +161,26 @@
 		} else {
 			formData.exerciseIds = allIds;
 		}
+	}
+
+	function moveExercise(exerciseId: string, direction: -1 | 1) {
+		const index = formData.exerciseIds.indexOf(exerciseId);
+		const nextIndex = index + direction;
+
+		if (index < 0 || nextIndex < 0 || nextIndex >= formData.exerciseIds.length) {
+			return;
+		}
+
+		const nextExerciseIds = [...formData.exerciseIds];
+		[nextExerciseIds[index], nextExerciseIds[nextIndex]] = [
+			nextExerciseIds[nextIndex],
+			nextExerciseIds[index]
+		];
+		formData.exerciseIds = nextExerciseIds;
+	}
+
+	function removeExercise(exerciseId: string) {
+		formData.exerciseIds = formData.exerciseIds.filter((id) => id !== exerciseId);
 	}
 
 	function handleSelectUser(user: User) {
@@ -175,14 +214,14 @@
 
 		// Validate file type
 		if (!file.type.startsWith('image/')) {
-			alert('Please select an image file');
+			showError(i18n.cms_image_invalid_type);
 			return;
 		}
 
 		// Validate file size (max 5MB)
 		const maxSize = 5 * 1024 * 1024;
 		if (file.size > maxSize) {
-			alert('Image size must be less than 5MB');
+			showError(i18n.cms_image_invalid_size);
 			return;
 		}
 
@@ -197,7 +236,7 @@
 			};
 
 			reader.onerror = () => {
-				reject(new Error('Failed to read file'));
+				reject(new Error(i18n.cms_image_read_failed));
 			};
 
 			reader.readAsDataURL(file);
@@ -208,6 +247,22 @@
 	// Save handler
 	// ---------------------------------------------------
 	async function handleSave() {
+		validationIssues = [];
+
+		if (formData.published) {
+			const validation = validateCoursePublishReadiness({
+				content: formData.content,
+				exerciseIds: formData.exerciseIds,
+				exercises: selectedExercises
+			});
+			validationIssues = validation.issues;
+
+			if (!validation.valid) {
+				showError(i18n.toast_course_validation_failed);
+				return;
+			}
+		}
+
 		try {
 			if (isNew) {
 				const result = await createCourse({
@@ -217,7 +272,7 @@
 					userIds: formData.userIds
 				}).updates(remote);
 
-				handleServerResult(result, 'Course created successfully', 'Failed to create course');
+				handleServerResult(result, i18n.toast_course_created, i18n.toast_course_create_failed);
 				if (result.success) {
 					onSave?.();
 				}
@@ -230,7 +285,7 @@
 					userIds: formData.userIds
 				}).updates(remote);
 
-				handleServerResult(result, 'Course updated successfully', 'Failed to update course');
+				handleServerResult(result, i18n.toast_course_updated, i18n.toast_course_update_failed);
 				if (result.success) {
 					onSave?.();
 				}
@@ -238,9 +293,9 @@
 		} catch (error) {
 			console.error(error);
 			handleServerResult(
-				{ success: false, error: 'An error occurred while saving the course' },
+				{ success: false, error: i18n.toast_course_save_error },
 				'',
-				'An error occurred while saving the course'
+				i18n.toast_course_save_error
 			);
 		}
 	}
@@ -263,7 +318,7 @@
 
 {#snippet editExercise(exercise: Exercise)}
 	<button class="btn btn-sm btn-primary" onclick={() => (editSelectedExercise = exercise)}
-		>Edit</button
+		>{i18n.cms_edit}</button
 	>
 {/snippet}
 
@@ -276,7 +331,9 @@
 					<button class="btn btn-ghost btn-sm" onclick={() => onCancel()}>
 						<MoveLeft size="32" />
 					</button>
-					<h1 class="text-2xl font-bold">{isNew ? 'Create Course' : 'Edit Course'}</h1>
+					<h1 class="text-2xl font-bold">
+						{isNew ? i18n.cms_course_create_title : i18n.cms_course_edit_title}
+					</h1>
 					<div class="absolute right-4 flex flex-wrap gap-4">
 						<label class="label cursor-pointer gap-2">
 							<input
@@ -284,9 +341,9 @@
 								class="toggle toggle-primary"
 								bind:checked={formData.published}
 							/>
-							<span class="label-text">Published</span>
+							<span class="label-text">{i18n.published}</span>
 						</label>
-						<button class="btn btn-primary" onclick={handleSave}>Save</button>
+						<button class="btn btn-primary" onclick={handleSave}>{i18n.save}</button>
 					</div>
 				</div>
 
@@ -304,10 +361,23 @@
 					{/each}
 				</div>
 
+				{#if validationIssues.length > 0}
+					<div class="my-4 alert text-sm alert-error">
+						<div>
+							<div class="font-semibold">{i18n.cms_course_validation_title}</div>
+							<ul class="mt-1 list-disc pl-5">
+								{#each validationIssues as issue, index (`${issue.code}-${issue.field}-${index}`)}
+									<li>{issue.message}</li>
+								{/each}
+							</ul>
+						</div>
+					</div>
+				{/if}
+
 				<!-- Overview Section -->
 				{#if activeSection === 'overview'}
 					<fieldset class="fieldset">
-						<legend class="fieldset-legend">Upload an image</legend>
+						<legend class="fieldset-legend">{i18n.cms_image_upload}</legend>
 						<input type="file" class="file-input" accept="image/*" onchange={handleImage} />
 					</fieldset>
 					{#if imagePreview}
@@ -315,26 +385,94 @@
 							class="btn w-fit btn-sm btn-primary"
 							onclick={() => (formData.content.image = '')}
 						>
-							Remove Image
+							{i18n.cms_image_remove}
 						</button>
-						<img src={imagePreview} alt="Course Preview" class="mt-2 max-h-64 object-contain" />
+						<img
+							src={imagePreview}
+							alt={i18n.cms_course_preview_alt}
+							class="mt-2 max-h-64 object-contain"
+						/>
 					{/if}
 					<div class="mt-4">
-						<LocalizedInput bind:value={formData.content.title} label="Title" />
+						<LocalizedInput bind:value={formData.content.title} label={i18n.cms_field_title} />
 					</div>
 					<div class="mt-4">
-						<LocalizedRichText bind:value={formData.content.description} label="Description" />
+						<LocalizedRichText
+							bind:value={formData.content.description}
+							label={i18n.cms_field_description}
+						/>
 					</div>
 				{/if}
 
 				<!-- Exercises Section -->
 				{#if activeSection === 'exercises'}
 					<div class="mt-4">
-						<h2 class="mb-2 font-bold">Assign Exercises to Course</h2>
+						<h2 class="mb-2 font-bold">{i18n.cms_course_assign_exercises}</h2>
 						<p class="mb-4 text-sm text-base-content/60">
-							Select exercises that should be included in this course. Selected: {formData
-								.exerciseIds.length}
+							{i18n.cms_course_assign_exercises_hint}
+							{formData.exerciseIds.length}
 						</p>
+
+						<div class="mb-4 rounded-box border border-base-300 bg-base-100 p-4">
+							<div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+								<div>
+									<h3 class="font-semibold">{i18n.cms_course_order_title}</h3>
+									<p class="text-sm text-base-content/60">{i18n.cms_course_order_hint}</p>
+								</div>
+								<div class="badge badge-outline">{selectedExercises.length}</div>
+							</div>
+
+							{#if selectedExercises.length === 0}
+								<p class="mt-3 text-sm text-base-content/60">{i18n.cms_course_order_empty}</p>
+							{:else}
+								<ol class="mt-3 flex flex-col gap-2">
+									{#each selectedExercises as selectedExercise, index (selectedExercise.id)}
+										<li
+											class="flex flex-col gap-2 rounded-xl bg-base-200 p-3 sm:flex-row sm:items-center"
+										>
+											<div class="flex min-w-0 flex-1 items-center gap-3">
+												<span class="badge badge-primary">{index + 1}</span>
+												<div class="min-w-0">
+													<div class="truncate font-medium">
+														{getLocalized(selectedExercise.content.title)}
+													</div>
+													<div class="text-xs text-base-content/60">{selectedExercise.type}</div>
+												</div>
+											</div>
+											<div class="flex flex-wrap gap-2">
+												<button
+													class="btn btn-outline btn-xs"
+													type="button"
+													onclick={() => moveExercise(selectedExercise.id, -1)}
+													disabled={index === 0}
+													aria-label={`${i18n.cms_course_move_up}: ${getLocalized(selectedExercise.content.title)}`}
+												>
+													{i18n.cms_course_move_up}
+												</button>
+												<button
+													class="btn btn-outline btn-xs"
+													type="button"
+													onclick={() => moveExercise(selectedExercise.id, 1)}
+													disabled={index === selectedExercises.length - 1}
+													aria-label={`${i18n.cms_course_move_down}: ${getLocalized(selectedExercise.content.title)}`}
+												>
+													{i18n.cms_course_move_down}
+												</button>
+												<button
+													class="btn btn-outline btn-xs btn-error"
+													type="button"
+													onclick={() => removeExercise(selectedExercise.id)}
+													aria-label={`${i18n.cms_course_remove_exercise}: ${getLocalized(selectedExercise.content.title)}`}
+												>
+													{i18n.cms_course_remove_exercise}
+												</button>
+											</div>
+										</li>
+									{/each}
+								</ol>
+							{/if}
+						</div>
+
 						<SelectableTable
 							items={filteredExercises}
 							columns={exerciseColumns}
@@ -353,10 +491,10 @@
 				<!-- Users Section -->
 				{#if activeSection === 'users'}
 					<div class="mt-4">
-						<h2 class="mb-2 font-bold">Assign Users to Course</h2>
+						<h2 class="mb-2 font-bold">{i18n.cms_course_assign_users}</h2>
 						<p class="mb-4 text-sm text-base-content/60">
-							Select users that should have access to this course. Selected: {formData.userIds
-								.length}
+							{i18n.cms_course_assign_users_hint}
+							{formData.userIds.length}
 						</p>
 						<SelectableTable
 							items={filteredUsers}
