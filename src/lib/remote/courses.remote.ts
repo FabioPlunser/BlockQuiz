@@ -2,7 +2,20 @@ import { z } from 'zod';
 import { error } from '@sveltejs/kit';
 import { query, command } from '$app/server';
 import { db } from '$lib/server/db/client';
-import { courses, courseExercises, courseUsers, exercises, attempts } from '$lib/server/db/schema';
+import {
+	courses,
+	courseExercises,
+	courseUsers,
+	exercises,
+	attempts,
+	achievements
+} from '$lib/server/db/schema';
+import {
+	evaluateBadges,
+	type BadgeKey,
+	type AttemptSignal,
+	type HistorySnapshot
+} from '$lib/achievements/rules';
 import { eq, and, desc } from 'drizzle-orm';
 import { createCourseResearchExport } from '$lib/analytics/research-export';
 import {
@@ -132,6 +145,92 @@ function parseAttemptAnalytics(value: string, exerciseType: Exercise['type']): A
 
 function getAttemptDurationMs(startedAt: number, endedAt: number) {
 	return Math.max(0, endedAt - startedAt);
+}
+
+async function evaluateAndPersistBadges(input: {
+	userId: string;
+	attemptSignal: AttemptSignal;
+	relatedCourseIds: string[];
+}): Promise<BadgeKey[]> {
+	const earnedRows = await db
+		.select({ badgeKey: achievements.badgeKey })
+		.from(achievements)
+		.where(eq(achievements.userId, input.userId));
+	const earned = new Set<BadgeKey>(earnedRows.map((row) => row.badgeKey as BadgeKey));
+
+	// Most recent attempts in chronological order; we only need a small window
+	// to compute the current pass-streak and the locale set.
+	const userAttempts = await db
+		.select({
+			passed: attempts.passed,
+			locale: attempts.locale,
+			createdAt: attempts.createdAt
+		})
+		.from(attempts)
+		.where(eq(attempts.userId, input.userId))
+		.orderBy(desc(attempts.createdAt))
+		.limit(50);
+
+	let currentPassStreak = 0;
+	for (const row of userAttempts) {
+		if (row.passed) currentPassStreak += 1;
+		else break;
+	}
+
+	const localesUsed = new Set<'de' | 'en'>();
+	for (const row of userAttempts) {
+		if (row.passed && (row.locale === 'de' || row.locale === 'en')) {
+			localesUsed.add(row.locale);
+		}
+	}
+
+	let completesCourse = false;
+	if (input.attemptSignal.passed && input.relatedCourseIds.length > 0) {
+		const passingExerciseIds = new Set(
+			(
+				await db
+					.select({ exerciseId: attempts.exerciseId })
+					.from(attempts)
+					.where(and(eq(attempts.userId, input.userId), eq(attempts.passed, true)))
+			).map((row) => row.exerciseId)
+		);
+		for (const courseId of input.relatedCourseIds) {
+			const courseRows = await db
+				.select({ exerciseId: courseExercises.exerciseId })
+				.from(courseExercises)
+				.where(eq(courseExercises.courseId, courseId));
+			if (
+				courseRows.length > 0 &&
+				courseRows.every((row) => passingExerciseIds.has(row.exerciseId))
+			) {
+				completesCourse = true;
+				break;
+			}
+		}
+	}
+
+	const history: HistorySnapshot = {
+		earned,
+		currentPassStreak,
+		localesUsed,
+		completesCourse
+	};
+
+	const awards = evaluateBadges(input.attemptSignal, history);
+	if (awards.length === 0) return [];
+
+	const now = Date.now();
+	await db.insert(achievements).values(
+		awards.map((award) => ({
+			id: crypto.randomUUID(),
+			userId: input.userId,
+			badgeKey: award.badge,
+			awardedAt: now,
+			contextJson: JSON.stringify(award.context)
+		}))
+	);
+
+	return awards.map((award) => award.badge);
 }
 
 async function loadCoursePublishExercises(exerciseIds: string[]) {
@@ -366,6 +465,19 @@ export const getPublicCourseExercises = query(z.string(), async (courseId) => {
 /**
  * Submit an attempt for an exercise.
  */
+export const getEarnedBadges = query(async () => {
+	const user = requireAuth();
+	const rows = await db
+		.select({
+			badgeKey: achievements.badgeKey,
+			awardedAt: achievements.awardedAt
+		})
+		.from(achievements)
+		.where(eq(achievements.userId, user.id))
+		.orderBy(desc(achievements.awardedAt));
+	return rows;
+});
+
 export const submitAttempt = command(
 	z.object({
 		exerciseId: z.string(),
@@ -474,11 +586,24 @@ export const submitAttempt = command(
 			createdAt: endedAt
 		});
 
+		const newBadges = await evaluateAndPersistBadges({
+			userId: user.id,
+			attemptSignal: {
+				exerciseId: data.exerciseId,
+				passed: authoritative.grading.passed,
+				score: authoritative.grading.score,
+				hintEventCount: countHintEvents(hintEventsJson),
+				locale: data.locale
+			},
+			relatedCourseIds: relatedCourses.map((row) => row.courseId)
+		});
+
 		return {
 			id,
 			success: true as const,
 			grading: authoritative.grading,
-			resultJson: authoritative.resultJson
+			resultJson: authoritative.resultJson,
+			newBadges
 		};
 	}
 );
@@ -530,7 +655,10 @@ export const importGuestAttempts = command(
 
 			let authoritative;
 			try {
-				authoritative = await gradeExerciseAuthoritatively(canonicalExercise, attempt.generatedCode);
+				authoritative = await gradeExerciseAuthoritatively(
+					canonicalExercise,
+					attempt.generatedCode
+				);
 			} catch {
 				continue;
 			}
@@ -583,6 +711,16 @@ export const importGuestAttempts = command(
 		}
 
 		await db.insert(attempts).values(values);
+
+		await writeAuditLog({
+			actorUserId: user.id,
+			action: 'guest.import',
+			details: {
+				importedCount: values.length,
+				submittedCount: guestAttempts.length,
+				skippedCount: guestAttempts.length - values.length
+			}
+		});
 
 		return {
 			success: true as const,

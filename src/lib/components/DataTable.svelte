@@ -15,7 +15,7 @@
 
 <script lang="ts" generics="T extends { id: string }">
 	import type { LocalizedString } from '$lib/types/exercise';
-	import { getLocalized } from '$lib/i18n/index.svelte';
+	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import {
 		Search,
@@ -58,7 +58,7 @@
 		columns,
 		visibleColumns = $bindable(),
 		searchQuery = $bindable(''),
-		searchPlaceholder = 'Search...',
+		searchPlaceholder = undefined as string | undefined,
 		showSearch = true,
 		showPagination = true,
 		pageSize = 10,
@@ -66,7 +66,7 @@
 		totalItems,
 		actions,
 		rowActions,
-		emptyMessage = 'No items found',
+		emptyMessage = undefined as string | undefined,
 		class: className = '',
 		tableClass = '',
 		sortKey = $bindable(''),
@@ -76,6 +76,9 @@
 		serverSidePagination = false,
 		cellSnippets = {}
 	}: Props<T> = $props();
+
+	let resolvedSearchPlaceholder = $derived(searchPlaceholder ?? i18n.datatable_search_placeholder);
+	let resolvedEmptyMessage = $derived(emptyMessage ?? i18n.datatable_no_items);
 
 	// Get visible columns (filter by visibleColumns if provided)
 	let displayColumns = $derived.by(() => {
@@ -246,7 +249,7 @@
 					<input
 						type="search"
 						class="grow"
-						placeholder={searchPlaceholder}
+						placeholder={resolvedSearchPlaceholder}
 						bind:value={searchQuery}
 					/>
 				</label>
@@ -287,7 +290,7 @@
 						</th>
 					{/each}
 					{#if rowActions}
-						<th class="text-right">Actions</th>
+						<th class="text-right">{i18n.datatable_actions_header}</th>
 					{/if}
 				</tr>
 			</thead>
@@ -312,7 +315,7 @@
 							colspan={displayColumns.length + (rowActions ? 1 : 0)}
 							class="py-8 text-center text-base-content/60"
 						>
-							{emptyMessage}
+							{resolvedEmptyMessage}
 						</td>
 					</tr>
 				{/each}

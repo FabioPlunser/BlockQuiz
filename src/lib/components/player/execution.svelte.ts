@@ -108,6 +108,52 @@ class ExecutionState {
 		this._isSubmitting = false;
 	}
 
+	/**
+	 * Replay step support: reset the engine and re-execute the first `step`
+	 * commands from the most recent trace. Used by the learner-facing Replay
+	 * panel to step through a program one command at a time.
+	 *
+	 * Safe to call repeatedly. Returns the actual number of commands applied
+	 * (clamped to the length of the trace).
+	 */
+	seekToCommand(step: number): number {
+		if (!this._engine) return 0;
+		const commands = this._trace?.commands ?? [];
+		const target = Math.max(0, Math.min(step, commands.length));
+		this._engine.reset();
+		const api = this._engine.api as Record<string, (...args: unknown[]) => void>;
+		for (let i = 0; i < target; i++) {
+			const cmd = commands[i];
+			const args = cmd.args ?? [];
+			switch (cmd.type) {
+				case 'move':
+					api.move?.(Number(args[0] ?? 0));
+					break;
+				case 'turn':
+					api.turn?.(Number(args[0] ?? 0));
+					break;
+				case 'pen':
+					if (args[0] === 'down') api.penDown?.();
+					else api.penUp?.();
+					break;
+				case 'color':
+					api.color?.(String(args[0] ?? '#000000'));
+					break;
+				case 'collect':
+					api.collect?.();
+					break;
+				default:
+					// Unknown commands are ignored — keeps the replay forward-compatible.
+					break;
+			}
+		}
+		return target;
+	}
+
+	get commandCount(): number {
+		return this._trace?.commands?.length ?? 0;
+	}
+
 	async handleRun() {
 		log('debug', 'handleRun called', {
 			hasEngine: !!this._engine,

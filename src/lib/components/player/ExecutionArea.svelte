@@ -5,6 +5,7 @@
 	import { Play, RotateCcw, Send } from '@lucide/svelte';
 	import { getExecutionState } from './execution.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import Replay from './Replay.svelte';
 
 	type Props = {
 		exercise: Exercise;
@@ -15,18 +16,19 @@
 	let { exercise, getCode, onSubmit }: Props = $props();
 
 	// Get singleton state
-	const state = getExecutionState();
+	const execution = getExecutionState();
 
 	// Initialize when exercise changes
 	$effect(() => {
-		state.initialize(exercise, getCode);
+		execution.initialize(exercise, getCode);
 	});
 
 	// Reactive access to state
-	let engine = $derived(state.engine);
-	let isRunning = $derived(state.isRunning);
-	let isSubmitting = $derived(state.isSubmitting);
-	let trace = $derived(state.trace);
+	let engine = $derived(execution.engine);
+	let isRunning = $derived(execution.isRunning);
+	let isSubmitting = $derived(execution.isSubmitting);
+	let trace = $derived(execution.trace);
+	let commandCount = $derived(execution.commandCount);
 	let runLabel = $derived(i18n.player_try);
 	let submitLabel = $derived(i18n.player_check_answer);
 	let outputLabel = $derived(i18n.player_io_output_label);
@@ -38,16 +40,18 @@
 	let emptyOutputMessage = $derived(i18n.player_io_empty_output);
 
 	function handleRun() {
-		state.handleRun();
+		execution.handleRun();
 	}
 
 	function handleReset() {
-		state.handleReset();
+		execution.handleReset();
 	}
 
 	function handleSubmit() {
-		state.handleSubmit(onSubmit);
+		execution.handleSubmit(onSubmit);
 	}
+
+	let showStderrDetails = $state(false);
 </script>
 
 <div class="flex flex-col gap-4">
@@ -69,6 +73,8 @@
 				/>
 			</div>
 		</div>
+
+		<Replay {commandCount} />
 	{:else if exercise.type === 'io'}
 		<div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
 			<div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -97,9 +103,32 @@
 			</div>
 
 			{#if trace?.stderr}
-				<div class="mt-3 text-sm font-medium text-error">{i18n.player_errors}</div>
-				<pre
-					class="mt-1 rounded-md bg-error/10 p-3 text-sm whitespace-pre-wrap text-error-content">{trace.stderr}</pre>
+				<div class="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3">
+					<div class="flex items-start gap-2">
+						<span aria-hidden="true" class="text-lg">🤔</span>
+						<div class="flex-1">
+							<div class="font-semibold text-warning-content">
+								{i18n.player_io_error_friendly_title}
+							</div>
+							<p class="mt-1 text-sm text-base-content/80">
+								{i18n.player_io_error_friendly_hint}
+							</p>
+							<button
+								type="button"
+								class="mt-2 text-xs text-base-content/70 underline hover:text-base-content"
+								onclick={() => (showStderrDetails = !showStderrDetails)}
+							>
+								{showStderrDetails
+									? i18n.player_io_error_hide_details
+									: i18n.player_io_error_show_details}
+							</button>
+							{#if showStderrDetails}
+								<pre
+									class="mt-2 rounded-md bg-base-200 p-2 text-xs whitespace-pre-wrap text-base-content/80">{trace.stderr}</pre>
+							{/if}
+						</div>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/if}

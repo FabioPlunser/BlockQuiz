@@ -2,6 +2,7 @@
 	import type { GradingResult } from '$lib/player/executor';
 	import { CheckCircle, XCircle, AlertCircle, Trophy, RotateCcw, ArrowRight } from '@lucide/svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import { fireSuccessConfetti } from '$lib/utils/celebrate';
 
 	type Props = {
 		result: GradingResult | null;
@@ -16,6 +17,27 @@
 	// Only show visible test results to students
 	let visibleResults = $derived(result?.testResults.filter((t) => t.visible) ?? []);
 	let hiddenCount = $derived((result?.testResults.length ?? 0) - visibleResults.length);
+
+	let lastCelebratedId: string | null = null;
+	$effect(() => {
+		if (!result || !result.passed) return;
+		const id = `${result.score}-${result.passedTests}-${result.totalTests}`;
+		if (lastCelebratedId === id) return;
+		lastCelebratedId = id;
+		fireSuccessConfetti();
+	});
+
+	function progressTone(passed: boolean, passedCount: number) {
+		if (passed) return 'progress-success';
+		if (passedCount > 0) return 'progress-warning';
+		return 'progress-error';
+	}
+
+	function formatAlmostThere(passed: number, total: number): string {
+		return i18n.player_almost_there
+			.replace('{passed}', String(passed))
+			.replace('{total}', String(total));
+	}
 </script>
 
 <div class="rounded-lg border border-base-300 bg-base-300 p-4 shadow-md">
@@ -71,6 +93,20 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Always-visible progress bar showing passed/total tests -->
+			<progress
+				class="progress w-full {progressTone(result.passed, result.passedTests)}"
+				value={result.passedTests}
+				max={result.totalTests || 1}
+				aria-label={i18n.player_test_results}
+			></progress>
+
+			{#if !result.passed && result.passedTests > 0}
+				<p class="text-sm text-warning-content">
+					{formatAlmostThere(result.passedTests, result.totalTests)}
+				</p>
+			{/if}
 
 			<!-- Test Results -->
 			{#if visibleResults.length > 0}

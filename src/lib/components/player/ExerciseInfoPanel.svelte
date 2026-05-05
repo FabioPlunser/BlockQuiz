@@ -202,12 +202,12 @@
 							</div>
 						{:else if hint.trigger === 'click'}
 							<button
-								class="btn w-full justify-start gap-2 btn-sm btn-warning"
+								class="btn w-full justify-start gap-2 px-4 py-3 text-base btn-md btn-warning"
 								onclick={() => revealHint(hint.id)}
 							>
-								<Lightbulb class="h-4 w-4" />
+								<Lightbulb class="h-5 w-5" />
 								<span>{i18n.player_reveal_hint.replace('{n}', String(index + 1))}</span>
-								<ChevronRight class="ml-auto h-4 w-4" />
+								<ChevronRight class="ml-auto h-5 w-5" />
 							</button>
 						{:else}
 							<div class="flex items-center gap-2 text-sm text-base-content/50">

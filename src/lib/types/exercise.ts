@@ -245,7 +245,10 @@ const ALLOWED_TOOLBOX_BLOCKS = new Set([
 	'turn',
 	'pen',
 	'color',
-	'collect'
+	'collect',
+	'step',
+	'turn_left',
+	'turn_right'
 ]);
 
 export const DEFAULT_LOCALIZED_STRING: LocalizedString = {

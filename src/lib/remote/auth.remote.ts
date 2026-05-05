@@ -1,8 +1,13 @@
 import { form, query, getRequestEvent } from '$app/server';
-import { loginSchema } from '$remote/schemas/authSchema';
+import {
+	loginSchema,
+	requestPasswordResetSchema,
+	completePasswordResetSchema
+} from '$remote/schemas/authSchema';
 import { redirect, invalid, isRedirect } from '@sveltejs/kit';
 import { auth } from '$server/auth';
 import { logger } from '$lib/logs/logger';
+import { writeAuditLog } from '$lib/server/audit';
 
 function getAuthHeaders(event: ReturnType<typeof getRequestEvent>) {
 	const headers = new Headers(event.request.headers);
@@ -73,7 +78,48 @@ export const getCurrentUser = query(async () => {
 	return locals.user;
 });
 
-export const resetPassword = form(loginSchema, async (data) => {
-	logger.warn('Rejected public password reset request', { email: data.email });
-	invalid('Password reset is currently unavailable. Please contact an administrator.');
+export const requestPasswordReset = form(requestPasswordResetSchema, async (data) => {
+	const event = getRequestEvent();
+	const redirectTo = `${event.url.origin}/reset-password`;
+
+	try {
+		await auth.api.requestPasswordReset({
+			headers: getAuthHeaders(event),
+			body: { email: data.email, redirectTo }
+		});
+	} catch (cause) {
+		logger.warn('requestPasswordReset call failed', {
+			email: data.email,
+			cause: cause instanceof Error ? cause.message : String(cause)
+		});
+	}
+
+	await writeAuditLog({
+		action: 'password.reset_requested',
+		details: { email: data.email }
+	});
+
+	return { success: true as const };
+});
+
+export const completePasswordReset = form(completePasswordResetSchema, async (data) => {
+	const event = getRequestEvent();
+
+	try {
+		await auth.api.resetPassword({
+			headers: getAuthHeaders(event),
+			body: { token: data.token, newPassword: data.password }
+		});
+	} catch (cause) {
+		logger.warn('resetPassword call failed', {
+			cause: cause instanceof Error ? cause.message : String(cause)
+		});
+		invalid('Reset link is invalid or has expired. Please request a new one.');
+	}
+
+	await writeAuditLog({
+		action: 'password.reset_completed'
+	});
+
+	return { success: true as const };
 });

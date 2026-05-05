@@ -1,4 +1,10 @@
 import type { AttemptSnapshot } from '$lib/types/attempt';
+import type { BadgeKey } from '$lib/achievements/rules';
+
+export interface GuestBadgeRecord {
+	badgeKey: BadgeKey;
+	awardedAt: number;
+}
 
 export interface GuestExerciseProgress {
 	exerciseId: string;
@@ -33,6 +39,7 @@ export interface GuestProgressExport {
 	exportedAt: number;
 	courses: GuestCourseProgress[];
 	attempts: GuestAttemptSnapshot[];
+	badges?: GuestBadgeRecord[];
 }
 
 export interface GuestAttemptDraft {

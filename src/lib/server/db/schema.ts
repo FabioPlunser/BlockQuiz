@@ -176,6 +176,17 @@ export const auditLogs = sqliteTable('audit_logs', {
 	detailsJson: text('details_json')
 });
 
+// Achievement badges earned by authenticated users
+export const achievements = sqliteTable('achievements', {
+	id: text('id').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	badgeKey: text('badge_key').notNull(),
+	awardedAt: integer('awarded_at', { mode: 'number' }).notNull().default(nowMs()),
+	contextJson: text('context_json')
+});
+
 // Translations table
 export const translations = sqliteTable('translations', {
 	id: text('id').primaryKey(),

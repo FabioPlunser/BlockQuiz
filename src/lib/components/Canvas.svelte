@@ -45,6 +45,7 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { watch } from 'runed';
+	import { i18n } from '$lib/i18n/index.svelte';
 
 	let {
 		engine,
@@ -329,6 +330,7 @@
 		width={engine.width}
 		height={engine.height}
 		class="canvas"
+		aria-label={i18n.canvas_aria_label}
 		onpointerdown={handlePointerDown}
 		onpointermove={handlePointerMove}
 		onpointerleave={() => (dragPoint = null)}

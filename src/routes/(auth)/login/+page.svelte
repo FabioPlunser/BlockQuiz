@@ -57,7 +57,7 @@
 		<div class="w-full max-w-md" in:fly={{ duration: 300, y: -200, delay: 200 }}>
 			<div class="rounded-3xl bg-white p-8 shadow-xl shadow-purple-200 backdrop-blur">
 				{#if forgot}
-					<ForgotPassword onClose={() => (forgot = false)} />
+					<ForgotPassword bind:forgot />
 				{:else}
 					<h2 class="text-2xl font-semibold text-slate-900">{i18n.login_title}</h2>
 					<p class="mt-1 text-sm text-slate-500">

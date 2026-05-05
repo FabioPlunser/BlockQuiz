@@ -33,3 +33,4 @@ src/lib/paraglide
 /test-results
 /playwright-report
 /blob-report
+/data/outbox

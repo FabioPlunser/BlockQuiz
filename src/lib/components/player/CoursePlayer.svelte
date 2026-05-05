@@ -7,6 +7,9 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import ExercisePlayer from './ExercisePlayer.svelte';
 	import { Trophy, CircleCheck, ArrowLeft, BookOpen } from '@lucide/svelte';
+	import { fireSuccessConfetti } from '$lib/utils/celebrate';
+	import BadgeUnlock from './BadgeUnlock.svelte';
+	import type { BadgeKey } from '$lib/achievements/rules';
 
 	type ExerciseProgress = {
 		passed: boolean;
@@ -21,6 +24,7 @@
 	type PersistAttemptResult = {
 		success?: boolean;
 		grading?: GradingResult;
+		newBadges?: BadgeKey[];
 	} | void;
 
 	type Props = {
@@ -96,6 +100,39 @@
 	let exerciseResults = $state(createExerciseResults({}));
 	let showCompletionModal = $state(false);
 	let startTime = $state(Date.now());
+	let courseStartTime = $state(Date.now());
+	let totalHintsUsed = $state(0);
+
+	function countHintEvents(hintEventsJson: string | undefined): number {
+		if (!hintEventsJson) return 0;
+		try {
+			const parsed = JSON.parse(hintEventsJson);
+			return Array.isArray(parsed) ? parsed.length : 0;
+		} catch {
+			return 0;
+		}
+	}
+
+	function formatDuration(ms: number): string {
+		const totalSeconds = Math.max(0, Math.round(ms / 1000));
+		if (totalSeconds < 60) return `${totalSeconds}s`;
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+	}
+
+	function formatTemplate(template: string, values: Record<string, string | number>): string {
+		return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
+	}
+
+	let summaryExercises = $derived(
+		[...exerciseResults.values()].filter((entry) => entry.passed).length
+	);
+	let summaryPerfect = $derived(
+		[...exerciseResults.values()].filter((entry) => entry.passed && entry.score === 100).length
+	);
+	let summaryDurationMs = $state(0);
+	let pendingBadges = $state<BadgeKey[]>([]);
 
 	let currentExercise = $derived(exercises[currentExerciseIndex]);
 	let hasNextExercise = $derived(currentExerciseIndex < exercises.length - 1);
@@ -162,6 +199,12 @@
 				attemptCount: (previous?.attemptCount ?? 0) + 1
 			});
 
+			if (persisted?.newBadges && persisted.newBadges.length > 0) {
+				pendingBadges = [...pendingBadges, ...persisted.newBadges];
+			}
+
+			totalHintsUsed += countHintEvents(capture.hintEventsJson);
+
 			const newCompletedCount = [...exerciseResults.values()].filter(
 				(entry) => entry.passed
 			).length;
@@ -171,7 +214,9 @@
 				newCompletedCount === exercises.length &&
 				exercises.length > 0
 			) {
+				summaryDurationMs = Date.now() - courseStartTime;
 				showCompletionModal = true;
+				fireSuccessConfetti();
 			}
 		} catch (err) {
 			console.error('Failed to submit attempt:', err);
@@ -226,34 +271,63 @@
 		</div>
 
 		<nav class="mt-4" aria-label={i18n.course_exercise_navigation}>
-			<div class="flex gap-2 overflow-x-auto pb-1">
+			<ol class="course-map flex items-center gap-1 overflow-x-auto pb-2">
 				{#each exercises as exerciseItem, index (exerciseItem.id)}
 					{@const result = exerciseResults.get(exerciseItem.id)}
-					<button
-						type="button"
-						class={[
-							'relative flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border text-sm font-medium transition',
-							index === currentExerciseIndex &&
-								'border-primary bg-primary text-primary-content ring-2 ring-primary/30',
-							index !== currentExerciseIndex &&
-								result?.passed &&
-								'border-success bg-success/15 text-success',
-							index !== currentExerciseIndex &&
-								!result?.passed &&
-								'border-base-300 bg-base-200 hover:border-base-content/20'
-						]}
-						onclick={() => goToExercise(index)}
-						title={getLocalized(exerciseItem.content.title)}
-						aria-current={index === currentExerciseIndex ? 'step' : undefined}
-					>
-						{#if result?.passed}
-							<CircleCheck class="h-4 w-4" />
-						{:else}
-							<span>{index + 1}</span>
+					{@const isCurrent = index === currentExerciseIndex}
+					{@const passed = !!result?.passed}
+					{@const attempted = (result?.attemptCount ?? 0) > 0}
+					<li class="flex items-center gap-1">
+						<button
+							type="button"
+							class={[
+								'group flex max-w-[10rem] min-w-[7rem] shrink-0 flex-col items-stretch gap-1 rounded-xl border px-2 py-2 text-left transition',
+								isCurrent && 'border-primary bg-primary/10 ring-2 ring-primary/30',
+								!isCurrent && passed && 'border-success bg-success/10 hover:border-success/60',
+								!isCurrent &&
+									attempted &&
+									!passed &&
+									'border-warning bg-warning/10 hover:border-warning/60',
+								!isCurrent &&
+									!attempted &&
+									'border-base-300 bg-base-200 hover:border-base-content/20'
+							]}
+							onclick={() => goToExercise(index)}
+							aria-current={isCurrent ? 'step' : undefined}
+						>
+							<div class="flex items-center justify-between gap-1">
+								<span
+									class="text-[10px] font-semibold tracking-wide text-base-content/55 uppercase"
+								>
+									#{index + 1}
+								</span>
+								{#if passed}
+									<CircleCheck class="h-3.5 w-3.5 text-success" aria-hidden="true" />
+								{:else if attempted}
+									<span class="text-[10px] font-semibold text-warning-content" aria-hidden="true"
+										>{result?.score ?? 0}%</span
+									>
+								{/if}
+							</div>
+							<span
+								class="truncate text-xs font-medium text-base-content/85"
+								title={getLocalized(exerciseItem.content.title)}
+							>
+								{getLocalized(exerciseItem.content.title)}
+							</span>
+						</button>
+						{#if index < exercises.length - 1}
+							<span
+								aria-hidden="true"
+								class={[
+									'h-0.5 w-3 shrink-0 rounded-full',
+									passed ? 'bg-success/60' : 'bg-base-300'
+								]}
+							></span>
 						{/if}
-					</button>
+					</li>
 				{/each}
-			</div>
+			</ol>
 		</nav>
 	</header>
 
@@ -278,6 +352,9 @@
 				<div class="text-center">
 					<BookOpen class="mx-auto h-10 w-10 text-base-content/40" />
 					<div class="mt-2 text-lg font-medium">{i18n.course_no_exercises}</div>
+					<p class="mt-1 text-sm text-base-content/60">
+						{i18n.course_no_exercises_friendly}
+					</p>
 					<button class="btn mt-4 btn-primary" onclick={onBack}>{i18n.course_close}</button>
 				</div>
 			</div>
@@ -285,9 +362,11 @@
 	</main>
 </div>
 
+<BadgeUnlock badges={pendingBadges} onDismiss={() => (pendingBadges = [])} />
+
 {#if showCompletionModal}
 	<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
-		<div class="rounded-xl bg-base-100 p-8 text-center shadow-2xl">
+		<div class="max-w-md rounded-xl bg-base-100 p-8 text-center shadow-2xl">
 			<div class="flex justify-center">
 				<div class="flex h-20 w-20 items-center justify-center rounded-full bg-success/20">
 					<Trophy class="h-10 w-10 text-success" />
@@ -295,6 +374,26 @@
 			</div>
 			<h2 class="mt-4 text-2xl font-bold">{i18n.course_completed_title}</h2>
 			<p class="mt-2 text-base-content/60">{i18n.course_completed_message}</p>
+
+			<ul class="mt-5 space-y-1 text-sm text-base-content/80">
+				<li>🎯 {formatTemplate(i18n.course_summary_exercises, { n: summaryExercises })}</li>
+				{#if summaryPerfect > 0}
+					<li>⭐ {formatTemplate(i18n.course_summary_perfect, { n: summaryPerfect })}</li>
+				{/if}
+				{#if totalHintsUsed > 0}
+					<li>💡 {formatTemplate(i18n.course_summary_hints_used, { n: totalHintsUsed })}</li>
+				{:else}
+					<li>💡 {i18n.course_summary_no_hints}</li>
+				{/if}
+				{#if summaryDurationMs > 0}
+					<li>
+						⏱️ {formatTemplate(i18n.course_summary_total_time, {
+							time: formatDuration(summaryDurationMs)
+						})}
+					</li>
+				{/if}
+			</ul>
+
 			<div class="mt-6 flex flex-wrap justify-center gap-3">
 				<button class="btn btn-outline" onclick={() => (showCompletionModal = false)}>
 					{i18n.course_review}

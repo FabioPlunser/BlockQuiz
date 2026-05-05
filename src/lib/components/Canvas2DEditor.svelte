@@ -87,7 +87,9 @@
 			title={i18n.canvas_editor_toggle_grid_title}
 		>
 			<Grid3X3 class="h-4 w-4" />
-			<span class="hidden sm:inline">{showGrid ? 'Hide Grid' : 'Show Grid'}</span>
+			<span class="hidden sm:inline"
+				>{showGrid ? i18n.canvas_editor_hide_grid : i18n.canvas_editor_show_grid}</span
+			>
 		</button>
 
 		<div class="divider mx-1 divider-horizontal"></div>
@@ -101,7 +103,7 @@
 			title={i18n.canvas_editor_draw_path_title}
 		>
 			<Route class="h-4 w-4" />
-			<span>Path</span>
+			<span>{i18n.canvas_editor_draw_path}</span>
 			{#if pathPointCount > 0}
 				<span class="badge badge-xs badge-success">{pathPointCount}</span>
 			{/if}
@@ -115,7 +117,7 @@
 			title={i18n.canvas_editor_place_targets_title}
 		>
 			<Target class="h-4 w-4" />
-			<span>Target</span>
+			<span>{i18n.canvas_editor_draw_target}</span>
 			{#if targetCount > 0}
 				<span class="badge badge-xs badge-success">{targetCount}</span>
 			{/if}
@@ -129,7 +131,7 @@
 			title={i18n.canvas_editor_place_walls_title}
 		>
 			<BrickWall class="h-4 w-4" />
-			<span>Wall</span>
+			<span>{i18n.canvas_editor_draw_wall}</span>
 			{#if wallCount > 0}
 				<span class="badge badge-xs">{wallCount}</span>
 			{/if}
@@ -145,7 +147,7 @@
 			disabled={pathOverlay.length === 0 && targets.length === 0 && walls.length === 0}
 		>
 			<Trash2 class="h-4 w-4" />
-			<span class="hidden sm:inline">Clear All</span>
+			<span class="hidden sm:inline">{i18n.canvas_editor_clear_all}</span>
 		</button>
 	</div>
 
@@ -155,13 +157,13 @@
 			<span class="text-sm">
 				{#if drawMode === 'path'}
 					<Route class="mr-1 inline h-4 w-4" />
-					Click to draw waypoints. This creates a <strong>path test</strong> automatically.
+					{i18n.canvas_editor_hint_path}
 				{:else if drawMode === 'target'}
 					<Target class="mr-1 inline h-4 w-4" />
-					Click to place targets. Each creates a <strong>target test</strong> automatically.
+					{i18n.canvas_editor_hint_target}
 				{:else if drawMode === 'wall'}
 					<BrickWall class="mr-1 inline h-4 w-4" />
-					Click to place walls. These are obstacles the student must avoid.
+					{i18n.canvas_editor_hint_wall}
 				{/if}
 			</span>
 		</div>
@@ -172,15 +174,23 @@
 		<div class="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm">
 			<FlaskConical class="h-4 w-4 text-success" />
 			<span class="text-success-content">
-				<strong>Auto-generated tests:</strong>
+				<strong>{i18n.canvas_editor_auto_tests_label}</strong>
 				{#if targetCount > 0}
-					<span class="ml-1">{targetCount} target test{targetCount > 1 ? 's' : ''}</span>
+					<span class="ml-1"
+						>{targetCount}
+						{targetCount > 1
+							? i18n.canvas_editor_target_tests
+							: i18n.canvas_editor_target_test}</span
+					>
 				{/if}
 				{#if targetCount > 0 && hasPath}
 					<span class="mx-1">+</span>
 				{/if}
 				{#if hasPath}
-					<span>1 path test ({pathPointCount} waypoints)</span>
+					<span
+						>1 {i18n.canvas_editor_path_test} ({pathPointCount}
+						{i18n.canvas_editor_waypoints})</span
+					>
 				{/if}
 			</span>
 		</div>
@@ -222,7 +232,7 @@
 			</span>
 		{/if}
 		{#if targetCount === 0 && pathPointCount === 0 && wallCount === 0}
-			<span>Canvas is empty. Use the tools above to add elements.</span>
+			<span>{i18n.canvas_editor_empty}</span>
 		{/if}
 	</div>
 </div>

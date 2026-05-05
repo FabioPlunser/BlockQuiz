@@ -89,6 +89,9 @@ function createCommandApi(maxCmds) {
 	const api = {
 		move: (d) => record('move', d),
 		turn: (deg) => record('turn', deg),
+		step: () => record('move', 1),
+		turn_left: () => record('turn', -90),
+		turn_right: () => record('turn', 90),
 		penUp: () => record('pen', 'up'),
 		penDown: () => record('pen', 'down'),
 		setPen: (state) => record('pen', state),
@@ -163,9 +166,7 @@ for await (const chunk of process.stdin) {
 const inputJson = Buffer.concat(chunks).toString('utf8');
 
 function fail(message, errorType = 'runtime') {
-	process.stdout.write(
-		JSON.stringify({ success: false, commands: [], error: message, errorType })
-	);
+	process.stdout.write(JSON.stringify({ success: false, commands: [], error: message, errorType }));
 	process.exit(1);
 }
 

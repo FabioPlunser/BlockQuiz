@@ -826,23 +826,23 @@ const robotNavigate = await seedExercise({
 		image: ''
 	},
 	config: {
-		toolbox: ['move', 'turn', 'math_number'],
+		toolbox: ['step', 'turn_left', 'turn_right'],
 		starterXml: EMPTY_STARTER_XML,
 		hasStarterBlocks: false,
 		hints: [
 			{
 				id: 'nav-hint1',
 				text: {
-					de: 'Der Roboter startet nach Norden. Drehe ihn zuerst in die richtige Richtung.',
-					en: 'The robot starts facing north. Turn it to the correct direction first.'
+					de: 'Der Roboter startet nach Norden. Drehe ihn mit "turn right" nach Osten.',
+					en: 'The robot starts facing north. Use "turn right" to face east first.'
 				},
 				trigger: 'click'
 			},
 			{
 				id: 'nav-hint2',
 				text: {
-					de: 'Drehe 90° nach rechts, bewege 3 Schritte, drehe 90° nach links, bewege 2 Schritte.',
-					en: 'Turn 90° right, move 3 steps, turn 90° left, move 2 steps.'
+					de: 'Turn right, dann 3× move forward, dann turn left, dann 2× move forward.',
+					en: 'Turn right, move forward 3 times, turn left, then move forward 2 times.'
 				},
 				trigger: 'time',
 				delaySeconds: 60
@@ -909,23 +909,23 @@ const robotCollect = await seedExercise({
 		image: ''
 	},
 	config: {
-		toolbox: ['move', 'turn', 'math_number', 'controls_repeat_ext'],
+		toolbox: ['step', 'turn_left', 'turn_right', 'collect', 'controls_repeat_ext'],
 		starterXml: EMPTY_STARTER_XML,
 		hasStarterBlocks: false,
 		hints: [
 			{
 				id: 'collect-hint1',
 				text: {
-					de: 'Die Gegenstände liegen in einer Reihe. Bewege den Roboter nach rechts.',
-					en: 'The items are in a row. Move the robot to the right.'
+					de: 'Die Gegenstände liegen in einer Reihe nach rechts. Drehe den Roboter zuerst nach Osten.',
+					en: 'The items are in a row to the right. Turn the robot east first.'
 				},
 				trigger: 'click'
 			},
 			{
 				id: 'collect-hint2',
 				text: {
-					de: 'Drehe 90° nach rechts und bewege dich dann 3 Schritte vorwärts.',
-					en: 'Turn 90° right and then move 3 steps forward.'
+					de: 'Turn right, dann 3× move forward – der Roboter sammelt die Gegenstände automatisch ein.',
+					en: 'Turn right, then move forward 3 times – the robot collects items automatically.'
 				},
 				trigger: 'time',
 				delaySeconds: 45

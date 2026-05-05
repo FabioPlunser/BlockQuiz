@@ -444,19 +444,31 @@
 			class="btn btn-ghost btn-xs"
 			onclick={() => handleViewAnalytics(course)}
 			title={i18n.cms_view}
+			aria-label={i18n.cms_view}
 		>
 			<BarChart3 class="h-3 w-3" />
 		</button>
-		<button class="btn btn-ghost btn-xs" onclick={() => handleEdit(course)} title={i18n.cms_edit}>
+		<button
+			class="btn btn-ghost btn-xs"
+			onclick={() => handleEdit(course)}
+			title={i18n.cms_edit}
+			aria-label={i18n.cms_edit}
+		>
 			<Pencil class="h-3 w-3" />
 		</button>
-		<button class="btn btn-ghost btn-xs" onclick={() => handleClone(course)} title={i18n.cms_clone}>
+		<button
+			class="btn btn-ghost btn-xs"
+			onclick={() => handleClone(course)}
+			title={i18n.cms_clone}
+			aria-label={i18n.cms_clone}
+		>
 			<Copy class="h-3 w-3" />
 		</button>
 		<button
 			class="btn btn-ghost btn-xs"
 			onclick={() => handleExport(course)}
 			title={i18n.cms_export}
+			aria-label={i18n.cms_export}
 		>
 			<Download class="h-3 w-3" />
 		</button>
@@ -465,6 +477,7 @@
 				class="btn btn-ghost btn-xs"
 				onclick={() => requestRestore(course)}
 				title={i18n.cms_restore}
+				aria-label={i18n.cms_restore}
 			>
 				<RotateCcw class="h-3 w-3" />
 			</button>
@@ -473,6 +486,7 @@
 				class="btn btn-ghost btn-xs"
 				onclick={() => requestArchive(course)}
 				title={i18n.cms_archive}
+				aria-label={i18n.cms_archive}
 			>
 				<Archive class="h-3 w-3" />
 			</button>
@@ -481,6 +495,7 @@
 			class="btn text-error btn-ghost btn-xs"
 			onclick={() => requestDelete(course)}
 			title={i18n.cms_delete}
+			aria-label={i18n.cms_delete}
 		>
 			<Trash2 class="h-3 w-3" />
 		</button>

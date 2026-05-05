@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Database } from 'bun:sqlite';
+import { canonicalizeExercise, validateExercise } from '../src/lib/types/exercise';
 
 const dbPath = join(mkdtempSync(join(tmpdir(), 'blockquiz-db-verify-')), 'verify.sqlite');
 const env = {
@@ -74,7 +75,8 @@ for (const table of [
 	'exercise_versions',
 	'attempts',
 	'audit_logs',
-	'translations'
+	'translations',
+	'achievements'
 ]) {
 	assert(tables.has(table), `Missing table ${table}`);
 }
@@ -155,6 +157,57 @@ try {
 
 assert(rejectedInvalidActor, 'Attempt actor CHECK constraint did not reject an invalid row');
 
+type SeededExerciseRow = {
+	id: string;
+	type: string;
+	content: string;
+	config: string;
+	published: number;
+	archived_at: number | null;
+};
+
+const publishedExercises = db
+	.query<SeededExerciseRow, []>(
+		`SELECT id, type, content, config, published, archived_at
+		 FROM exercises
+		 WHERE published = 1 AND archived_at IS NULL`
+	)
+	.all();
+
+const validationFailures: { id: string; issues: string }[] = [];
+
+for (const row of publishedExercises) {
+	const exercise = canonicalizeExercise({
+		id: row.id,
+		type: row.type as 'io' | 'turtle' | 'robot',
+		content: JSON.parse(row.content),
+		config: JSON.parse(row.config),
+		published: true
+	});
+
+	const result = validateExercise(exercise);
+	if (!result.valid) {
+		validationFailures.push({
+			id: row.id,
+			issues: result.issues.map((issue) => `${issue.field}: ${issue.message}`).join('; ')
+		});
+	}
+}
+
+if (validationFailures.length > 0) {
+	const summary = validationFailures.map((f) => `  - ${f.id}: ${f.issues}`).join('\n');
+	throw new Error(
+		`${validationFailures.length} published seed exercise(s) failed publish validation:\n${summary}`
+	);
+}
+
+assert(
+	publishedExercises.length > 0,
+	'Expected at least one published seeded exercise to validate'
+);
+
 db.close();
 
-console.log(`Database verification passed for ${dbPath}`);
+console.log(
+	`Database verification passed for ${dbPath} (validated ${publishedExercises.length} published exercises)`
+);

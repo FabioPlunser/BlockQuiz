@@ -490,13 +490,19 @@
 
 {#snippet exerciseActions(exercise: Exercise)}
 	<div class="flex gap-1">
-		<button class="btn btn-ghost btn-xs" onclick={() => handleEdit(exercise)} title={i18n.cms_edit}>
-			✏️
+		<button
+			class="btn btn-ghost btn-xs"
+			onclick={() => handleEdit(exercise)}
+			title={i18n.cms_edit}
+			aria-label={i18n.cms_edit}
+		>
+			<span aria-hidden="true">✏️</span>
 		</button>
 		<button
 			class="btn btn-ghost btn-xs"
 			onclick={() => handleClone(exercise)}
 			title={i18n.cms_clone}
+			aria-label={i18n.cms_clone}
 		>
 			<Copy class="h-3 w-3" />
 		</button>
@@ -504,6 +510,7 @@
 			class="btn btn-ghost btn-xs"
 			onclick={() => handleExport(exercise)}
 			title={i18n.cms_export}
+			aria-label={i18n.cms_export}
 		>
 			<Download class="h-3 w-3" />
 		</button>
@@ -512,6 +519,7 @@
 				class="btn btn-ghost btn-xs"
 				onclick={() => requestRestore(exercise)}
 				title={i18n.cms_restore}
+				aria-label={i18n.cms_restore}
 			>
 				<RotateCcw class="h-3 w-3" />
 			</button>
@@ -520,6 +528,7 @@
 				class="btn btn-ghost btn-xs"
 				onclick={() => requestArchive(exercise)}
 				title={i18n.cms_archive}
+				aria-label={i18n.cms_archive}
 			>
 				<Archive class="h-3 w-3" />
 			</button>
@@ -528,8 +537,9 @@
 			class="btn text-error btn-ghost btn-xs"
 			onclick={() => requestDelete(exercise)}
 			title={i18n.cms_delete}
+			aria-label={i18n.cms_delete}
 		>
-			🗑️
+			<span aria-hidden="true">🗑️</span>
 		</button>
 	</div>
 {/snippet}

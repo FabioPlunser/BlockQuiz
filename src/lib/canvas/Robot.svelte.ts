@@ -24,6 +24,27 @@ export class Robot extends Canvas2D {
 
 	static readonly ROBOT_BLOCKS: BlockDef[] = [
 		{
+			id: 'step',
+			message: 'move forward',
+			color: 160,
+			tooltip: 'Move the robot forward by one cell.',
+			method: 'step'
+		},
+		{
+			id: 'turn_left',
+			message: 'turn left',
+			color: 160,
+			tooltip: 'Turn the robot 90 degrees to the left.',
+			method: 'turn_left'
+		},
+		{
+			id: 'turn_right',
+			message: 'turn right',
+			color: 160,
+			tooltip: 'Turn the robot 90 degrees to the right.',
+			method: 'turn_right'
+		},
+		{
 			id: 'collect',
 			message: 'collect item',
 			color: 210,
@@ -33,9 +54,7 @@ export class Robot extends Canvas2D {
 	];
 
 	override get blockDefs(): BlockDef[] {
-		// For now just reuse the shared Canvas2D blocks.
-		// When you add ROBOT_BLOCKS, spread them in as well.
-		return [...super.blockDefs, ...Robot.ROBOT_BLOCKS];
+		return Robot.ROBOT_BLOCKS;
 	}
 
 	constructor(width: number, height: number, options: RobotOptions = {}) {
@@ -54,6 +73,18 @@ export class Robot extends Canvas2D {
 		this.commands = [];
 	}
 
+	step() {
+		this.move(1);
+	}
+
+	turn_left() {
+		this.turn(-90);
+	}
+
+	turn_right() {
+		this.turn(90);
+	}
+
 	collect() {
 		this.log('collect');
 	}
@@ -61,6 +92,9 @@ export class Robot extends Canvas2D {
 	override get api(): Record<string, (...args: any[]) => void> {
 		return {
 			...super.api,
+			step: () => this.step(),
+			turn_left: () => this.turn_left(),
+			turn_right: () => this.turn_right(),
 			collect: () => this.collect()
 		};
 	}

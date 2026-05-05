@@ -11,6 +11,12 @@ import type {
 	GuestCourseProgress,
 	GuestProgressExport
 } from '$lib/guest-progress/types';
+import {
+	evaluateBadges,
+	type BadgeKey,
+	type AttemptSignal,
+	type HistorySnapshot
+} from '$lib/achievements/rules';
 
 const STORAGE_KEY = 'blockquiz.guest-progress.v1';
 
@@ -178,4 +184,84 @@ export function exportGuestProgress(): string {
 export function hasGuestProgress(): boolean {
 	const progress = readGuestProgress();
 	return progress.attempts.length > 0 || progress.courses.length > 0;
+}
+
+function countHintEvents(value: string | undefined): number {
+	if (!value) return 0;
+	try {
+		const parsed = JSON.parse(value);
+		return Array.isArray(parsed) ? parsed.length : 0;
+	} catch {
+		return 0;
+	}
+}
+
+/**
+ * Evaluate and persist achievement badges for a guest attempt that just landed.
+ * Mirrors the server-side logic in `evaluateAndPersistBadges` but works
+ * entirely against the local guest store. Returns the keys of the newly
+ * earned badges, ready to drive a UI unlock toast.
+ */
+export function evaluateAndPersistGuestBadges(input: {
+	courseId: string;
+	exerciseIds: string[];
+	attemptSignal: AttemptSignal;
+	hintEventsJson?: string;
+}): BadgeKey[] {
+	const progress = readGuestProgress();
+	const earnedRows = progress.badges ?? [];
+	const earned = new Set<BadgeKey>(earnedRows.map((row) => row.badgeKey));
+
+	const sortedAttempts = [...progress.attempts].sort((a, b) => b.createdAt - a.createdAt);
+
+	let currentPassStreak = 0;
+	for (const attempt of sortedAttempts) {
+		if (attempt.passed) currentPassStreak += 1;
+		else break;
+	}
+
+	const localesUsed = new Set<'de' | 'en'>();
+	for (const attempt of sortedAttempts) {
+		if (attempt.passed && (attempt.locale === 'de' || attempt.locale === 'en')) {
+			localesUsed.add(attempt.locale);
+		}
+	}
+
+	let completesCourse = false;
+	if (input.attemptSignal.passed) {
+		const passingExerciseIds = new Set(
+			progress.attempts.filter((a) => a.passed).map((a) => a.exerciseId)
+		);
+		completesCourse =
+			input.exerciseIds.length > 0 && input.exerciseIds.every((id) => passingExerciseIds.has(id));
+	}
+
+	const history: HistorySnapshot = {
+		earned,
+		currentPassStreak,
+		localesUsed,
+		completesCourse
+	};
+
+	const enrichedSignal: AttemptSignal = {
+		...input.attemptSignal,
+		hintEventCount: input.attemptSignal.hintEventCount || countHintEvents(input.hintEventsJson)
+	};
+
+	const awards = evaluateBadges(enrichedSignal, history);
+	if (awards.length === 0) return [];
+
+	const now = Date.now();
+	const updated: GuestProgressExport = {
+		...progress,
+		badges: [...earnedRows, ...awards.map((award) => ({ badgeKey: award.badge, awardedAt: now }))]
+	};
+	persist(updated);
+
+	return awards.map((award) => award.badge);
+}
+
+export function getGuestBadges(): BadgeKey[] {
+	const progress = readGuestProgress();
+	return (progress.badges ?? []).map((row) => row.badgeKey);
 }

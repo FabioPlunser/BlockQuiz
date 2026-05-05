@@ -41,6 +41,27 @@
 		return type;
 	}
 
+	function formatDuration(ms: number): string {
+		if (!ms || ms <= 0) return '–';
+		const totalSeconds = Math.round(ms / 1000);
+		if (totalSeconds < 60) return `${totalSeconds}s`;
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+	}
+
+	function formatLocaleMix(counts: { de?: number; en?: number } | undefined): string {
+		const de = counts?.de ?? 0;
+		const en = counts?.en ?? 0;
+		if (de === 0 && en === 0) return '–';
+		return `${de} / ${en}`;
+	}
+
+	function avgHintsPerAttempt(total: number, attempts: number): string {
+		if (!attempts) return '0';
+		return (total / attempts).toFixed(1);
+	}
+
 	async function handleExportCsv() {
 		exporting = true;
 		try {
@@ -194,6 +215,20 @@
 					</div>
 					<div class="stat-value text-2xl">{data.totals.avgGeneratedCodeLength ?? 0}</div>
 				</div>
+				<div class="stat rounded-lg bg-base-200">
+					<div class="stat-title">{i18n.analytics_summary_avg_duration}</div>
+					<div class="stat-value text-2xl">{formatDuration(data.totals.avgDurationMs ?? 0)}</div>
+				</div>
+				<div class="stat rounded-lg bg-base-200">
+					<div class="stat-title">{i18n.analytics_summary_avg_hints}</div>
+					<div class="stat-value text-2xl">
+						{avgHintsPerAttempt(data.totals.hintUsageCount ?? 0, data.totals.attempts ?? 0)}
+					</div>
+				</div>
+				<div class="stat rounded-lg bg-base-200">
+					<div class="stat-title">{i18n.analytics_summary_locale_mix}</div>
+					<div class="stat-value text-2xl">{formatLocaleMix(data.totals.localeCounts)}</div>
+				</div>
 			</div>
 
 			<!-- Per-Exercise Table -->
@@ -210,6 +245,9 @@
 								<th>{i18n.analytics_table_avg_score}</th>
 								<th>{getLabel('analytics_table_avg_blocks', 'Avg. blocks')}</th>
 								<th>{getLabel('analytics_table_avg_code_length', 'Avg. code')}</th>
+								<th>{i18n.analytics_table_avg_duration}</th>
+								<th>{i18n.analytics_table_avg_hints}</th>
+								<th>{i18n.analytics_table_locale}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -238,6 +276,9 @@
 									<td>{ex.avgScore}%</td>
 									<td>{ex.avgWorkspaceBlockCount ?? 0}</td>
 									<td>{ex.avgGeneratedCodeLength ?? 0}</td>
+									<td>{formatDuration(ex.avgDurationMs ?? 0)}</td>
+									<td>{avgHintsPerAttempt(ex.hintUsageCount ?? 0, ex.attempts ?? 0)}</td>
+									<td class="whitespace-nowrap">{formatLocaleMix(ex.localeCounts)}</td>
 								</tr>
 							{/each}
 						</tbody>

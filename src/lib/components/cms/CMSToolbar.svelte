@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Icon from '@iconify/svelte';
-	import { Search } from '@lucide/svelte';
+	import { LayoutGrid, Table, Search, Plus } from '@lucide/svelte';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
 
 	type Props = {
 		viewMode?: 'cards' | 'table';
@@ -34,34 +34,41 @@
 		filters,
 		actions
 	}: Props = $props();
-
-	const views = [
-		{ name: 'cards' as const, icon: 'ic:round-grid-view' },
-		{ name: 'table' as const, icon: 'ic:outline-table-chart' }
-	];
 </script>
 
 <div class="flex flex-wrap items-center gap-2 p-2">
 	<!-- View Toggle -->
 	{#if showViewToggle}
-		<div class="flex gap-1">
-			{#each views as view (view.name)}
-				<button
-					class="btn btn-ghost btn-sm"
-					class:btn-active={viewMode === view.name}
-					onclick={() => (viewMode = view.name)}
-					title={view.name === 'cards' ? 'Card View' : 'Table View'}
-				>
-					<Icon icon={view.icon} class="text-2xl" />
-				</button>
-			{/each}
+		<div class="join">
+			<button
+				type="button"
+				class="btn join-item btn-sm"
+				class:btn-active={viewMode === 'cards'}
+				onclick={() => (viewMode = 'cards')}
+				title={i18n.cms_view_cards ?? 'Card view'}
+				aria-label={i18n.cms_view_cards ?? 'Card view'}
+				aria-pressed={viewMode === 'cards'}
+			>
+				<LayoutGrid class="h-5 w-5" />
+			</button>
+			<button
+				type="button"
+				class="btn join-item btn-sm"
+				class:btn-active={viewMode === 'table'}
+				onclick={() => (viewMode = 'table')}
+				title={i18n.cms_view_table ?? 'Table view'}
+				aria-label={i18n.cms_view_table ?? 'Table view'}
+				aria-pressed={viewMode === 'table'}
+			>
+				<Table class="h-5 w-5" />
+			</button>
 		</div>
 	{/if}
 
 	<!-- Search -->
 	{#if showSearch}
 		<label class="input-bordered input input-sm bg-base-200">
-			<Search size={16} />
+			<Search class="h-4 w-4" />
 			<input type="search" class="grow" placeholder={searchPlaceholder} bind:value={searchQuery} />
 		</label>
 	{/if}
@@ -81,8 +88,8 @@
 
 	<!-- Create Button -->
 	{#if onCreate}
-		<button class="btn items-center btn-sm btn-primary" onclick={onCreate}>
-			<Icon icon="ic:round-add" class="text-xl" />
+		<button class="btn items-center gap-2 btn-sm btn-primary" onclick={onCreate}>
+			<Plus class="h-4 w-4" />
 			{createButtonLabel}
 		</button>
 	{/if}

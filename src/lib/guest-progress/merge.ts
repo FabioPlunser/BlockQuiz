@@ -1,4 +1,9 @@
-import type { GuestAttemptSnapshot, GuestCourseProgress, GuestProgressExport } from './types';
+import type {
+	GuestAttemptSnapshot,
+	GuestBadgeRecord,
+	GuestCourseProgress,
+	GuestProgressExport
+} from './types';
 
 export function createEmptyGuestProgress(
 	clientId: string,
@@ -33,7 +38,8 @@ export function sanitizeGuestProgress(
 		clientId,
 		exportedAt: typeof parsed.exportedAt === 'number' ? parsed.exportedAt : now,
 		courses: Array.isArray(parsed.courses) ? parsed.courses : [],
-		attempts: Array.isArray(parsed.attempts) ? parsed.attempts : []
+		attempts: Array.isArray(parsed.attempts) ? parsed.attempts : [],
+		badges: Array.isArray(parsed.badges) ? parsed.badges : []
 	};
 }
 
@@ -108,7 +114,8 @@ export function normalizeGuestProgress(
 		courses: progress.courses.map((course) =>
 			recomputeGuestCourseProgress(course, progress.attempts, now)
 		),
-		attempts: sortGuestAttempts(progress.attempts)
+		attempts: sortGuestAttempts(progress.attempts),
+		badges: progress.badges ?? []
 	};
 }
 
@@ -158,13 +165,25 @@ export function mergeGuestProgressData(
 		}
 	}
 
+	const mergedBadges = new Map<string, GuestBadgeRecord>();
+	for (const badge of current.badges ?? []) {
+		mergedBadges.set(badge.badgeKey, badge);
+	}
+	for (const badge of incoming.badges ?? []) {
+		const existing = mergedBadges.get(badge.badgeKey);
+		if (!existing || badge.awardedAt < existing.awardedAt) {
+			mergedBadges.set(badge.badgeKey, badge);
+		}
+	}
+
 	return normalizeGuestProgress(
 		{
 			version: 1,
 			clientId: current.clientId,
 			exportedAt: now,
 			courses: [...mergedCourses.values()],
-			attempts: [...mergedAttempts.values()]
+			attempts: [...mergedAttempts.values()],
+			badges: [...mergedBadges.values()]
 		},
 		now
 	);

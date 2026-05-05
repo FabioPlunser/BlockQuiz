@@ -48,6 +48,8 @@
 <dialog
 	bind:this={dialogRef}
 	class="modal"
+	aria-labelledby="confirm-modal-title"
+	aria-describedby="confirm-modal-message"
 	onclick={handleBackdropClick}
 	oncancel={(event) => {
 		event.preventDefault();
@@ -56,7 +58,8 @@
 	onclose={() => (open = false)}
 >
 	<div class="modal-box">
-		<p class="py-2 whitespace-pre-line">{message}</p>
+		<h3 id="confirm-modal-title" class="sr-only">{i18n.confirm_modal_title}</h3>
+		<p id="confirm-modal-message" class="py-2 whitespace-pre-line">{message}</p>
 		<div class="modal-action">
 			<button class="btn btn-ghost" onclick={handleCancel}>{i18n.cancel}</button>
 			<button class={['btn', confirmClass]} onclick={handleConfirm}>

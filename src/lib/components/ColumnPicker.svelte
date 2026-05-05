@@ -57,7 +57,7 @@
 		title={i18n.column_picker_select_columns_title}
 	>
 		<Columns3 class="h-6 w-6" />
-		<span class="hidden sm:inline">Columns</span>
+		<span class="hidden sm:inline">{i18n.column_picker_columns_label}</span>
 	</button>
 
 	{#if isOpen}
@@ -65,8 +65,10 @@
 			class="dropdown-content menu z-50 mt-1 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
 		>
 			<div class="mb-2 flex items-center justify-between px-2">
-				<span class="text-sm font-medium">Visible Columns</span>
-				<button class="btn btn-ghost btn-xs" onclick={selectAll}> Show All </button>
+				<span class="text-sm font-medium">{i18n.column_picker_visible_columns}</span>
+				<button class="btn btn-ghost btn-xs" onclick={selectAll}
+					>{i18n.column_picker_show_all}</button
+				>
 			</div>
 			<div class="divider my-0"></div>
 			<ul class="max-h-64 overflow-y-auto">

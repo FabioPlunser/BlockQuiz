@@ -8,6 +8,7 @@
 	import BlocklyWorkspace from '$cp/BlocklyWorkspace.svelte';
 	import ExerciseInfoPanel from './ExerciseInfoPanel.svelte';
 	import ExecutionArea from './ExecutionArea.svelte';
+	import CodeReadout from './CodeReadout.svelte';
 	import { Turtle } from '$lib/canvas/Turtle.svelte';
 	import { Robot } from '$lib/canvas/Robot.svelte';
 	import { getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
@@ -187,57 +188,101 @@
 	function handleHintEventsChange(nextEvents: HintRevealEvent[]) {
 		hintEvents = [...nextEvents];
 	}
+
+	let activeTab = $state<'task' | 'blocks' | 'run'>('blocks');
 </script>
 
-<div
-	class="grid min-h-[70vh] gap-4 xl:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(20rem,24rem)]"
->
-	<section class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100">
-		<div class="max-h-[28rem] overflow-y-auto p-4 xl:max-h-[70vh]">
-			<ExerciseInfoPanel
-				{exercise}
-				{currentIndex}
-				{totalExercises}
-				onHintEventsChange={handleHintEventsChange}
-			/>
-		</div>
-	</section>
-
-	<section class="flex min-h-[28rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4">
-		<div
-			class="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-base-300 pb-4"
+<div class="flex flex-col gap-4">
+	<!-- Tab bar — hidden on xl+, always visible below xl -->
+	<div class="flex gap-1 rounded-lg bg-base-200 p-1 xl:hidden">
+		<button
+			class="btn flex-1 btn-sm"
+			class:btn-primary={activeTab === 'task'}
+			class:btn-ghost={activeTab !== 'task'}
+			onclick={() => (activeTab = 'task')}
 		>
-			<div>
-				<p class="text-xs font-medium tracking-[0.2em] text-base-content/50 uppercase">
-					{currentIndex + 1}/{totalExercises}
-				</p>
-				<h2 class="mt-1 text-lg font-semibold">{workspaceHeading}</h2>
-				<p class="mt-1 text-sm text-base-content/65">{workspaceDescription}</p>
-			</div>
-			<div class="badge badge-outline badge-lg">{exerciseTitle}</div>
-		</div>
+			{i18n.player_tab_task}
+		</button>
+		<button
+			class="btn flex-1 btn-sm"
+			class:btn-primary={activeTab === 'blocks'}
+			class:btn-ghost={activeTab !== 'blocks'}
+			onclick={() => (activeTab = 'blocks')}
+		>
+			{i18n.player_tab_blocks}
+		</button>
+		<button
+			class="btn flex-1 btn-sm"
+			class:btn-primary={activeTab === 'run'}
+			class:btn-ghost={activeTab !== 'run'}
+			onclick={() => (activeTab = 'run')}
+		>
+			{i18n.player_tab_run}
+		</button>
+	</div>
 
-		<div class="min-h-[22rem] flex-1">
-			{#key exercise.id}
-				<BlocklyWorkspace
-					bind:this={blocklyRef}
-					toolboxConfig={getToolbox()}
-					starterXml={initialWorkspaceXml ||
-						(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
-					ariaLabel={i18n.player_workspace_aria_label}
+	<div
+		class="grid min-h-[70vh] gap-4 xl:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(20rem,24rem)]"
+	>
+		<section
+			class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100 xl:block"
+			class:hidden={activeTab !== 'task'}
+		>
+			<div class="max-h-[28rem] overflow-y-auto p-4 xl:max-h-[70vh]">
+				<ExerciseInfoPanel
+					{exercise}
+					{currentIndex}
+					{totalExercises}
+					onHintEventsChange={handleHintEventsChange}
 				/>
-			{/key}
-		</div>
-	</section>
+			</div>
+		</section>
 
-	<section class="flex flex-col gap-4">
-		<ResultsPanel
-			result={displayedResult}
-			{isSubmitting}
-			{hasNextExercise}
-			onRetry={handleRetry}
-			{onNext}
-		/>
-		<ExecutionArea {exercise} {getCode} onSubmit={handleSubmit} />
-	</section>
+		<section
+			class="flex min-h-[28rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4 xl:flex"
+			class:hidden={activeTab !== 'blocks'}
+		>
+			<div
+				class="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-base-300 pb-4"
+			>
+				<div>
+					<p class="text-xs font-medium tracking-[0.2em] text-base-content/50 uppercase">
+						{currentIndex + 1}/{totalExercises}
+					</p>
+					<h2 class="mt-1 text-lg font-semibold">{workspaceHeading}</h2>
+					<p class="mt-1 text-sm text-base-content/65">{workspaceDescription}</p>
+				</div>
+				<div class="badge badge-outline badge-lg">{exerciseTitle}</div>
+			</div>
+
+			<div class="min-h-[22rem] flex-1">
+				{#key exercise.id}
+					<BlocklyWorkspace
+						bind:this={blocklyRef}
+						toolboxConfig={getToolbox()}
+						starterXml={initialWorkspaceXml ||
+							(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
+						ariaLabel={i18n.player_workspace_aria_label}
+					/>
+				{/key}
+			</div>
+
+			{#if exercise.type !== 'io'}
+				<div class="mt-3">
+					<CodeReadout getXml={getWorkspaceXml} refreshKey={exercise.id} />
+				</div>
+			{/if}
+		</section>
+
+		<section class="flex flex-col gap-4 xl:flex" class:hidden={activeTab !== 'run'}>
+			<ResultsPanel
+				result={displayedResult}
+				{isSubmitting}
+				{hasNextExercise}
+				onRetry={handleRetry}
+				{onNext}
+			/>
+			<ExecutionArea {exercise} {getCode} onSubmit={handleSubmit} />
+		</section>
+	</div>
 </div>

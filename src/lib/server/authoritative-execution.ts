@@ -47,9 +47,7 @@ const workerOutputSchema = z.object({
 	stdout: z.string().optional(),
 	stderr: z.string().optional(),
 	error: z.string().optional(),
-	errorType: z
-		.enum(['timeout', 'loop', 'command_limit', 'runtime', 'security'])
-		.optional()
+	errorType: z.enum(['timeout', 'loop', 'command_limit', 'runtime', 'security']).optional()
 });
 
 const WORKER_PATH = join(process.cwd(), 'scripts', 'authoritative-worker.mjs');

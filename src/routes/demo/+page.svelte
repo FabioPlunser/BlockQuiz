@@ -11,6 +11,7 @@
 		importGuestProgressJson,
 		readGuestProgress,
 		recordGuestAttempt,
+		evaluateAndPersistGuestBadges,
 		setGuestCourseResume,
 		syncGuestCourseContext
 	} from '$lib/guest-progress/storage';
@@ -170,8 +171,23 @@
 			}
 		});
 
+		const newBadges = evaluateAndPersistGuestBadges({
+			courseId: selectedCourse.id,
+			exerciseIds,
+			attemptSignal: {
+				exerciseId: attempt.exerciseId,
+				passed: attempt.passed,
+				score: attempt.score,
+				hintEventCount: 0,
+				locale: attempt.locale === 'de' ? 'de' : 'en'
+			},
+			hintEventsJson: attempt.hintEventsJson
+		});
+
 		refreshGuestProgress();
 		hydrateSelectedCourseState(selectedCourse.id, exerciseIds);
+
+		return { success: true, newBadges };
 	}
 
 	function handleExport() {

@@ -139,7 +139,15 @@ const statements = [
 		value text NOT NULL,
 		created_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
 		updated_at integer DEFAULT (unixepoch() * 1000) NOT NULL
-	)`
+	)`,
+	`CREATE TABLE IF NOT EXISTS achievements (
+		id text PRIMARY KEY NOT NULL,
+		user_id text NOT NULL REFERENCES user(id) ON DELETE cascade,
+		badge_key text NOT NULL,
+		awarded_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		context_json text
+	)`,
+	`CREATE INDEX IF NOT EXISTS achievements_user_idx ON achievements (user_id)`
 ];
 
 db.exec('PRAGMA foreign_keys = ON');
