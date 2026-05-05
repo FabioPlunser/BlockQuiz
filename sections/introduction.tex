@@ -1,76 +1,53 @@
 Computational thinking has emerged as a fundamental skill for the 21st century,
 increasingly recognized as essential for all learners regardless of their future career paths~\cite{wing2006, grover2013}.
-In Austria, this recognition materialized with the introduction of ``Digitale Grundbildung'' (Digital Basic Education)~\cite{digitale_grundbildung}
+In Austria, this recognition materialized with the introduction of ``Digitale Grundbildung'' (Digital Basic Education)
 as a mandatory subject for secondary education in 2022/23, reflecting a broader European trend
 toward integrating computational concepts into primary and secondary curricula.
+As a result, schools need programming tools that fit actual classroom conditions: they must be understandable for beginners,
+manageable for teachers with limited programming experience, and suitable for an institutional context in which privacy, deployment simplicity, and curricular alignment all matter.
+
 
 \section{Motivation and Problem Statement}
-While numerous block-based programming environments exist, including Scratch, Tynker, Microsoft MakeCode,
-and Snap!, these platforms present several challenges when deployed in classroom settings with younger learners:
+Many established block-based environments already support introductory programming quite well, yet they do not fully address this combination of requirements.
+Scratch encourages creativity and experimentation, but its open-ended project structure makes it difficult to use for short, deterministically assessable classroom tasks.
+Microsoft MakeCode offers a highly polished environment and a valuable bridge from blocks to text, but much of its design is centered on hardware integration and project-based exploration.
+Code.org provides structured learning sequences and strong scaffolding, yet its deployment model and platform boundaries are less aligned with a privacy-first, self-hosted use case
+in European school settings.
+Teachers therefore face a practical gap between highly creative block environments on the one hand and the need for tightly guided, easy-to-manage learning tasks on the other.
 
-\begin{itemize}
-	\item \textbf{Open-ended complexity}: Platforms like Scratch emphasize creative, open-ended projects that can
-	      overwhelm beginners and make assessment difficult.
-	\item \textbf{Hardware dependencies}: Tools such as MakeCode are often tied to specific hardware (micro:bit, Arduino),
-	      limiting accessibility.
-	\item \textbf{Lack of automated feedback}: Most existing solutions require manual teacher intervention for assessment,
-	      creating bottlenecks in larger classrooms.
-	\item \textbf{Privacy concerns}: Cloud-based platforms raise data protection issues, particularly with younger
-	      users in European educational contexts.
-\end{itemize}
+This thesis addresses that gap through the design and implementation of BlockQuiz, a web-based platform for short block-programming exercises with automatic feedback. The central idea
+is to combine the accessibility of block-based programming with a constrained exercise model that reduces cognitive load, supports clear learning objectives, and enables deterministic grading.
+At the same time, the platform is designed for teachers who may not have a strong programming background and for schools that prefer local or self-hosted deployment over dependence on external services.
 
-Teachers, especially those without programming backgrounds, need tools that allow them to
-create and manage exercises without technical expertise while providing students with immediate, meaningful feedback on their solutions.
 
 \section{Goals and Contributions}
-This thesis addresses these challenges through the design and implementation of BlockQuiz,
-a web-based block programming learning platform. The primary contributions are:
-
-\begin{enumerate}
-	\item \textbf{Constrained exercise model}: A framework for creating focused programming
-	      puzzles with per-exercise block toolboxes, reducing cognitive load and enabling clear learning objectives.
-	\item \textbf{Client-side auto-grading}: A secure sandbox execution environment
-	      with multiple grading strategies for I/O and graphical (Turtle) exercises, providing immediate feedback without server-side code execution.
-	\item \textbf{Teacher-oriented authoring}: A content management system enabling
-	      non-programmers to create, edit, and organize exercises and courses.
-	\item \textbf{Privacy-first architecture}: A self-hostable solution deployable
-	      via Docker in school networks, with optional guest mode requiring no personal data.
-	\item \textbf{Internationalization}: Full support for German and English,
-	      with extensible localization infrastructure.
-\end{enumerate}
+The goal of the project is not to replace general-purpose creative environments, but to provide a complementary platform for guided practice. BlockQuiz focuses on short exercises in which
+the available blocks, the expected interaction, and the grading criteria are defined in advance.
+This structure allows the platform to deliver immediate and meaningful feedback while also giving teachers a manageable authoring workflow.
+The thesis therefore contributes a constrained exercise model for beginner-oriented programming tasks, a browser-based sandboxing and grading architecture, a teacher-oriented content management approach
+for exercise authoring, and a privacy-conscious deployment model that supports classroom use without relying on third-party cloud services.
 
 \section{Target Audience}
-The platform primarily targets children aged 8--12 years, a developmental stage
-where learners can handle block-based logic, loops, and conditionals while benefiting from visual,
-immediate feedback. Secondary users include teachers who author and manage exercises, and administrators who deploy and maintain the platform.
+The primary audience of the platform consists of children aged 8--12, a group for whom block-based interaction remains especially appropriate because it removes syntax barriers and keeps attention on
+logic, sequencing, repetition, and conditional behavior. A second important audience consists of teachers who need to create, organize, and evaluate exercises without having to
+program the platform itself.
+Finally, the system also addresses administrators or school IT staff who need a solution that can be deployed and maintained with limited operational complexity.
+
 
 \section{Scope and Limitations}
-The minimum viable product (MVP) encompasses:
-\begin{itemize}
-	\item Two exercise types: I/O puzzles and Turtle Graphics
-	\item Ten curated exercises covering sequences, loops, conditionals, and simple functions
-	\item A minimal CMS for exercise and course management
-	\item Client-side sandboxed execution with configurable timeouts
-	\item German and English localization
-	\item Docker-based deployment
-\end{itemize}
-
-Explicitly out of scope are: full classroom management with detailed analytics dashboards,
-complex simulators beyond 2D canvas/turtle, and integration with institutional single sign-on systems (SAML/SSO), t
-hough the architecture supports future extensions.
+The implemented minimum viable product focuses on three exercise types: input/output tasks, turtle-graphics tasks, and grid-based robot tasks,
+together with a basic course model, multilingual content, and a teacher-facing authoring workflow.
+The platform emphasizes constrained tasks, client-side sandboxed execution, server-side authoritative grading for authenticated submissions, and Docker-based deployment.
+It does not attempt to provide a complete learning management system, full classroom analytics, advanced institutional identity management, or a broad range of domain-specific simulators.
+These omissions are intentional, as the thesis concentrates on the core software of a focused, privacy-conscious block-programming platform.
 
 \section{Document Structure}
-The remainder of this thesis is organized as follows:
-\begin{itemize}
-	\item \textbf{Chapter 2: Background and Related Work} reviews existing block-based programming platforms,
-	      educational research on computational thinking, and technical foundations including Google Blockly.
-	\item \textbf{Chapter 3: Requirements Analysis} details functional and non-functional requirements
-	      derived from educational and technical constraints.
-	\item \textbf{Chapter 4: System Design} presents the architecture, including the exercise model,
-	      grading framework, and CMS design.
-	\item \textbf{Chapter 5: Implementation} describes the technical realization using SvelteKit,
-	      Blockly, and the sandbox execution environment.
-	\item \textbf{Chapter 6: Evaluation} reports on usability testing with target users and
-	      discusses results.
-	\item \textbf{Chapter 7: Conclusion} summarizes contributions and outlines future work.
-\end{itemize}
+The remainder of this thesis follows the development of the platform.
+Chapter \ref{chap:background} reviews the educational and technical background, discusses related platforms, and situates the work in existing literature on block-based programming and automatic
+feedback.
+Chapter \ref{chap:requirements} derives the requirements from the target group, the classroom context, and the intended deployment model.
+Chapter \ref{chap:design} then explains the resulting system design and the main architectural decisions.
+Chapter \ref{chap:implementation} describes the implementation of the platform in more detail, including the integration of Blockly, the execution sandbox,
+and the grading framework.
+Chapter \ref{chap:evaluation} presents a technical and heuristic evaluation of the prototype, including limitations and future validation needs.
+Finally, Chapter \ref{chap:conclusion} summarizes the thesis, reflects on limitations, and identifies directions for future work.

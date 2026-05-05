@@ -1,29 +1,160 @@
-\section{Development Setup}
-\label{sec:impl-setup}
+\section{Implementation Scope}
+The implementation prototype covers the full learner flow, the teacher-facing authoring workflow and the technical infrastructure required for sandboxed excution and automatic grading. 
+The system is broad enough to demonstrate the architecture described in \ref{chap:design} as a coherent whoel rather htna as a collection of isolated components. 
+In practice, the stronges,t parts of the code base are the submission pipeline, the grading logic, the typed exerice model and the shared player used by both guest and authenticated learners. 
 
-% TODO: Project structure, tooling, build process
+The implmetnation is organized as a SvelteKit application with TypeScript. The frontend uses Svelte5 components for the learner player, the teacher-facing CMS and the Blockly integration. 
+Persistence is handled through SQLite with Drizzle ORM, while authentication, sessions and password reset are provided through Better AUth. 
+Development and verification are performce through bun-based commands and the same runtime choise is also reflected in deployment through the Bun adapter, the \textbf{bun:sqlite} database client 
+and the isolated Bun subprecess that performs server-side code execution. 
 
-\section{Blockly Integration with Svelte 5}
-\label{sec:impl-blockly-svelte}
+\section{Project Structure and Technology Stack}
+The repository is divided into route componetns, reusable interface componetns, typed domain moduels, gradin logic, sandbox infrastrucutre, remote functions and database access. 
+This separation is visibe in the implementation. The learner player and the CMS live in SVelte route components, while exercise normalization, grading, authoritative re-execution and persistence are 
+Handled in dedicated library modules. 
 
-% TODO: $effect lifecycle, workspace management, block serialization
+This split proved useful because the project combines several concersn that would otherwise become tightly coupled: visual programming, learner interaction, runtime control, server-side persistence and authorization. 
+Using SvelteKit for both interface and server integration simplified this boundary, since the same framework can host route components and typed server-side commands. 
+At the same time, the more critical logic such as grading and sandbox coordination is kept outside user-interface files, which improves testability. 
 
-\section{Canvas2D Rendering Engine}
-\label{sec:impl-canvas}
+The final stack also refelcts the deployument goal of a privacy-conscious, self-hostable school system. 
+The application runs without a seperate database server, does not depend on third-party APIs for tis core functionality and can be shipped as a signle containerized web application. 
 
-% TODO: Base class design, Turtle engine, Robot engine
+\subsection{Domain Model and Persistence}
+One of the most important implementation tasks was turning the originally broad platform idea into a concrete and typed exercise model. In the final protoype, the central runtime model implements 
+three exercise families: \textbf{io, turtle} and \textbf{robot}. Each type has a dedicated configuration and grading strategy, while shared learner-facing properties such as localized content, hints, toolbox restrictions and starter workspaces remain available across all types. 
 
-\section{Grading Pipeline}
-\label{sec:impl-grading}
+The resulting model is strictre than a generic JSON-based exercise desription. For example, io exercises define normalization rules and epxlicit input and output test cases, where turtle and robo exercises use canvas or grid configuration togehter with strucuted state-,command-, or path-based checks. 
+In practice, this made it easier to keep authoring, grading, and persistence consistent, because each exercise type has a clear set of expeceted fields. 
 
-% TODO: How code is extracted, executed, and evaluated per exercise type
+At the same time, the implementation keeps a compatibility-oriented \textbf{config} object in addition to the typed branches. THis is a pragmatic engineering comproise. 
+It allows generic CMS and player components to access shared properties such as toolbox selection, starter XML, or hints rhtourhg a stable shape, even though the canocial runtime reperesentation is type-sepecific. 
+The result is slightly less pure than a fully separated model but it reduces UI duplication and kept the authorign surface manageable within thesis scope. 
 
-\section{Teacher Interface and Course Management}
-\label{sec:impl-teacher}
 
-% TODO: CRUD operations, exercise authoring workflow
+\begin{table}
+  \centering
+  \caption{Implemented exercise families in the prototype}
+  \begin{tabularx}{\textwidth}{|X|X|X|X|}
+    \hline
+    \textbf{Type} & \textbf{Learner interaction} & \textbf{Grading basis} & \textbf{Current maturity} \\\hline
+    io & Text-oriented tasks with generated JavaScript reading input and producing output & Visible and hidden stdin/stdout tests with configurable normalization & Mature and used as a main exercices family \\\hline
+    turtle & Visual movement and drawing on a two-dimensional canvas & Command replay, target checks, final stage and path comparison & Mature and central to the prototype argument \\\hline
+  \end{tabularx}
+\end{table}
 
-\section{Authentication and Authorization}
-\label{sec:impl-auth}
+The same emphasis on typed structure appears in persistence. The database schema contains the expected educational entities of users, courses, exercises, course-exercise relations and attempts, but 
+it also stores validation snapshots, exercise version, translations and audit-related information. 
+For the thesis, the most interesting table is the attempt record, because attempts form the common interface between learner interaction, grading, analytics and export. 
 
-% TODO: Session-based auth, role separation (teacher/student)
+Instead of storing only a score and a timestamp, the prototype persists the replayable leraner artifact: workspace XML, generated code, serialized grading result, locale, hint events, and additional 
+analytics metadata. This makes it possible to reconstruct what a learner submitted and not merely what score they received. 
+
+
+\begin{table}
+  \centering
+  \caption{Main categories of persisted attempt data}
+  \begin{tabularx}{\textwidth}{|X|X|X|}
+    \hline
+    \textbf{Category} & \textbf{Stored values} & \textbf{Purpose}  \\\hline
+    Identity and actor & Attempt id, exercise id, actor type and either authenticated user id or guest client id \\\hline 
+    Replayable artifact & Workspace XML and generated JavaScript code & Supports resotration, inspection, export and later re-display of the learner state  \\\hline
+    Grading resutl & Serialized result object, score, pass/faile status and timestampt & Preserves the immediate grading outcome without having to recompute it for every view \\\hline
+    Context metadata & Locale, hint reveal events, and analytics JSON & Provides a basis for later reporting and for understanding how the learner interacted with the task. \\\hline
+  \end{tabularx}
+\end{table}
+
+
+Another improtant detail is publish validation. The final implementation does not allow exercise publication to remain an informal convention. Instead, exercises are validated against concrete conditions 
+such as bilingual title and description, parseable starter XML, presence of test cases and at leas on hidden test. 
+This is not a complete formal verification of exercise quality, but it create a meaningful boundary between authoring flexibility and learner-facing realiability. 
+
+\subsection{Blockly Integration}
+Blockly is integrated as the visual programming editor for both learners and teachers. In the learner player, the workspace is configured dynamically from the current exercise definition. 
+The available blocks are not static; instead, the toolbox is assemled at runtime from built-in categories such as logic, lopps, math and text together with engine-specific blocks for turtle or robot behavior. 
+This directly implements the didactic idea of constrained toolboxes discussed earlier in the thesis. 
+
+The block integration is not merely visual. Custom block generators emit JavaScript calls such as \textbf{api.move(\dots)}, \textbf{api.turn(\dots)}, or \textbf{api.collect(\dots)}, which become the contract 
+between Blockly and the sandbox runtime. This was an important design choice, because it gives the generated programs a narrow and exercise-sepcific execution surface instead of unrestricted access 
+to browser objects. 
+The same block definitions can therefore be reused in the learner player, the CMS preview and the grading-related execution paths. 
+The robot exercise type illustrates how this contract can be specialiyed for a different didactic goal. 
+Where the turlte exercises expose parameterized \texttt{move N steps} and \texttt{turn N degrees} blocks suitable for free drawing, the robot toolbox uses fixed-action blocks such as \textit{step forward}, 
+\textit{one cell}, \textit{turn left}, and \textit{turn right}. These blocks call the same underlying engine API but remove the need for learners to reason about arbitrary numeric arguments while solving grid 
+puzzles. 
+Together with the optional \texttt{collect} block, they make the robot tasks feel like a distinct puzzle activity rather than a numeric variant of the turlte exercises. 
+
+The same Blockly component is reused in the CMS editor. 
+Teachers can choose blocks, define starter workspace and preview how an exercise appears from the learner perspective. 
+The implementation stores and restores Blockly workspaces as XML, which allows a starter configuration to be reussed consistently betweena authroing and learner execution. 
+For visual exercise types, Blockly categories combine generic logic and control blocks with engine-specific movement blocks. 
+In practive, the Blockly integration also required several smaller engineering adjustment that are worth documenting. The workspace component adds accessibility attributes after injection so that the 
+generated DOM is exposed as a labbelled region, not just as an opaque graphics surface. In addtion, a \texttt{MutationObserver} is used to keep the flyout scrollbar behavior stable when toolbox visibility changes. 
+These details are easy to omti in a broad design description, but they matter for turning a library integration into a usable web application. 
+
+One practical advantage of this design is that the editor remains largely data-drive. Exercise definitions determine both the learner experience and the authoring preveiw, which reduces 
+duplication between CMS and player code. 
+A typical \texttt{io} exercise can expose only arithmetic, text output and control flow blocks, whereas a turlte exercise can offer movement and pen blocks with a smaller set of generic constructs. 
+In both cases, the learner sees only the blocks that are relevant for the current ask. 
+
+\subsection{Execution Pipeline and Trust Boundaries}
+The submission pipelein is the strongest technical part of the prototype because it connects editing, execution, grading and persistence through explicit interfaces. 
+From the leaner's perspective this appears as a simple \textit{run} or \textit{check} interaction, but the implementation actually performs a sequence of coordinated steps: 
+\begin{enumerate}
+  \item The Blockly workspace is translated into JavaScript code. 
+  \item The player creats a sandbox request containing the code, exercise type allowed \texttt{API} methods, runtime limits and optional input data. 
+  \item A hidden iframe receives this reqeust through a \texttt{MessageChannel} and executes the code in an isolated browser context. 
+  \item The sandbo returns a structured execution trace containing command logs, output streams, timing data and, for visual tasks, the final state. 
+  \item The appropriate grader converts this trace into a uniform grading result. 
+  \item For authenticated submissions, the server validates the shape of the submitted grading object, re-executs the code authoritatively and only then stores the attempt in the database. 
+\end{enumerate}
+
+
+This pipeline is intentionally layered. The player is responsible for user interaction, the sandbox is responsible for execution, the graders are responsible for correctness evaluation, and the server-side remote function 
+is responsible for trust-sensitive persitence. 
+This separation makes it easier to reason about failures and avoids hiding core logic in UI components. 
+
+The sandbox implementation is intentionally generic across exercise types. The hidden iframe is created with restrictive sandbox settings and communcates with the main application only through 
+typed messages. Each execution request includes the allowed API methods, timeout, maximum command count and maximum loop iterations. Loops in the generated code are instrumented before execution, so the runtime can interrupt pgorams that would otherwise run indefinitely. 
+
+This design provides two practical benefits. First, it keeps the learner interface responsive even when a program fails or lopos unexpectedly. Second, it estabilishes a clearer trust boundary than direct local execution in UI components. 
+The browser-side sandbox is still a pragmatic prototype solution, not a formally strong isolation boundary, but it already separates learner code form the main interface and blocks many browser APIs that are irrelevant or dangerous in this context. 
+
+An imortant extension of this idea is the authoritative execution path on the server side. 
+When an authenticated learner submits an attempt, the server does not simply trust the clientreported score. Instead, it validates the strucutre of the submitted result and then re-executes the generated code inside an isolated Bun subproecess worker. 
+The worker has no access to the database, the session, or any application modlue. It recieves only the code, the exerices type and the runtime limits over standard input and repots the reuslting trace over standard output. 
+Inside the worker, the actual code runs in a \texttt{node:vm} context that enforces per-execition time and loop limits and the parent process additionally enforces a hard kill timeut and a maximum outputs size. 
+The grading reuslt that is stored in the database therefore comes from this re-execution rather than from the client-reported value. 
+This is one of the most important implementation choices of the project because it separates immediate learner feedback from trusted persistence at both the API and the operating-system level. 
+
+\subsection{Grading Pipeline}
+The grading pipeline differs by exercise type, but all graders reutnr the same result structure: pass/fail status, integer percentage score, number of passed test, total number of tests and per-test feedback. 
+This common format was an important implementation goal because it allows the UI, persistence layer and analytics code to remain largely independent of the specific grading stragey. 
+
+For \texttt{io} exercises, the executor runs the generated program once per test case, injecting the configured standard inut and collecting standard output and error output. The grader then normalizes the 
+produces text according to the exercise configuration. 
+The grader then normlizes the produced text according to the exericse configuration. 
+The supported normalization rules include trimming, whitespace collapsing, case handling, line-ending normalization, and decimal separator handling. 
+This is more robust than direct string equality and reduces the number of irrelevant mismatches that beginners would otherwise encounter. 
+
+For visual exercises, execution produces a command trace that can be replayed on the corresponing engine. Grading then evaluates the toucome against target, state, command, path, or 
+collect tests. A deliberate implementation decision was to grade the replayed command semantics rather than comparing rendered pixels. 
+This keeps the grader deterministic, easier to test and less dependent on rendering details. In other words, the system asks whether the learner reached the intended logical state, not whether two canvases happen to look identical the pixel level. 
+THe current implementation also distinguishes carefully between visible and hidden test. 
+Visible tests can expose expected and actual values to learners, while hidden test contribute to the score without revealing complete solution information. 
+This is especailly important for \texttt{io} tasks, where showing all hidden examples would make it easier to overfit a program to the public cases. 
+The grading and submission code therefore treats thidden tests not merely as a UI concern, but as part of the trusted exercise definition. 
+
+\subsection{Learner Player and Attempt Capture}
+The learner-facing course player presetns on exercise at a time, maintains progress within the course and records attemtps together with additional metadata. The design intentionally emphasizes focus: 
+the learner sees a taks description, as single Blockly workspace, and a resulsts area for execution and grading feedback. Course navigation is still presetn, but it does not dominate the screen. 
+
+On wide screens, these three areas are arranged side by side as a three-column grid that mirros the conceptual strucutre of the activity. 
+On smaller screens, the same three areas are exposed as a tab strip with \textit{Task, Bblocks} and \textit{Run} buttons, while the underlying componetns remain moutned so that the execution state and 
+grading feedback survive tab changes. This matters in practive becaues the platform must remain usable on tablets, which are commn in primary scool classrooms and would otherwise force the learner to scrool between editing and running. 
+
+Each submission stores the Blockly workspace XML, the generated code, the grading result, the selected locale and structured metadata such as hint usage and test counts. This is more detailed 
+than a conventional quiz record. The platform does not only preserver whether a learner passed, it preservers what was submitted an under which conditions. This makes later reviw and export more meaningful and provides 
+a better basis for future teacher-facing analytics. 
+The player also restores stored workspaces state when learners return to an exercise. This is espeically relevant for guest mode, where contiuity must be preserved without relying on an account. 
+The course-level player therefore does not hard-code a persistence mothods. Instead, it acepts 

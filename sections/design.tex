@@ -1,40 +1,48 @@
 \section{Design decisions}
 \label{sec:design-decisions}
-Key architectural decisions were made based on the requirements and constraints identified in the analysis phase.
+This chapter expalins the principal architectural choices behind BlockQuiz. The focus is on decisions that strongly influence the prototype: the visual editor technology, the execution model, the 
+persistence layer and the seperation of concersn between exercise defintion, execution, grading and presetnation. 
 
-\subsection{Block Editor: Ggoogle Blockly}
+\subsection{Block Editor: Google Blockly}
 \begin{table}[h]
   \centering
   \label{tab:block-editor-selection}
   \caption{Block Editor Selection}
-  \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
+  \begin{tabularx}{0.9\textwidth}{|l|X|X|}
     \hline
-    Option                & Pros                                                 & Cons                                     & Decision   \\\hline
-    Google Blockly        & Mature, documented, accessible, customizable toolbox & Larger bundle size                       & \checkmark \\\hline
-    Custom implementation & Full control, smaller size                           & Development time, maintenance burden     &            \\\hline
-    Scratch Blocks        & Familiar Scratch aesthetics                          & Less flexible, tied to Scratch ecosystem &            \\\hline
+    Option                & Pros                                                 & Cons                                      \\\hline
+    Google Blockly        & Mature, documented, accessible, customizable toolbox & Larger bundle size                        \\\hline
+    Custom implementation & Full control, smaller size                           & Development time, maintenance burden                 \\\hline
+    Scratch Blocks        & Familiar Scratch aesthetics                          & Less flexible, tied to Scratch ecosystem             \\\hline
   \end{tabularx}
 \end{table}
 
-Rationale: Blockly provides proven reliability, accessibility features and the flexibility to define per-exercise toolboxes.
-The bundle size trade-off is acceptable given lazy loading optimizations.
+Blockly was selected because it offerse the best balance between maturtiy and adaptablity. 
+Its toolbox model directly supports the pedagogical goal of restricting the available blocks on a per-exercise basis, which helps reduce unnecessary complexity 
+for novice learners. The same integration can also be reused in both the learner-facing player and the teacher-facing CMS> 
+A custom implementation would have provided greate control, but the additional development effort would have been difficutl to justify within the scope of the thesis. 
+Scratch Blocks, while visually familiar, would have constrained the platform more strongly to an ecosystem that is not primrarly designed for this kind of custom guided-learing workflow. 
 
-\subsection{Code Execution: Client-Side Sandbox}
+\subsection{Excecution mode: Client-Side sandbox}
+The execution model is intentionally optimized for classroom repsonsiveness and low deployment complexity. 
+A client-side iframe sandbox therefore represents a pragramtic compromise. It allows learners to receive immediat feedback without requiring the server to execute every submission, 
+which keeps the overall system ligher and easier to deploy. 
+At the same time, this decision does not remove all security concerns. 
+The thesis therefore treats client-side execution as a risk-managed prototype choice rather than as a perfect isolation boundary. 
+Since authenitcated submissions can additionally be re-executed on the server before they are stroed, the design combines responsive local interaction with a more trustworthy persistence path. 
+
 \begin{table}[h]
   \centering
   \label{tab:code-execution}
   \caption{Code Execution Options}
-  \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
+  \begin{tabularx}{0.9\textwidth}{|l|X|X|}
     \hline
-    Option                       & Pros                               & Cons                                                                & Decision   \\\hline
-    Client-side (iframe sandbox) & No server load, immediate response & Limited isolation compared to server-side, potential security risks & \checkmark \\\hline
-    Server-side (VM/Container)   & Better isolation                   & Added complexity, latency                                           &            \\\hline
-    WebAssembly sandbox          & Best isolation                     & Significant development effort                                      &            \\\hline
+    Option                       & Pros                               & Cons                                                                \\\hline
+    Client-side (iframe sandbox) & No server load, immediate response & Limited isolation compared to server-side, potential security risks \\\hline
+    Server-side (VM/Container)   & Better isolation                   & Added complexity, latency                                           \\\hline
+    WebAssembly sandbox          & Best isolation                     & Significant development effort                                      \\\hline
   \end{tabularx}
 \end{table}
-
-Rationale: For educational code from children, client-side execution with loop traps and API whitelisting provides sufficient security.
-Server-side execution would add complexity and latency without proportional benefits for this use case.
 
 \subsection{Database: SQLite with Drizzle ORM}
 \begin{table}[h]
@@ -43,20 +51,21 @@ Server-side execution would add complexity and latency without proportional bene
   \caption{Database Selection}
   \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
     \hline
-    Option      & Pros                         & Cons                          & Decision   \\\hline
-    SQLite      & No setup, embedded, portable & Single-writer limitation      & \checkmark \\\hline
-    PostgresSQL & Scalable, concurrent writes  & Requires server, more complex &            \\\hline
+    Option      & Pros                         & Cons                          \\\hline
+    SQLite      & No setup, embedded, portable & Single-writer limitation      \\\hline
+    PostgreSQL & Scalable, concurrent writes  & Requires server, more complex \\\hline
   \end{tabularx}
 \end{table}
 
-Rationale: QLite oﬀers the best balance for single-school deployments. The Drizzle ORM
-provides type-safe queries and migration management. The schema is designed to be portable,
-enabling future migration to PostgreSQL if needed.
-
+SQLite is well suited to a prototype and to modest self-hsoted school deployments because it keeps operational overhead low. 
+When combined with Drizzle ORM, it also provides a typesave development workflow and explicit schema management. 
+A more scalable databse system would only become necesssary if the platform were extendet beyond the intended deployment model. 
 
 \section{Architectural Overview}
 \label{sec:design-overview}
-The system follows a layered architecture separating presentation, business logic and data access concerns.
+The sytstem follow a layered architecture in which the user interface, exercise logic, grading and persistence remain conceptually separate. This separation is visible in the code base: 
+Svelte components are primarily responsible for presentation, wherease execution, graing, typing and persistence are handled in dedicated modules. 
+The result is not only easier to reason about technically, but also easier to explain as part of the thesis. 
 
 \begin{figure}[h]
   \centering
@@ -65,102 +74,47 @@ The system follows a layered architecture separating presentation, business logi
   \label{fig:architecture-overview}
 \end{figure}
 
-\subsection{Component Descriptions}
-\subsubsection*{Frontend Layer}
-The frontend is built with SvelteKit and comprises three main interfaces:
-\begin{itemize}
-  \item \textbf{Student Interface:} Displazs exercises, the Blockly workspace, canvas visualization and grading feedback.
-        Designed for simplicity and age-appropriateness.
-  \item \textbf{Teacher Interface:} Enables exercis creation and editing, course organization and progress monitoring. Includes visual editors for paths and grids.
-  \item \textbf{Admin Interface:} Manages users, system configuration and plugin administration.
-\end{itemize}
-
-\subsubsection*{Exercise Engines}
-Exercise engines encapsulate the state and behavior for each exercise type:
-\begin{itemize}
-  \item \textbf{Turtle:} Manages position, angle, pen state, and path history. Commands include \textit{move(distance)} \textit{turn(degrees)}, and pen control.
-  \item \textbf{GridRobot:} Manages grid position, direction and inventory. Command sinclude directional movement, collection and interaction,.
-  \item \textbf{I/O:} Manages input consumption and output accumulation for stdin/stdout-style exercises.
-\end{itemize}
-
-\subsubsection*{Sandbox}
-The sandbox provides secure code execution through:
-\begin{itemize}
-  \item An ifram with \textit{sandbox="allow-scripts"} attribute
-  \item PostMessage-based communication protocol
-  \item Whitelisted API surface exposing only exercise-specific functions
-  \item Loop trap injection detecting infinite loops
-  \item Timeout enforcement terminating long-running executions
-\end{itemize}
-
-\subsubsection*{Graders}
-Type-specific grades evaluate student solutions.
-\begin{itemize}
-  \item \textbf{Turtle Grader:} Compares final state (position, angle) or command sequencees against expected values with configurable tolerances.
-  \item \textbf{I/O Grader:} Compares program output against expected output with nromalization options.
-\end{itemize}
+\subsubsection{Frontend Layer}
+The fronted is implemented with SvelteKit and primarily supports two interaction contexts. 
+The learner interface presents an exercise together with Blockly workspace, a visual or textual output area and the resulting feedback. 
+The teacher interface supports exercise authoring, review and course composition. 
+The current implementation also contains additional management views, such as log inspection and user administration, but these play a secondary role in the argument of the thesis. 
+The central design focus remainse the learner workflow and the teacher-facing authoring process. 
 
 
-\subsection{Exercise Type Framework}
-The exercise framework is dsigned for extensibility through a common base class and grading interface.
-\subsubsection*{Abstract Base: Canvas2D}
-All visual exercies types inherit from Canvas2D, which provides:
-\begin{itemize}
-  \item Reactive state for position coordinates
-  \item Command logging for grading
-  \item Reset and comparison methods
-  \item Canvas rendering hooks
-\end{itemize}
+\subsubsection{Exercise Engines}
+The exercise layer models the behavior of each supported task type, The Input/Output engine provides controlled input consumption and output collection for text-oriented tasks, while the turlte 
+engine manges position, orientation, pen state and drawing history for visual exercises. 
+Each exercise type is associated with an exercise definition, a Blockly toolbox and generator mapping, a restricted execution API and a grading strategy that matches the exercise semantics. 
 
-\subsubsection*{Concrete Implementations}
-\textbf{Turle} Extends Canvas2D with angle, pen state, and move/turn methods.
-\textbf{GridRobot} Extends Canvas@d with discrete grid positioning, direction and inverntory management.
-\textbf{I/O} Implements a non-visual exercise type with input consumption and output generation capabilities.
 
-New exercise types can be added by:
-\begin{enumerate}
-  \item Implementing a class extending Canvas2D
-  \item Defining corresponding Blockly blocks and generators
-  \item Implementing a grade for the new type
-\end{enumerate}
+\subsubsection{Sandbox}
+The sandbox executes generated code in a restricted context. 
+in practical terms, execution takes place in an iframe with restricitve sandbox setttings and all communication with the main application occurs to browser capabilities; 
+they can only call the exercise-specific commands exposed by the application. 
+Runtime guards additionally limit execution time and help detect non-terminating behavior. 
+The resulting design does not claim absolute security, but it does establish a clear and trsut boundary that is appropriate for the protoype. 
 
-\section{Data Model}
-\label{sec:design-datamodel}
-The data model or database schema supports exercies, courses, user progress and audit logging.
-\subsection{Core Tables}
-\begin{itemize}
-  \item \textbf{users} Stores user credentials, roles (student, teacher, author, admin ) and preferences.
-  \item \textbf{courses} Contains course metadata, ordered exercies list via \textbf{courseExercises} junction table, and enrollment via \textbf{courseUsers}.
-  \item \textbf{exercises} Stores exercise definitions including type (io/turlte/robot), JSON content (localized title/description), JSON config (type-specific grader settings), toolbox XML, starter XML and hints.
-  \item \textbf{attempts} Records student attempts with workspace XML, grading resutls, score and timestamp.
-  \item \textbf{auditLogs} Tracks all admin actions like login, account cration, password reset for accountability and auditing.
-  \item \textbf{exerciseVersions} Stores snapshosts of exercises for versioning support
-  \item \textbf{translations} Custom i18n table: locale/kez/value rows used for runtime language lookup
-\end{itemize}
 
-\subsection{Relationships}
-\begin{itemize}
-  \item Courses contain ordered lists of exercies (many-to-many with ordering)
-  \item Users have roles determining access to CMS and admin features
-  \item Attempts link users to exercises with temporal tracking
-\end{itemize}
+\subsubsection{Graders}
+The grading layer evaluates exercise outcomse after execution. 
+For Input/Otuput tasks, this means comparing actual and expexted output across defined test cases. 
+For tturlte exercsies, it measn comapring either the xecuted command trace or the resulting final state. 
+Keepking grading separate from execution and presentation makes the platfrom easier to extend and allows the grading logic to be discussed indepentendtly of the user interface. 
 
-\section{Security Model}
-\subsection{Threat Model}
-Primary threats addressed by the security model include:
-\begin{itemize}
-  \item Malicious student code attempting DOM access or infinite loops
-  \item Cross-site scripting through user-generated content
-  \item Unauthorized access to exercises or administrative functions
-\end{itemize}
 
-\subsection{Mitigitations}
-\begin{itemize}
-  \item \textbf{Iframe Sandbox} The \textit{sandox="allow-scripts"} attribute prevents navigation, from submission and plugin access.
-  \item \textbf{Loop Trap} Command counting detects and terminates infinite loops.
-  \item \textbf{API Whitelist} Only exercise-specific functions are exposed; no access to window, document, or network APIs.
-  \item \textbf{CSP Headers} Strict Content Security Policy prevents inline scripts and external resource loading.
-  \item \textbf{Input Validation} Zod schema validation on all API inputs prevents injection.
-  \item \textbf{Role-Based Access} Teachers cannot access admin functions; students cannot access CMS.
-\end{itemize}
 
+\subsection{Data Model}
+The data model stays close to the implemetned scope of the protoype. Its most important entities are users, exercsies, course, relations between courses and exercises, and attempt or progress revords. 
+users store account and role information wherever authenticated access is needed. Exercsies contain the task definition and grading configuration. 
+Coruses ogranize exercsies into ordered learning sequences, and the course-exercises relations capture both ordering and reuse. 
+Attemtps or prgoress recorsd connect learners to exercises and presever the outcomse of their interaction with the platform. 
+The repository also contains supporting entities such as audit logs, version tables and translations. 
+Tehse are part of the braoder application context, but within the scope of the thesis they remain secondary to the core educational entities of exercises, courses, users and attempts. 
+
+\subsection{Security Considerations}
+The main threats considered in the design are accidental or malicious infinite loops, uinteded access to browser capabilities from learner code, and unauthorized access to protected authoring features. 
+The response to these threats is deliberatley layered. Iframe-bases andboxing limits the execution context, command whitelisting constrains the API available to generated programs and timeout or step-based execution limits keep 
+programs fro running indefinetly. 
+In paralle, validation of application input and API payloads protects the wider application, while role-based authorization seperates leraner, authoring and management privileges. 
+These measures reduce risk for the intended educational prototype but they do not justify absolute security claims.

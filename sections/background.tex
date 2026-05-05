@@ -1,62 +1,62 @@
 \section{Block-Based Programming Environments}
-Block-based programming environments have emerged as a dominant approach for introducing
-computational concepts to novice programmers, particularly children. By representing code as
-interlocking visual blocks, these environments eliminate syntax errors and reduce the cognitive
-load associated with textual programming languages \cite{weintrop2015, maloney2010}.
+Block-based programming environments have become a dominant way of introducing novice learners to programming because they
+remove syntax errors from the early learning process and make program structure visible through shapes, categories and direct manipulation \cite{weintrop2015}.
+Rather than asking beginners to memorize keywords and punctuation, they make sequencing, repetition and conditional logic tangible. This is especially relevant for younger learners, 
+for whom the transition from an idea to a formal textual program can otherwise be discouraging.
 
-Empirical studies of Scratch-based learning further suggest that block-based programming can
+Furthermore studies of learning via block-based programming suggest that block-based programming can
 support the development of programming concepts, problem solving, and curricular integration
 when tasks are appropriately scaffolded~\cite{meerbaum2013, kalelioglu2014, saezLopez2016}.
 
 \subsection{Scratch}
-Scratch, developed at the MIT Media Lab, is perhaps the most widely recognized block-based programming
-environment for children \cite{resnick2009}. Launched in 2007, Scratch emphasizes creative
-expression through the creation of interactive stories, games and animations.
-The platform has been very successful, with millions of projects shared in its online community.
-
-However, Scratch's open-ended nature presents challenges for structured classroom instruction:
-\begin{itemize}
-  \item Projects can become arbitrarily complex, making assessment difficult
-  \item No built-in auto-grading or immediate feedback mechanism
-  \item The large block library can overwhelm beginners
-  \item Cloud-based storage raises privacy concerns for European users
-\end{itemize}
+Scratch, developed at the MIT Media Lab, is one of the most influential systems in this area \cite{resnick2009}. Its educational strength lies in the way it connects programming 
+to storytelling, games, animation and personally meaningful projects. 
+For many learners, this creative openness is precisely what makes programming engaging.
+At the same time, the very openness that makes Scratch pedagogically powerful can make it difficult to use for tightly defined classroom exercises.
+Teachers who want to assign short tasks with clear expected outcomes often need more structure than Scratch is designed to provide and
+the platform does not primarily revolve around deterministic auto-grading.
 
 \subsection{Microsoft MakeCode}
-Microsoft MakeCode extends block-based programming to physical computing, supporting hardware platforms such as
-the \textit{micro:bit}, Arduino, and Adafruit Circuit Playground~\cite{ball2019, devine2019, austin2020}. MakeCode provides a polished development
-experience with integrated simulation, block-to-text transitions, and hardware deployment.
+Microsoft MakeCode extends the idea of block-based learning toward hardware and project based exploration. 
+It offers polished editors, simulators and a transition path from blocks to JavaScript or Python.
+This makes it particularly useful in contexts where physical computing or the blocks-to-text progression is part of the learning goal.
+However, its overall focus differs from a platform centered on short, tightly constrained exercises.
+In comparison to the present work, MakeCode is less concerned with teacher-authored assessment tasks and more concerned with broad exploratory creation in hardware-oriented settings.
 
-While MakeCode excels at hardware integration, its complexity and hardware focus limit its applicability
-for pure algorithmic thinking exercises. Classroom studies around the micro:bit ecosystem emphasize creative and physical-computing use cases rather than tightly constrained worksheet-style tasks~\cite{sentance2017cool, sentance2017teaching, bachinger2022}. The platform is designed for project-based learning rather
-than structured, gradeable exercises.
 
 \subsection{Google Blockly}
-Google Blockly is not a complete programming environment but rather a library for building
-block-based programming interfaces \cite{blockly}. MakeCode for example uses it under the hood.
-Blockly provides:
-\begin{itemize}
-  \item A robust block rendering and connection engine
-  \item Extensible code generators for multiple target languages
-  \item Internationalization support with block label translations
-  \item Accessibility features including keyboard navigation
-  \item Customizable toolboxes and block categories
-\end{itemize}
-
-Blockly's library nature makes it ideal for building custom educational platforms where the exercise structure, grading
-logic and user interface can be tailored to specific needs.
-BlockQuiz leverages Blockly as its foundation, building a complete learning platform around the library.
+Google Blockly is best understood not as a complete learning platform but as a library for building visual programming interfaces \cite{blockly}. This makes it particularly relevant for
+custom educational systems. Blockly provides a mature rendering and connection model for blocks, configurable toolboxes, internationalization support, and code generators for multiple
+target languages. Because it is a library rather than a fixed educational product, it enables the construction of environments in which the available blocks, the surrounding 
+user interface and the grading logic can be aligned with specific pedagogical goals. For BlockQuiz, Blockly therefore serves as a technical foundation rather than as an end-user product.
 
 \subsection{Code.org}
-Code.org offers curriculum-aligned computer science courses with structured exercises and automatic grading.
-The platform has been widely adopted in the United States and provides a good scaffold for learners.
-However, Code.org's closed ecosystem nature and US-centric curriculum limits its applicability for Austrian schools,
-and its cloud-only deployment model raises data protection concerns.
+Code.org demonstrates how strongly structured learning paths can support school teaching. Its courses combine guided exercises, 
+immediate feedback, and clear curricular progression, which makes it an important reference point for guided beginner instruction. 
+In contrast to more open creative environments, Code.org is designed around sequenced lessons and classroom management. This makes it particularly relevant as a 
+comparison for BlockQuiz, since both systems emphasize guided tasks over unrestricted project work. However, Code.org is primarily delivered as a centralized 
+online platform and is less focused on self-hosted, privacy-conscious deployment in local school environments.
+
+\subsection{Open Roberta}
+Open Roberta is especially relevant from a European and school-oriented perspective. Developed as a browser-based platform for educational robotics,
+it was designed to reduce technical barriers for teachers and learners by avoiding complex local installation and configuration steps. 
+Its visual programming model, accessibility for beginners, and compatibility with classroom contexts make it a valuable comparison point for BlockQuiz. 
+At the same time, Open Roberta is centered more strongly on programming robots and boards, whereas BlockQuiz focuses on constrained programming exercises with 
+integrated auto-grading and teacher-authored task sequences.
+
+\subsection{LEGO Mindstorms}
+LEGO Mindstorms is one of the best-known robotics platforms in introductory programming education and has played an important role in bringing 
+programming into schools through hands-on, tangible activities. Its strength lies in the connection between software and physical devices, 
+which can be highly motivating for learners. In educational terms, it shares with Open Roberta a strong emphasis on robotics, experimentation, 
+and visible program behavior. However, this hardware-centered approach also distinguishes it from BlockQuiz, whose main purpose is not 
+robot control but the delivery of guided, browser-based programming exercises that can be deployed and assessed without requiring dedicated physical equipment.
 
 \subsection{Comparison Summary}
-Table \ref{tab:platform-comparison} summarizes the key characteristics of existing platforms and how BlockQuiz differentiates itself.
+Taken together, these platforms show that there is no single dominant design for block-based programming education. Scratch foregrounds creativity, while MakeCode, Roberta and LEGO Mindstorms bridge visual and textual programming
+in hardware-oriented contexts. Code.org offers strongly scaffolded instruction and Blockly acts as an enabling framework.
+BlockQuiz positions itself with a different focus where constrained exercises, teacher authoring, automatic assessment and privacy-conscious deployment need to coexist. 
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
   \caption{Comparison of Block-Based Programming Platforms}
   \label{tab:platform-comparison}
@@ -82,171 +82,90 @@ each with distinct advantages and limitations.
 
 \subsection{Test-Based Grading}
 The most common approach executes student code against a set of test cases~\cite{douce2005, alaMutka2005},
-comparing actual output to expected outpus. This approach is well stuited for Input/Output (I/O) exercises, where correctness
-can be defined in terms of input-output pairs.
-
-Key considerations for test-based grading include:
-\begin{itemize}
-  \item \textbf{Visible vs. hidden tests}: Visible tests provide immediate feedback and learning scaffolds, while hidden tests
-        prevent hardcoding of solutions.
-  \item \textbf{Output normalization}: Handling whitespace, case sensitivity, and formatting differences.
-  \item \textbf{Partial credit}: Awarding points for partially correct solutions.
-  \item \textbf{Feedback quality}: Providing meaningful error messages rather than simple pass/fail indicators.
-\end{itemize}
+comparing actual output to expected outputs. This is well suited to input/output exercises in which correctness can be defined through a clear mapping from input to output.
+In practice, such grading must deal with issues such as visible versus hidden tests, normalization of whitespace or upper/lower case and the distinction between purely summative checking
+and formative feedback.
+The systematic review by Messer et al. shows that this form of grading remains the dominant approach in automated programming assessment because it
+is reliable for constrained tasks and scales well to large cohorts \cite{messer-neil}.
 
 \subsection{State-Based Grading}
-For visual programming exercises such as turtle graphics, state-based grading evaluates the final state of the execution
-environment rather than textual output. This includes:
-\begin{itemize}
-  \item Position and orientation of graphical elements
-  \item Command sequences executed during the program
-  \item Canvas or grid state at program termination
-\end{itemize}
-
-State-based grading allows for more flexible solutions, as multiple command sequences can produce equivalent final states~\cite{malmi2004}.
-BlockQuiz implements both exact command matching and final state comparison with configurable tolerance thresholds.
-
+Not all beginner tasks produce meaningful textual output. In graphical or simulation-based exercises, correctness is often better captured through the final state of the system
+or through the sequence of actions that produced the state. 
+Turtle graphics are a good example: a learner may arrive at the same picture through multiple valid block sequences, which means that grading can
+be based either on the final geometric state or a more prescriptive comparison of executed commands \cite{malmi2004}. For this reason, BlockQuiz combines simple command-based and state-based 
+grading strategies, depending on the intended learning objective. 
 
 \subsection{Benefits of Immediate Feedback}
-Research on formative assessment consistently demonstrates the value of immediate feedback for learning
-\cite{blackWiliam1998, hattie2007, shute2008}. Auto-grading enables instant feedback that would be impossible
-to provide manually in a classroom setting, allowing students to:
-\begin{itemize}
-  \item Iterate quickly on solutions
-  \item Identify and correct misunderstandings immediately
-  \item Progress at their own pace without waiting for teacher review
-\end{itemize}
+The pedagogical importance of immediate feedback is well established in the literature on formative assessment \cite{blackWiliam1998, hattie2007, shute2008}. 
+Fast feedback allows learners to revise their understanding while the problem is still active in working memory, and it reduces the delay between action 
+and consequence that often weakens learning in traditional classroom assessment. 
+In the context of beginner programming, this is especially important because misconceptions about loops, sequencing or conditions can often be addressed most
+effectively when the learner can try again immediately. 
+
 
 \section{Learning Theory Foundations}
-The design of BlockQuiz is informed by learning theories that guide decisions in exercise design, feedback mechanisms and scaffolding approaches.
+The design of BlockQuiz is informed by several well-established educational theories. 
+These theories do not determine the implementation directly, but they provide a conceptual framework for understanding why constrained block-based 
+tasks, progressive hints and visual feedback are appropriate design choices. 
 
 \subsection{Constructionism}
-Seymour Papert's constructionism builds on Piaget's constructivism, arguing that learning is particualarly effective when learners
-Are actively constructing artifacts that are personally meaningfull \cite{papert1980, constructionism}. Papert's work with Logo and turtle graphics demonstrated how
-programming could serve as a medium for exploring mathematical concepts thourhg construction.
-
-Blockquiy embraces constructionist principles by:
-\begin{itemize}
-  \item Providing immediate visual feedback through turtle graphics (as in \cite{papert1980})
-  \item Allowing learners to experiment and observe consequences
-  \item Making abstract concepts (angles, distances, repetition) tangible
-\end{itemize}
+Seymour Papert's constructionism argues that learning becomes especially powerful when students actively construct artifacts 
+that are meaningful to them \cite{papert1980}. Programming can therefore be understood not merely as a way of issuing instructions to a machine, but as a 
+medium through which learners explore ideas, observe consequences and build mental models.
+Although BlockQuiz focuses on shorter and more guided tasks than open creative environments, it still adopts the constructionist insight that programming is most
+engaging when learners can see the effects of their decisions directly. Turtle graphics, in particular, make this visible by connecting code to movement and shape. 
 
 \subsection{Cognitive Load Theory}
-Cognitive Load Theory \cite{sweller1988} distinguishes between intrinsic load (inherent to the material),
-extraneous load (caused by poor instructional design) and germane load (contributing to learning).
-Block-based programming reduces extraneous cognitive load by:
-\begin{itemize}
-  \item Eliminating syntax errors and the need to memorize keywords
-  \item Providing visual scaffoling throuhg block shapes that indicate valid connections
-  \item Constraining the problem space through per-exercise toolboxes
-\end{itemize}
+Cognitive Load Theory distinguishes between the inherent difficulty of a task, extraneous load introduced by presentation or interface design and 
+beneficial load associated with meaningful learning activity \cite{sweller1988}.
+One of the main strengths of block-based programming is that it reduces extraneous load by eliminating syntax errors and making valid composition visible.
+BlockQuiz extends this idea by constraining the toolbox on a per-exercise basis. 
+Instead of exposing a large library of irrelevant blocks, the system presents only the constructs that are needed for a given task, which
+supports focused learning and reduces distraction.
 
-BlockQuiz's constrained exercise model direcrly applies cognitive load principles by limiting available blocks
-to those relevant for each learning objective, reducing the extraneous load of navigating a large block library.
+% Cogni
 
 \subsubsection{Zone of Proximal Development}
-Vygotsky's Zone of Proximal Development (ZPD) \cite{Vygotsky1980, Shabani} describes the gap between what a learner can
-do independently and what they can achieve with guidance. Eﬀective instruction targets this
-zone, providing appropriate scaﬀolding that can be gradually removed.
-
-BlockQuiy implements scaffoling through:
-\begin{itemize}
-  \item Progressive hin systems that reveal guidance on demand
-  \item Starter blcoks that provide partial solutions for complex exercises
-  \item Difficulty progression within courses that builds on prior knowledge
-\end{itemize}
+Vygotsky's Zone of Proximal Development describes the range in which learners can complete a task with guidance but not yet entirely on their own \cite{Vygotsky1980, Shabani2010}.
+This idea is relevant for platforms that provide progressive support rather than all-or-nothing assessment. In BlockQuiz, the use of staged hints, starter blocks and ordered
+task progression is intended to keep exercises within that zone. The platform does not merely judge whether an answer is correct, it is also
+designed to support learners while they move toward a correct solution. 
 
 \subsection{Age-Appropriate Design}
-Desigin for children aged 8-12 requrieds understanding developmental psychology and applying pricniples from child-computer interaction research.
+Design for children aged 8-12 requires more than simply scaling down an adult programming environment.
+At this age, many learners are still more comfortable with concrete and visual representation than with abstract symbolic formalisms. 
+Tasks therefore need to connect closely to visible outcomes, especially for younger learners, while still leaving room for gradually more
+abstract reasoning among older children in the age group.
+This makes a mixture of turtle-graphics tasks and simple input/output problems an appropriate scope for the platform. 
 
-\subsubsection{Developmental Considerations}
-In classical Piagetian terms, many children in roughly the 7--11/12 age range are in the concrete
-operational stage~\cite{PiagetInhelder1969}. This stage is commonly characterized by:
-\begin{itemize}
-  \item Ability to perform logical operations on concrete objects
-  \item Development of conservation and reversibility concepts
-  \item More limited abstract reasoning than in later formal-operational thinking
-\end{itemize}
-
-This has implications for exercise design:
-\begin{itemize}
-  \item Younger children (8-9) often benefit from concrect, visual exercises like turtle graphics
-  \item Abstract concepts (variables, conditionals) should be introduced with concrete examples
-  \item Older children (11-12) may increasingly handle more abstract I/O-style exercises when they are appropriately scaffolded
-\end{itemize}
-
-\subsubsection{Interface Design for Children}
-Research on child-computer interaction suggests several design principles \cite{read2008}:
-\begin{itemize}
-  \item \textbf{Large targets:} Interactive elements should be large enough for less precise motor control
-  \item \textbf{Minimal text:} Instructions should be concise and use simple vocabulary
-  \item \textbf{Visual feedback:} Immediate, visual responses to actions
-  \item \textbf{Forgiving interfaces:} Undo functionality and tolerance for errors
-  \item \textbf{Playful aesthetics:} Engaging visual design appropriate for the age group
-\end{itemize}
-
-BlockQuiz applies these principles thorugh large block targets, concise exercise descriptions, immediate visual feedback
-from the canvas, and encouraging feedback messages.
+Research in child-computer interaction further emphasizes the importance of large interaction targets, concise text, clear feedback and forgiving interfaces 
+\cite{read2008}. These principles translate directly into the design of a block-based learning platform.
+A child should be able to understand what an exercise asks for without encountering unnecessary textual complexity, should be able to manipulate the blocks without fine
+motor frustration, and should receive clear feedback after each attempt. 
+Readability and immediate visual response are therefore not cosmetic concerns but core usability requirements. 
 
 \subsection{Privacy and Data Protection}
-The General Data Protection Regulation~(\cite{gdpr2016}) imposes strict requirements on processing children's data within the European Union.
-These requirements are particularly relevant for educational software deployed in schools.
+Privacy is a particularly important design consideration when educational software is used with children.
+Within the European Union, the GDPR places strict limits on the processing of personal data and emphasizes data minimization, purpose limitation and privacy by design. 
+For school software, this means that architectural choices such as account models, storage location and reliance on external services are not only technical decisions but also institutional and legal ones \cite{gdpr2016}.
 
-\subsubsection{GDPR Requirements for Children's Data}
-Key GDPR provisions affecting BlockQuiz include:
-\begin{itemize}
-  \item \textbf{Article 8:} Parental consent required for children under 16 (member states may lower to 13)
-  \item \textbf{Article 5:} Data minimization principle -- collect only necessary data
-  \item \textbf{Article 25:} Privacy by design and by default
-  \item \textbf{Aritcles 15-17}: Richts to access, rectification and reuse
-\end{itemize}
+BlockQuiz adopts a privacy-by-design stance by favoring guest operation, local-progress storage and self-hosted deployment. 
+This does not remove every compliance consideration, but it reduces the amount of personal data that must be collected and transferred. In comparison to cloud-centered
+educational platforms, this approach makes it easier to imagine deployment in school networks where data sovereignty and operational control are important. 
+Currently, user accounts store a name, email address, role and active status on the local server. Attempts store exercise progress and grading data; this data is not shared with third-party services by the application.
 
-\subsubsection{Privacy-by-Design in BlockQuiz}
-BlockQuiz implements privacy-by-design principles through:
-\begin{itemize}
-  \item \textbf{Guest mode:} Default operation without accounts or personal data
-  \item \textbf{Local progress storage:} Browser-based persistence (LocalStorage) eliminating server-side data collection
-  \item \textbf{Self-hosting:} Docker deplyoment enables schools to run the platform within their network, avoiding data transfers to external servers
-  \item \textbf{No external services:} Assets are self-hsoted; no CDNs or analytics services that would transfer data externally
-\end{itemize}
-
-The approach is that BlockQuiz is not a SaaS platform but rather a finished package a school and deploy on their own infrastructure, or even
-if they want just on an old computer. The data belongs to the school and is not transferred to any third party.
 
 
 \subsection{Technical foundations}
 \subsubsection{SvelteKit and Svelte 5}
-SvelteKit is a modern web application framework built on Svelte, a component framework that compiles componetns to efficient JavScript
-at build time rather than using a virtual DOM at runtime. Svelte 5 introduces "runes" - a powerful reactie primitve system
-that enavle reactive state in regular JavaScript/TypeScript files:
-\begin{lstlisting}[caption={Example of a Svelte 5 rune}, label={lst:svelte-rune}]
-// Reactive state in .svelte.ts files
-export class Turtle {
-x = $state(200); // Reactive property
-y = $state(200);
-move(distance: number) {
-this.x += distance * Math.sin(this.angle);
-// UI automatically updates when x changes
-}
-}
-\end{lstlisting}
-This capability enables clean serpation between business logic (exercies engines, graders) and UI components while maintining automatic reactivity. 
+The technical implementation builds on SvelteKit and Svelte 5, whose component model and reactive primitives are well suited to an application that combines a rich frontend, 
+custom editing interfaces and reusable logic for exercise engines. 
+In the context of this project, the relevant advantage is that reactive state can be kept close to the domain logic while still integrating cleanly with user interface components. 
 
-\subsubsection{SQLite and Drizzle ORM}
-SQLite provides a serverless, embedded database ideal for single-school deployments. Combined
-with Drizzle ORM for type-safe database access and migrations, this stack oﬀers:
+For persistence, the project uses SQLite together with Drizzle ORM. This combination is appropriate for the intended deployment scope because it avoids the operational overhead of a separate database
+server while still allowing a typed and structured data model. 
+In a school environment or single-site deployment, the simplicity of SQLite is often a practical advantage rather than a limitation. 
 
-\begin{itemize}
-  \item Zero configuration database setup 
-  \item Protable single-file storage
-  \item Type-safe queries with compile-time verification 
-  \item Straightforward backup (file copy)
-\end{itemize}
-
-\subsubsection{Containerized Deployment}
-Docker containerization enables consistent deployment across environments. A single docker-compose
-command starts the complete application, making it accessible even for school IT administrators
-without extensive DevOps experience.
-
+Finally, containerized deployment with Docker provides a deployment model that is consistent with the overall goals of the system. The platform can be packaged as a self-contained service 
+with minimal installation complexity, which is important in settings where dedicated DevOps expertise cannot be assumed.
 

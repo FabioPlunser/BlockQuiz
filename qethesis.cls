@@ -116,7 +116,7 @@
 %
 % ### Bibliography Style, Autoref Names, Default Pagestyle ###
 %
-\setcitestyle{round}
+\setcitestyle{numbers}
 \bibliographystyle{plainnat}
 %
 \renewcommand{\equationautorefname}{equation}
