@@ -6,7 +6,7 @@
 	import { Role } from '$lib/roles';
 
 	const user = await getCurrentUser();
-	type NavPath = '/courses' | '/cms' | '/users' | '/logs';
+	type NavPath = '/courses' | '/cms' | '/users' | '/logs' | '/settings';
 
 	const isAdmin = $derived(user?.role === Role.ADMIN);
 	const canManageContent = $derived(
@@ -18,7 +18,8 @@
 		{ path: '/courses', label: i18n.nav_courses, visible: true },
 		{ path: '/cms', label: i18n.nav_cms, visible: canManageContent },
 		{ path: '/users', label: i18n.nav_users, visible: isAdmin },
-		{ path: '/logs', label: i18n.nav_logs, visible: isAdmin }
+		{ path: '/logs', label: i18n.nav_logs, visible: isAdmin },
+		{ path: '/settings', label: i18n.nav_settings, visible: isAdmin }
 	] satisfies Array<{ path: NavPath; label: string; visible: boolean }>);
 </script>
 

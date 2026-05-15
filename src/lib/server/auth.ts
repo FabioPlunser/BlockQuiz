@@ -1,13 +1,17 @@
 import { betterAuth } from 'better-auth/minimal';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { sso } from '@better-auth/sso';
 import { db } from '$db/client';
+import { user as userTable } from '$db/schema';
+import { eq } from 'drizzle-orm';
 import { getRequestEvent } from '$app/server';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { building } from '$app/environment';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { logger } from '$lib/logs/logger';
+import { sendEmail } from '$lib/server/email';
+import { getSsoRoleMap } from '$lib/server/settings';
+import { Role } from '$lib/roles';
 
 const authPort = env.PORT ?? (env.NODE_ENV === 'production' ? '3000' : '5173');
 const isProductionRuntime = env.NODE_ENV === 'production' && !building;
@@ -21,7 +25,6 @@ if (isProductionRuntime && !env.AUTH_SECRET) {
 }
 
 const authBaseURL = env.BETTER_AUTH_URL ?? `http://localhost:${authPort}`;
-const outboxDir = env.PASSWORD_RESET_OUTBOX_DIR ?? join(process.cwd(), 'data', 'outbox');
 
 async function hashPassword(password: string) {
 	return Bun.password.hash(password);
@@ -32,34 +35,68 @@ async function verifyPassword({ hash, password }: { hash: string; password: stri
 }
 
 async function deliverResetUrl(email: string, url: string) {
-	logger.info('Password reset requested', { email, url });
-
-	try {
-		await mkdir(outboxDir, { recursive: true });
-		const filename = `${Date.now()}-${email.replace(/[^a-z0-9._-]/gi, '_')}.txt`;
-		const body = [
-			`To: ${email}`,
-			`Subject: BlockQuiz password reset`,
-			'',
+	logger.info('Password reset requested', { email });
+	await sendEmail({
+		to: email,
+		subject: 'BlockQuiz password reset',
+		text: [
 			'A password reset was requested for your BlockQuiz account.',
 			'',
 			`Reset URL: ${url}`,
 			'',
 			'If you did not request this reset, you can ignore this message.'
-		].join('\n');
-		await writeFile(join(outboxDir, filename), body, 'utf8');
-	} catch (cause) {
-		logger.warn('Failed to write password reset outbox file', {
-			email,
-			cause: cause instanceof Error ? cause.message : String(cause)
-		});
+		].join('\n')
+	});
+}
+
+// Map IdP claims to a BlockQuiz role. Reads the role map from app_settings
+// (env vars SSO_ROLE_MAP_* override the stored values, see getSsoRoleMap).
+async function mapClaimsToRole(userInfo: Record<string, unknown>): Promise<Role> {
+	const claimGroups = new Set<string>();
+	for (const key of ['groups', 'roles', 'role']) {
+		const value = userInfo[key];
+		if (Array.isArray(value)) {
+			for (const item of value) if (typeof item === 'string') claimGroups.add(item);
+		} else if (typeof value === 'string') {
+			claimGroups.add(value);
+		}
 	}
+
+	const map = await getSsoRoleMap();
+	const matches = (raw: string | undefined) =>
+		(raw ?? '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean)
+			.some((g) => claimGroups.has(g));
+
+	if (matches(map.admin)) return Role.ADMIN;
+	if (matches(map.author)) return Role.AUTHOR;
+	if (matches(map.teacher)) return Role.TEACHER;
+	return Role.STUDENT;
 }
 
 export const auth = betterAuth({
 	baseURL: authBaseURL,
 	secret: env.AUTH_SECRET,
-	plugins: [sveltekitCookies(getRequestEvent)],
+	plugins: [
+		sso({
+			provisionUser: async ({ user, userInfo }) => {
+				// JIT: align role with IdP claims on every login so group changes propagate.
+				const role = await mapClaimsToRole(userInfo);
+				if (user.role !== role) {
+					await db.update(userTable).set({ role }).where(eq(userTable.id, user.id));
+					logger.info('SSO role updated from IdP claims', {
+						userId: user.id,
+						email: user.email,
+						role
+					});
+				}
+			},
+			provisionUserOnEveryLogin: true
+		}),
+		sveltekitCookies(getRequestEvent)
+	],
 	database: drizzleAdapter(db, {
 		provider: 'sqlite'
 	}),

@@ -34,3 +34,9 @@ export function requireTeacherOrAdmin() {
 
 	return locals.user;
 }
+
+export function isTeacherOrAdmin() {
+	const { locals } = getRequestEvent();
+	return locals.user && locals.user.role === Role.TEACHER || locals.user && locals.user.role === Role.ADMIN;
+}
+	
