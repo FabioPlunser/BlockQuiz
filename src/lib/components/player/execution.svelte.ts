@@ -56,6 +56,12 @@ class ExecutionState {
 		return this._executionError;
 	}
 
+	/** Wall collision point if the engine hit a wall during the last run/submit. */
+	get collision(): { x: number; y: number } | null {
+		const engine = this._engine as { collision?: { x: number; y: number } | null } | null;
+		return engine?.collision ?? null;
+	}
+
 	// Initialize engine based on exercise
 	initialize(exercise: Exercise, getCode: () => string) {
 		log('info', 'Initializing execution state', {
@@ -73,6 +79,12 @@ class ExecutionState {
 			const { width, height } = exercise.canvas;
 			const engine = new Turtle(width, height);
 			engine.gridSize = exercise.canvas.gridSize;
+			engine.walls = exercise.canvas.walls ?? [];
+			engine.targets = exercise.canvas.targets ?? [];
+			engine.appleTolerance = exercise.grader?.appleTolerance ?? 0.5;
+			if (exercise.canvas.start) {
+				engine.state = { ...engine.state, x: exercise.canvas.start.x, y: exercise.canvas.start.y };
+			}
 			this._engine = engine;
 			log('debug', 'Created Turtle engine', { width, height });
 		} else if (exercise.type === 'robot') {
@@ -281,9 +293,14 @@ class ExecutionState {
 				totalTests: submission.grading.totalTests
 			});
 
-			this._result = submission.grading;
+			const collidedPoint = this.collision;
+			const grading = collidedPoint
+				? { ...submission.grading, passed: false, score: 0 }
+				: submission.grading;
+			this._result = grading;
+			if (collidedPoint) this._executionError = true;
 			if (onSubmit) {
-				onSubmit(submission.grading);
+				onSubmit(grading);
 			}
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : 'Unknown error';

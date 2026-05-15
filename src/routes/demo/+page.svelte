@@ -18,7 +18,7 @@
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { getPublicCourseExercises, getPublicCourses } from '$lib/remote/courses.remote';
 	import type { AttemptSubmission } from '$lib/types/attempt';
-	import type { Course } from '$lib/types/course';
+	import type { CourseWithRelations as Course } from '$lib/types/course';
 	import type { Exercise } from '$lib/types/exercise';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import {
@@ -33,7 +33,8 @@
 	} from '@lucide/svelte';
 	import toast from '$lib/toaster';
 
-	let publicCourses = $derived(getPublicCourses({}));
+	const publicCourses = getPublicCourses({});
+	let publicCourseList = $derived(await publicCourses);
 
 	let selectedCourse = $state<Course | null>(null);
 	let selectedExercises = $state<Exercise[]>([]);
@@ -257,16 +258,19 @@
 </svelte:head>
 
 {#if selectedCourse}
-	<CoursePlayer
-		course={selectedCourse}
-		exercises={selectedExercises}
-		onBack={handleBack}
-		persistAttempt={persistGuestAttempt}
-		initialProgress={selectedCourseProgress}
-		initialSnapshots={selectedSnapshots}
-		initialExerciseIndex={selectedCourseExerciseIndex}
-		onExerciseChange={handleExerciseChange}
-	/>
+	{@const playerProps = {
+		course: selectedCourse,
+		exercises: selectedExercises,
+		onBack: handleBack,
+		persistAttempt: persistGuestAttempt,
+		initialProgress: selectedCourseProgress,
+		initialSnapshots: selectedSnapshots,
+		initialExerciseIndex: selectedCourseExerciseIndex,
+		onExerciseChange: handleExerciseChange
+	} as unknown as { courseId: string; onBack: () => void }}
+	<!-- TODO(guest-mode): CoursePlayer was refactored to load data from authed remote queries.
+		 Guest playback needs a parallel path or a `mode="guest"` variant. -->
+	<CoursePlayer {...playerProps} />
 {:else}
 	<section class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
 		<div
@@ -349,13 +353,7 @@
 			</button>
 		</div>
 
-		{#if publicCourses.loading}
-			<div
-				class="flex min-h-48 items-center justify-center rounded-3xl border border-slate-200 bg-white"
-			>
-				<span class="loading loading-lg loading-spinner"></span>
-			</div>
-		{:else if ((publicCourses.current as Course[]) ?? []).length === 0}
+		{#if ((publicCourseList ?? []) as Course[]).length === 0}
 			<div
 				class="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-600"
 			>
@@ -364,7 +362,7 @@
 			</div>
 		{:else}
 			<div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-				{#each (publicCourses.current as Course[]) ?? [] as course (course.id)}
+				{#each (publicCourseList ?? []) as Course[] as course (course.id)}
 					{@const progress = getProgressForCourse(course.id)}
 					<article
 						class="flex flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"

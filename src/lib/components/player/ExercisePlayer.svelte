@@ -1,26 +1,17 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import type { Exercise } from '$lib/types/exercise';
 	import type { AttemptCapture, HintRevealEvent } from '$lib/types/attempt';
 	import type { GradingResult } from '$lib/player/executor';
-	import type { BlocklyToolboxConfig, BlocklyCategoryConfig } from '$lib/blockly/types';
-	import { BlocklyToolboxKind } from '$lib/blockly/types';
 	import BlocklyWorkspace from '$cp/BlocklyWorkspace.svelte';
 	import ExerciseInfoPanel from './ExerciseInfoPanel.svelte';
 	import ExecutionArea from './ExecutionArea.svelte';
 	import CodeReadout from './CodeReadout.svelte';
-	import { Turtle } from '$lib/canvas/Turtle.svelte';
-	import { Robot } from '$lib/canvas/Robot.svelte';
-	import { getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
-	import {
-		LOGIC_BLOCKS,
-		LOOP_BLOCKS,
-		MATH_BLOCKS,
-		TEXT_BLOCKS,
-		VARIABLE_BLOCKS
-	} from '$lib/blockly/presets';
 	import ResultsPanel from './ResultsPanel.svelte';
-	import { getExecutionState } from './execution.svelte';
+	import CollisionBanner from './CollisionBanner.svelte';
+	import { ExercisePlayerState, setExercisePlayer } from './ExercisePlayerState.svelte';
+	import { getToolbox } from '$lib/player/toolbox';
 
 	type Props = {
 		exercise: Exercise;
@@ -44,17 +35,18 @@
 		initialResult = null
 	}: Props = $props();
 
-	const executionState = getExecutionState();
-
-	let result = $derived(executionState.result);
-	let isSubmitting = $derived(executionState.isSubmitting);
-	let showInitialResult = $state(true);
-	let displayedResult = $derived(result ?? (showInitialResult ? initialResult : null));
+	const player = new ExercisePlayerState(untrack(() => exercise), {
+		initialResult: untrack(() => initialResult)
+	});
+	setExercisePlayer(player);
 
 	let blocklyRef = $state<BlocklyWorkspace | undefined>(undefined);
-	let hintEvents = $state<HintRevealEvent[]>([]);
+	let activeTab = $state<'task' | 'blocks' | 'run'>('blocks');
+
 	let workspaceHeading = $derived(
-		exercise.type === 'io' ? i18n.player_workspace_heading_io : i18n.player_workspace_heading_visual
+		exercise.type === 'io'
+			? i18n.player_workspace_heading_io
+			: i18n.player_workspace_heading_visual
 	);
 	let workspaceDescription = $derived(
 		exercise.type === 'io'
@@ -62,138 +54,40 @@
 			: i18n.player_workspace_description_visual
 	);
 	let exerciseTitle = $derived(getLocalized(exercise.content.title));
-
-	function getBuiltinCategoryLabel(kind: 'logic' | 'loops' | 'math' | 'text' | 'variables') {
-		if (kind === 'logic') return i18n.toolbox_logic;
-		if (kind === 'loops') return i18n.toolbox_loops;
-		if (kind === 'math') return i18n.toolbox_math;
-		if (kind === 'text') return i18n.toolbox_text;
-		return i18n.toolbox_variables;
-	}
+	let toolboxConfig = $derived(
+		getToolbox(exercise, {
+			logic: i18n.toolbox_logic,
+			loops: i18n.toolbox_loops,
+			math: i18n.toolbox_math,
+			text: i18n.toolbox_text,
+			variables: i18n.toolbox_variables,
+			turtle: i18n.toolbox_turtle,
+			robot: i18n.toolbox_robot
+		})
+	);
 
 	function getCode(): string {
-		if (!blocklyRef) return '';
-		return blocklyRef.getCode();
+		return blocklyRef?.getCode() ?? '';
 	}
 
 	function getWorkspaceXml(): string {
-		if (!blocklyRef) return '';
-		return blocklyRef.getXml();
-	}
-
-	function getWorkspaceBlockCount(workspaceXml: string): number {
-		return workspaceXml.match(/<block\b/g)?.length ?? 0;
-	}
-
-	function buildBuiltinCategories(): BlocklyCategoryConfig[] {
-		const makeCategory = (name: string, colour: number, ids: string[]): BlocklyCategoryConfig => ({
-			kind: 'category',
-			name,
-			colour,
-			contents: ids
-				.filter((id) => exercise.config.toolbox.includes(id))
-				.map((id) => ({ kind: 'block', type: id }))
-		});
-
-		const categories: BlocklyCategoryConfig[] = [];
-		const logic = makeCategory(getBuiltinCategoryLabel('logic'), 210, LOGIC_BLOCKS);
-		if (logic.contents.length) categories.push(logic);
-		const loops = makeCategory(getBuiltinCategoryLabel('loops'), 120, LOOP_BLOCKS);
-		if (loops.contents.length) categories.push(loops);
-		const math = makeCategory(getBuiltinCategoryLabel('math'), 230, MATH_BLOCKS);
-		if (math.contents.length) categories.push(math);
-		const text = makeCategory(getBuiltinCategoryLabel('text'), 160, TEXT_BLOCKS);
-		if (text.contents.length) categories.push(text);
-		const variables = makeCategory(getBuiltinCategoryLabel('variables'), 330, VARIABLE_BLOCKS);
-		if (variables.contents.length) categories.push(variables);
-
-		return categories;
-	}
-
-	function getEngine() {
-		if (exercise.type === 'io') {
-			return null;
-		}
-
-		if (exercise.type === 'turtle') {
-			const { width, height } = exercise.config.canvas;
-			const engine = new Turtle(width, height);
-			engine.gridSize = exercise.canvas.gridSize;
-			return engine;
-		}
-
-		const width = exercise.grid.width * exercise.grid.cellSize;
-		const height = exercise.grid.height * exercise.grid.cellSize;
-		const engine = new Robot(width, height, {
-			start: exercise.grid.start,
-			direction: exercise.grid.direction
-		});
-		engine.gridSize = exercise.grid.cellSize;
-		return engine;
-	}
-
-	function getToolbox(): BlocklyToolboxConfig {
-		if (exercise.type === 'io') {
-			return {
-				kind: BlocklyToolboxKind.CATEGORY,
-				contents: buildBuiltinCategories()
-			};
-		}
-
-		const engine = getEngine();
-		const prefix = exercise.type;
-		const actorLabel = exercise.type === 'turtle' ? i18n.toolbox_turtle : i18n.toolbox_robot;
-
-		const engineBlocks =
-			engine?.blockDefs.filter((block) => exercise.config.toolbox.includes(block.id)) ?? [];
-		const engineCategory = getCategoryForBlocks(engineBlocks, prefix, actorLabel, 160);
-		const builtinCategories = buildBuiltinCategories();
-
-		return {
-			kind: BlocklyToolboxKind.CATEGORY,
-			contents: [engineCategory, ...builtinCategories].filter(Boolean)
-		};
+		return blocklyRef?.getXml() ?? '';
 	}
 
 	function handleSubmit(result: GradingResult) {
-		showInitialResult = false;
-		const submissionLocale = i18n.locale === 'de' ? 'de' : 'en';
+		const locale: 'de' | 'en' = i18n.locale === 'de' ? 'de' : 'en';
 		const workspaceXml = getWorkspaceXml();
 		const generatedCode = getCode();
-		onSubmit({
-			result,
-			capture: {
-				workspaceXml,
-				generatedCode,
-				locale: submissionLocale,
-				hintEventsJson: JSON.stringify(hintEvents),
-				analyticsJson: JSON.stringify({
-					exerciseType: exercise.type,
-					totalTests: result.totalTests,
-					passedTests: result.passedTests,
-					hintUsageCount: hintEvents.length,
-					workspaceBlockCount: getWorkspaceBlockCount(workspaceXml),
-					generatedCodeLength: generatedCode.length,
-					submittedAt: Date.now()
-				})
-			}
-		});
+		const capture = player.buildCapture({ workspaceXml, generatedCode, result, locale });
+		onSubmit({ result, capture });
 	}
 
-	function handleRetry() {
-		showInitialResult = false;
-		executionState.handleRetry();
+	function handleHintEventsChange(events: HintRevealEvent[]) {
+		player.handleHintEventsChange(events);
 	}
-
-	function handleHintEventsChange(nextEvents: HintRevealEvent[]) {
-		hintEvents = [...nextEvents];
-	}
-
-	let activeTab = $state<'task' | 'blocks' | 'run'>('blocks');
 </script>
 
 <div class="flex flex-col gap-4">
-	<!-- Tab bar — hidden on xl+, always visible below xl -->
 	<div class="flex gap-1 rounded-lg bg-base-200 p-1 xl:hidden">
 		<button
 			class="btn flex-1 btn-sm"
@@ -239,7 +133,7 @@
 		</section>
 
 		<section
-			class="flex min-h-[28rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4 xl:flex"
+			class="flex min-h-[36rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4 xl:flex"
 			class:hidden={activeTab !== 'blocks'}
 		>
 			<div
@@ -255,11 +149,11 @@
 				<div class="badge badge-outline badge-lg">{exerciseTitle}</div>
 			</div>
 
-			<div class="min-h-[22rem] flex-1">
+			<div class="flex min-h-[28rem] flex-1 flex-col">
 				{#key exercise.id}
 					<BlocklyWorkspace
 						bind:this={blocklyRef}
-						toolboxConfig={getToolbox()}
+						toolboxConfig={toolboxConfig}
 						starterXml={initialWorkspaceXml ||
 							(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
 						ariaLabel={i18n.player_workspace_aria_label}
@@ -275,11 +169,14 @@
 		</section>
 
 		<section class="flex flex-col gap-4 xl:flex" class:hidden={activeTab !== 'run'}>
+			{#if player.collision}
+				<CollisionBanner onRetry={() => player.handleRetry()} />
+			{/if}
 			<ResultsPanel
-				result={displayedResult}
-				{isSubmitting}
+				result={player.displayedResult}
+				isSubmitting={player.isSubmitting}
 				{hasNextExercise}
-				onRetry={handleRetry}
+				onRetry={() => player.handleRetry()}
 				{onNext}
 			/>
 			<ExecutionArea {exercise} {getCode} onSubmit={handleSubmit} />
