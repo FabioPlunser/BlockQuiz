@@ -9,7 +9,9 @@
 		saveSsoProvider,
 		deleteSsoProvider,
 		getRoleMap,
-		saveRoleMap
+		saveRoleMap,
+		getAuthSettings,
+		saveAuthSettings
 	} from '$remote/settings.remote';
 	import Loading from '$cp/Loading.svelte';
 	import Modal from '$cp/Modal.svelte';
@@ -146,6 +148,53 @@
 						</table>
 					</div>
 				{/if}
+			</svelte:boundary>
+
+			<svelte:boundary>
+				{#snippet pending()}{/snippet}
+				{#snippet failed(error, reset)}
+					<div class="alert alert-error">
+						<span>{String(error)}</span>
+						<button class="btn btn-sm" onclick={reset}>{i18n.try_again}</button>
+					</div>
+				{/snippet}
+				{@const authCfg = await getAuthSettings()}
+				<form
+					{...saveAuthSettings.enhance(async ({ submit }) => {
+						try {
+							await submit();
+							const issues = saveAuthSettings.fields.allIssues();
+							if (!issues || issues.length === 0) {
+								showSuccess(i18n.settings_auth_saved);
+								await getAuthSettings().refresh();
+							} else {
+								showError(issues[0].message);
+							}
+						} catch (e) {
+							showError(e instanceof Error ? e.message : i18n.toast_generic_error);
+						}
+					})}
+					class="grid gap-3 border-t border-base-200 pt-4"
+				>
+					<label class="flex flex-col gap-1">
+						<span class="label-text text-sm font-semibold">{i18n.settings_auth_mode_label}</span>
+						<select
+							{...saveAuthSettings.fields.mode.as('select')}
+							class="select-bordered select select-sm"
+						>
+							<option value="always" selected={authCfg.passwordLoginMode === 'always'}>
+								{i18n.settings_auth_mode_always}
+							</option>
+							<option value="fallback" selected={authCfg.passwordLoginMode === 'fallback'}>
+								{i18n.settings_auth_mode_fallback}
+							</option>
+						</select>
+						<span class="text-xs text-base-content/60">{i18n.settings_auth_mode_hint}</span>
+					</label>
+					<div>
+						<button type="submit" class="btn btn-primary btn-sm">{i18n.settings_save}</button>
+					</div>
+				</form>
 			</svelte:boundary>
 		</div>
 	</section>

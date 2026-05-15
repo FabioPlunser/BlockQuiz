@@ -153,3 +153,20 @@ export async function getSsoRoleMap(): Promise<SsoRoleMap & { envOverrides: Reco
 export async function saveSsoRoleMap(input: SsoRoleMap, updatedBy: string): Promise<void> {
 	await setSetting('sso.roleMap', input, updatedBy, 'settings.sso.roleMap.update');
 }
+
+// 'always': email/password always visible alongside SSO (default).
+// 'fallback': SSO primary; password form hidden behind a toggle for admin recovery.
+export type PasswordLoginMode = 'always' | 'fallback';
+
+export async function getPasswordLoginMode(): Promise<PasswordLoginMode> {
+	const stored = await getSetting<{ mode?: PasswordLoginMode }>('auth.passwordLogin', {});
+	if (stored.mode === 'fallback') return 'fallback';
+	return 'always';
+}
+
+export async function savePasswordLoginMode(
+	mode: PasswordLoginMode,
+	updatedBy: string
+): Promise<void> {
+	await setSetting('auth.passwordLogin', { mode }, updatedBy, 'settings.auth.passwordLogin.update');
+}

@@ -31,6 +31,10 @@ export const deleteSsoProviderSchema = z.object({
 	providerId: z.string().min(1)
 });
 
+export const passwordLoginModeSchema = z.object({
+	mode: z.enum(['always', 'fallback'])
+});
+
 export const saveRoleMapSchema = z.object({
 	admin: z.string().optional().default(''),
 	author: z.string().optional().default(''),

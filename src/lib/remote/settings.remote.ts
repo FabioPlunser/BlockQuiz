@@ -9,7 +9,9 @@ import {
 	getEmailConfig,
 	saveEmailConfig,
 	getSsoRoleMap,
-	saveSsoRoleMap
+	saveSsoRoleMap,
+	getPasswordLoginMode,
+	savePasswordLoginMode
 } from '$lib/server/settings';
 import { sendEmail } from '$lib/server/email';
 import { writeAuditLog } from '$lib/server/audit';
@@ -18,7 +20,8 @@ import {
 	saveSsoProviderSchema,
 	deleteSsoProviderSchema,
 	saveRoleMapSchema,
-	sendTestEmailSchema
+	sendTestEmailSchema,
+	passwordLoginModeSchema
 } from '$remote/schemas/settingsSchema';
 import { env } from '$env/dynamic/private';
 
@@ -117,13 +120,36 @@ export const sendTestEmail = command(sendTestEmailSchema, async (data) => {
 	}
 });
 
-// Public: minimal provider list for the login page. No auth required, only safe fields.
+// Public: minimal provider list + auth mode for the login page. No auth required, only safe fields.
 export const getPublicSsoProviders = query(async () => {
 	const rows = await db.select().from(ssoProvider);
 	return rows.map((row) => ({
 		providerId: row.providerId,
 		domain: row.domain
 	}));
+});
+
+export const getPublicAuthSettings = query(async () => {
+	const mode = await getPasswordLoginMode();
+	return { passwordLoginMode: mode };
+});
+
+export const getAuthSettings = query(async () => {
+	requireAuth(Role.ADMIN);
+	return { passwordLoginMode: await getPasswordLoginMode() };
+});
+
+export const saveAuthSettings = form(passwordLoginModeSchema, async (data) => {
+	const actor = requireAuth(Role.ADMIN);
+	try {
+		await savePasswordLoginMode(data.mode, actor.id);
+		return { success: true as const };
+	} catch (e) {
+		return {
+			success: false as const,
+			error: e instanceof Error ? e.message : 'Failed to save auth settings'
+		};
+	}
 });
 
 export const getSsoProviders = query(async () => {
