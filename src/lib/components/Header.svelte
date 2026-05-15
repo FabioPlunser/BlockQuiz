@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { getCurrentUser } from '$remote/auth.remote';
+	import { theme } from '$lib/theme.svelte';
 	import Navigation from './Navigation.svelte';
 	import Avatar from './Avatar.svelte';
 	import { Globe } from '@lucide/svelte';
@@ -13,25 +14,9 @@
 	] as const);
 
 	let user = $state<any>(null);
-	let theme = $state<'light' | 'dark'>('light');
-
-	const applyTheme = (next: 'light' | 'dark') => {
-		theme = next;
-		if (typeof document !== 'undefined') {
-			document.documentElement.setAttribute('data-theme', next);
-			localStorage.setItem('theme', next);
-		}
-	};
 
 	onMount(async () => {
-		if (typeof window !== 'undefined') {
-			const stored = localStorage.getItem('theme');
-			const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-			const initial =
-				stored === 'dark' || stored === 'light' ? stored : prefersDark ? 'dark' : 'light';
-			applyTheme(initial as 'light' | 'dark');
-		}
-
+		theme.sync();
 		try {
 			user = await getCurrentUser();
 		} catch {
@@ -42,23 +27,19 @@
 	const changeLanguage = async (code: string) => {
 		await setLocale(code);
 	};
-
-	const toggleTheme = () => {
-		applyTheme(theme === 'light' ? 'dark' : 'light');
-	};
 </script>
 
 <header class="mb-8 flex items-center justify-between">
-	<a href={resolve('/')} class="flex items-center gap-2 text-lg font-semibold text-slate-800">
+	<a href={resolve('/')} class="flex items-center gap-2 text-lg font-semibold">
 		<span
-			class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-xl font-bold text-white shadow-lg shadow-sky-200"
+			class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-xl font-bold text-white"
 		>
 			BQ
 		</span>
 		<span class="hidden sm:block">BlockQuiz</span>
 	</a>
 
-	<nav class="{user ? 'flex w-full' : ''} items-center gap-2 text-sm font-medium text-slate-600">
+	<nav class="{user ? 'flex w-full' : ''} items-center gap-2 text-sm font-medium">
 		{#if user}
 			<div class="mx-auto flex items-center">
 				<Navigation />
@@ -78,8 +59,8 @@
 					type="checkbox"
 					class="sr-only"
 					aria-label={i18n.theme_toggle_label}
-					checked={theme === 'dark'}
-					onchange={toggleTheme}
+					checked={theme.isDark}
+					onchange={() => theme.toggle()}
 				/>
 
 				<!-- sun icon -->
