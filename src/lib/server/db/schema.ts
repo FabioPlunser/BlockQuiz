@@ -58,6 +58,18 @@ export const verification = sqliteTable('verification', {
 	updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(nowMs())
 });
 
+// Better Auth SSO plugin (@better-auth/sso)
+export const ssoProvider = sqliteTable('ssoProvider', {
+	id: text('id').primaryKey(),
+	issuer: text('issuer').notNull(),
+	oidcConfig: text('oidcConfig'),
+	samlConfig: text('samlConfig'),
+	userId: text('userId').references(() => user.id, { onDelete: 'cascade' }),
+	providerId: text('providerId').notNull().unique(),
+	organizationId: text('organizationId'),
+	domain: text('domain').notNull()
+});
+
 // Courses table
 export const courses = sqliteTable('courses', {
 	id: text('id').primaryKey(),
@@ -185,6 +197,15 @@ export const achievements = sqliteTable('achievements', {
 	badgeKey: text('badge_key').notNull(),
 	awardedAt: integer('awarded_at', { mode: 'number' }).notNull().default(nowMs()),
 	contextJson: text('context_json')
+});
+
+// Runtime-editable app settings (admin-managed key/value).
+// Keys: 'email.driver', 'email.smtp', 'email.graph', 'email.from', 'sso.roleMap'
+export const appSettings = sqliteTable('app_settings', {
+	key: text('key').primaryKey(),
+	value: text('value', { mode: 'json' }).notNull(),
+	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs()),
+	updatedBy: text('updated_by').references(() => user.id)
 });
 
 // Translations table

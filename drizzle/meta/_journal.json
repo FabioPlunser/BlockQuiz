@@ -1,48 +1,62 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1763582438190,
-			"tag": "0000_conscious_multiple_man",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "6",
-			"when": 1764085148636,
-			"tag": "0001_serious_gambit",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "6",
-			"when": 1764085166239,
-			"tag": "0002_broken_hammerhead",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "6",
-			"when": 1764667404099,
-			"tag": "0003_worried_pepper_potts",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "6",
-			"when": 1767350759150,
-			"tag": "0004_last_scarlet_witch",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1772928000000,
-			"tag": "0006_agent_2_domain_contract",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1763582438190,
+      "tag": "0000_conscious_multiple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1764085148636,
+      "tag": "0001_serious_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1764085166239,
+      "tag": "0002_broken_hammerhead",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1764667404099,
+      "tag": "0003_worried_pepper_potts",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1767350759150,
+      "tag": "0004_last_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772928000000,
+      "tag": "0006_agent_2_domain_contract",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1778496599373,
+      "tag": "0006_short_jack_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1779000000000,
+      "tag": "0008_app_settings",
+      "breakpoints": true
+    }
+  ]
 }
