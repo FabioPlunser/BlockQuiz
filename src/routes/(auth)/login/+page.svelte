@@ -9,7 +9,7 @@
 	import { goto } from '$app/navigation';
 	import { showSuccess, showError } from '$lib/utils/toast';
 	import { authClient } from '$lib/client/auth';
-	import { getPublicSsoProviders } from '$remote/settings.remote';
+	import { getPublicSsoProviders, getPublicAuthSettings } from '$remote/settings.remote';
 
 	const features = $derived([
 		i18n.feature_short_focused,
@@ -21,7 +21,9 @@
 	let mounted = $state(false);
 	let issues = $derived(login.fields.allIssues() ?? []);
 	let ssoSubmitting = $state(false);
+	let showPasswordLogin = $state(false);
 	let ssoProvidersQuery = $derived(getPublicSsoProviders());
+	let authSettingsQuery = $derived(getPublicAuthSettings());
 
 	async function signInWithProvider(providerId: string) {
 		ssoSubmitting = true;
