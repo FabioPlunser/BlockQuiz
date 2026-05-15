@@ -50,25 +50,27 @@
 	let confirmOpen = $state(false);
 	let pendingConfirmation: PendingConfirmation | null = $state(null);
 
-	let exercises = $derived(
-		getExercises({
-			type: filterType,
-			archived:
-				filterArchived.current === 'all'
-					? undefined
-					: filterArchived.current === 'archived'
-						? true
-						: false
-		})
-	);
-	let courseOptions = $derived(getCourses({}));
+	let exercisesFilters = $derived({
+		type: filterType,
+		archived:
+			filterArchived.current === 'all'
+				? undefined
+				: filterArchived.current === 'archived'
+					? true
+					: false
+	});
+	let exercises = $derived(getExercises(exercisesFilters));
+	let exerciseList = $derived(await exercises);
+
+	const courseOptions = getCourses({});
+	let courseList = $derived(await courseOptions);
 	let activeCourses = $derived(
 		(
-			(courseOptions.current as Array<{
+			(courseList ?? []) as Array<{
 				id: string;
 				archivedAt?: number | null;
 				content: { title: { de: string; en: string } };
-			}>) ?? []
+			}>
 		).filter((course) => course.archivedAt == null)
 	);
 
@@ -118,16 +120,14 @@
 	}
 
 	let filteredExercises = $derived.by(() => {
-		let items = (exercises.current as Exercise[]) ?? [];
+		let items = (exerciseList ?? []) as Exercise[];
 
-		// Filter by status
 		if (filterStatus === 'true') {
 			items = items.filter((e) => e.published);
 		} else if (filterStatus === 'false') {
 			items = items.filter((e) => !e.published);
 		}
 
-		// Filter by search
 		if (searchQuery.trim()) {
 			items = items.filter((e) => searchInObject(e, searchQuery));
 		}
@@ -245,7 +245,7 @@
 		if (!exercise.id) return;
 
 		try {
-			const result = await deleteExercise(exercise.id).updates(exercises);
+			const result = await deleteExercise(exercise.id).updates(getExercises(exercisesFilters));
 			handleServerResult(result, i18n.toast_exercise_deleted, i18n.toast_exercise_delete_failed);
 		} catch (error) {
 			console.error('Failed to delete exercise:', error);
@@ -258,17 +258,17 @@
 	}
 
 	async function handleClone(exercise: Exercise) {
-		const result = await cloneExercise({ id: exercise.id }).updates(exercises);
+		const result = await cloneExercise({ id: exercise.id }).updates(getExercises(exercisesFilters));
 		handleServerResult(result, i18n.toast_exercise_cloned, i18n.toast_exercise_clone_failed);
 	}
 
 	async function handleArchive(exercise: Exercise) {
-		const result = await archiveExercise({ id: exercise.id }).updates(exercises);
+		const result = await archiveExercise({ id: exercise.id }).updates(getExercises(exercisesFilters));
 		handleServerResult(result, i18n.toast_exercise_archived, i18n.toast_exercise_archive_failed);
 	}
 
 	async function handleRestore(exercise: Exercise) {
-		const result = await restoreExercise({ id: exercise.id }).updates(exercises);
+		const result = await restoreExercise({ id: exercise.id }).updates(getExercises(exercisesFilters));
 		handleServerResult(result, i18n.toast_exercise_restored, i18n.toast_exercise_restore_failed);
 	}
 
@@ -342,7 +342,7 @@
 
 	async function confirmImport(courseId: string, payload: ExerciseTransfer) {
 		try {
-			const result = await importExercise({ courseId, payload }).updates(exercises);
+			const result = await importExercise({ courseId, payload }).updates(getExercises(exercisesFilters));
 			handleServerResult(result, i18n.toast_exercise_imported, i18n.toast_exercise_import_failed);
 		} catch (error) {
 			console.error(error);
@@ -363,6 +363,76 @@
 		newExercise = true;
 	}
 </script>
+
+<div class="p-4">
+	<Boundary>
+	{#if !newExercise && !editExercise}
+		<CMSToolbar
+			bind:viewMode={viewMode.current}
+			bind:searchQuery
+			searchPlaceholder={i18n.cms_exercises_search_placeholder}
+			createButtonLabel={i18n.cms_exercises_new_button}
+			onCreate={handleCreate}
+			filters={filterControls}
+			actions={toolbarActions}
+		/>
+
+		{#if filteredExercises.length === 0}
+			{@const totalCount = (exerciseList ?? []).length}
+			{@const filtersHide = totalCount > 0}
+			<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
+				<h3 class="text-lg font-medium">{i18n.cms_exercises_empty_title}</h3>
+				{#if filtersHide}
+					<p class="mt-1 text-base-content/60">
+						{totalCount} exercise{totalCount === 1 ? '' : 's'} match the server filter but the client
+						filter hides {totalCount === 1 ? 'it' : 'them all'}. Try resetting the filters.
+					</p>
+					<button
+						class="btn mt-4 gap-2 btn-md btn-primary"
+						onclick={() => {
+							filterType = 'all';
+							filterStatus = '';
+							filterArchived.current = 'active';
+							searchQuery = '';
+						}}
+					>
+						Reset filters
+					</button>
+				{:else}
+					<p class="mt-1 text-base-content/60">{i18n.cms_exercises_empty_hint}</p>
+					<button class="btn mt-4 btn-primary" onclick={handleCreate}>
+						{i18n.cms_exercises_create_first}
+					</button>
+				{/if}
+			</div>
+		{:else if viewMode.current === 'cards'}
+			<CMSCardView items={filteredExercises} card={exerciseCard} gridCols={3} />
+		{:else}
+			<CMSTableView items={filteredExercises} columns={tableColumns} actions={exerciseActions} />
+		{/if}
+	{/if}
+
+	{#if newExercise || editExercise}
+		<div in:fly={{ y: -100, duration: 300 }}>
+			<ExerciseEditor
+				exercise={selectedExercise}
+				remote={exercises}
+				isNew={newExercise}
+				onCancel={handleCancel}
+				onSave={handleCancel}
+			/>
+		</div>
+	{/if}
+	</Boundary>
+	<ConfirmModal
+		bind:open={confirmOpen}
+		message={pendingConfirmation?.message ?? ''}
+		confirmLabel={pendingConfirmation?.confirmLabel ?? i18n.cms_delete}
+		confirmClass={pendingConfirmation?.confirmClass}
+		onConfirm={handleConfirmAction}
+		onCancel={clearPendingConfirmation}
+	/>
+</div>
 
 {#snippet filterControls()}
 	<div class="flex items-center gap-2">
@@ -543,53 +613,3 @@
 		</button>
 	</div>
 {/snippet}
-
-<div class="p-4">
-	<Boundary loading={exercises.loading}>
-		{#if !newExercise && !editExercise}
-			<CMSToolbar
-				bind:viewMode={viewMode.current}
-				bind:searchQuery
-				searchPlaceholder={i18n.cms_exercises_search_placeholder}
-				createButtonLabel={i18n.cms_exercises_new_button}
-				onCreate={handleCreate}
-				filters={filterControls}
-				actions={toolbarActions}
-			/>
-
-			{#if filteredExercises.length === 0}
-				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
-					<h3 class="text-lg font-medium">{i18n.cms_exercises_empty_title}</h3>
-					<p class="mt-1 text-base-content/60">{i18n.cms_exercises_empty_hint}</p>
-					<button class="btn mt-4 btn-primary" onclick={handleCreate}>
-						{i18n.cms_exercises_create_first}
-					</button>
-				</div>
-			{:else if viewMode.current === 'cards'}
-				<CMSCardView items={filteredExercises} card={exerciseCard} gridCols={3} />
-			{:else}
-				<CMSTableView items={filteredExercises} columns={tableColumns} actions={exerciseActions} />
-			{/if}
-		{/if}
-
-		{#if newExercise || editExercise}
-			<div in:fly={{ y: -100, duration: 300 }}>
-				<ExerciseEditor
-					exercise={selectedExercise}
-					remote={exercises}
-					isNew={newExercise}
-					onCancel={handleCancel}
-					onSave={handleCancel}
-				/>
-			</div>
-		{/if}
-	</Boundary>
-	<ConfirmModal
-		bind:open={confirmOpen}
-		message={pendingConfirmation?.message ?? ''}
-		confirmLabel={pendingConfirmation?.confirmLabel ?? i18n.cms_delete}
-		confirmClass={pendingConfirmation?.confirmClass}
-		onConfirm={handleConfirmAction}
-		onCancel={clearPendingConfirmation}
-	/>
-</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Course, CourseFormData } from '$types/course';
+	import type { CourseWithRelations as Course, CourseFormData } from '$types/course';
 	import type { Exercise, ExerciseFormData } from '$types/exercise';
 	import type { User } from '$types/user';
 
@@ -62,14 +62,16 @@
 	let validationIssues = $state<CoursePublishValidationIssue[]>([]);
 
 	// Fetch exercises and users
-	let exercises = $derived(getExercises({}));
-	let users = $derived(getUsers({}));
+	const exercises = getExercises({});
+	const users = getUsers({});
+	let exerciseList = $derived(await exercises);
+	let userList = $derived(await users);
 	let editSelectedExercise = $state<Exercise | undefined>(undefined);
 	// ---------------------------------------------------
 	// Filtered lists
 	// ---------------------------------------------------
 	let filteredExercises = $derived.by(() => {
-		const allExercises = (exercises.current as Exercise[]) ?? [];
+		const allExercises = (exerciseList ?? []) as Exercise[];
 		if (!searchQueryExercises.trim()) {
 			return allExercises;
 		}
@@ -77,7 +79,7 @@
 	});
 
 	let filteredUsers = $derived.by(() => {
-		const allUsers = (users.current as User[]) ?? [];
+		const allUsers = (userList ?? []) as User[];
 		if (!searchQueryUsers.trim()) {
 			return allUsers;
 		}
@@ -85,7 +87,7 @@
 	});
 
 	let selectedExercises = $derived.by(() => {
-		const allExercises = (exercises.current as Exercise[]) ?? [];
+		const allExercises = (exerciseList ?? []) as Exercise[];
 		const exercisesById = new Map(allExercises.map((exercise) => [exercise.id, exercise]));
 
 		return formData.exerciseIds
@@ -322,7 +324,7 @@
 	>
 {/snippet}
 
-<Boundary loading={exercises.loading || users.loading}>
+<Boundary>
 	{#if !editSelectedExercise}
 		<div class="p-4">
 			<div class="card bg-base-200 p-4 shadow-xl">

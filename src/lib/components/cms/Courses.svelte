@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Course } from '$types/course';
+	import type { CourseWithRelations as Course } from '$types/course';
 
 	import Boundary from '$cp/Boundary.svelte';
 	import ConfirmModal from '$cp/ConfirmModal.svelte';
@@ -68,7 +68,8 @@
 		'users'
 	]);
 
-	let courses = $derived(getCourses({}));
+	const courses = getCourses({});
+	let courseList = $derived(await courses);
 
 	function isArchived(course: Course) {
 		return course.archivedAt != null;
@@ -97,7 +98,7 @@
 	// Filtered items
 	// --------------------------------------------------------------------
 	let filteredCourses = $derived.by(() => {
-		let allCourses = (courses.current as Course[]) ?? [];
+		let allCourses = (courseList ?? []) as Course[];
 
 		if (archivedFilter.current === 'active') {
 			allCourses = allCourses.filter((course) => !isArchived(course));
@@ -503,7 +504,7 @@
 {/snippet}
 
 <div class="p-4">
-	<Boundary loading={courses.loading}>
+	<Boundary>
 		<!-- Analytics View -->
 		{#if viewingAnalytics}
 			<CourseAnalytics
@@ -529,12 +530,30 @@
 			/>
 
 			{#if filteredCourses.length === 0}
+				{@const totalCount = (courseList ?? []).length}
+				{@const filtersHide = totalCount > 0}
 				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
 					<h3 class="text-lg font-medium">{i18n.cms_courses_empty_title}</h3>
-					<p class="mt-1 text-base-content/60">{i18n.cms_courses_empty_hint}</p>
-					<button class="btn mt-4 btn-primary" onclick={handleCreate}>
-						{i18n.cms_courses_create_first}
-					</button>
+					{#if filtersHide}
+						<p class="mt-1 text-base-content/60">
+							{totalCount} course{totalCount === 1 ? '' : 's'} exist but the current filter hides
+							{totalCount === 1 ? 'it' : 'them all'}. Try resetting the filters.
+						</p>
+						<button
+							class="btn mt-4 gap-2 btn-md btn-primary"
+							onclick={() => {
+								archivedFilter.current = 'active';
+								searchQuery = '';
+							}}
+						>
+							Reset filters
+						</button>
+					{:else}
+						<p class="mt-1 text-base-content/60">{i18n.cms_courses_empty_hint}</p>
+						<button class="btn mt-4 btn-primary" onclick={handleCreate}>
+							{i18n.cms_courses_create_first}
+						</button>
+					{/if}
 				</div>
 			{:else if viewMode.current === 'cards'}
 				<CMSCardView items={filteredCourses} card={courseCard} gridCols={3} />

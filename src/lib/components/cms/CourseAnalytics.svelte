@@ -18,6 +18,7 @@
 	let { courseId, courseTitle, onBack }: Props = $props();
 
 	let analytics = $derived(getCourseAnalytics({ courseId }));
+	let analyticsData = $derived(await analytics);
 	let exporting = $state(false);
 
 	function getLabel(key: string, fallback: string) {
@@ -182,8 +183,8 @@
 		</button>
 	</div>
 
-	<Boundary loading={analytics.loading}>
-		{@const data = analytics.current as any}
+	<Boundary>
+		{@const data = analyticsData as any}
 		{#if data}
 			<!-- Summary Cards -->
 			<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">

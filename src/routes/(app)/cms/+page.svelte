@@ -2,8 +2,8 @@
 	import { PersistedState } from 'runed';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { BookOpen, ListChecks } from '@lucide/svelte';
-	import Courses from './Courses.svelte';
-	import Exercises from './Exercises.svelte';
+	import Courses from '$lib/components/cms/Courses.svelte';
+	import Exercises from '$lib/components/cms/Exercises.svelte';
 
 	const possiblePages = [
 		{ id: 'courses' as const, component: Courses, icon: BookOpen },
