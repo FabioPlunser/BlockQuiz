@@ -15,11 +15,24 @@ export interface Course {
 	createdAt: number;
 	updatedAt: Date;
 	createdBy: string;
-	exerciseIds: string[];
-	userIds: string[];
 	published: boolean;
 	archivedAt?: number | null;
 	archivedBy?: string | null;
+}
+
+export interface UserCourse extends Course {
+	numExercises: number;
+	progress: number;
+	completedCount: number;
+}
+
+/**
+ * Course as returned to staff (teacher/admin) by getCourses / getCourse —
+ * includes the assigned exercise and user relations.
+ */
+export interface CourseWithRelations extends Course {
+	exerciseIds: string[];
+	userIds: string[];
 }
 
 export interface CourseFormData {
