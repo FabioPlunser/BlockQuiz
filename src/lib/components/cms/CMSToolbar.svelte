@@ -36,13 +36,13 @@
 	}: Props = $props();
 </script>
 
-<div class="flex flex-wrap items-center gap-2 p-2">
+<div class="flex flex-wrap items-center gap-3 p-2">
 	<!-- View Toggle -->
 	{#if showViewToggle}
 		<div class="join">
 			<button
 				type="button"
-				class="btn join-item btn-sm"
+				class="btn join-item btn-md"
 				class:btn-active={viewMode === 'cards'}
 				onclick={() => (viewMode = 'cards')}
 				title={i18n.cms_view_cards ?? 'Card view'}
@@ -53,7 +53,7 @@
 			</button>
 			<button
 				type="button"
-				class="btn join-item btn-sm"
+				class="btn join-item btn-md"
 				class:btn-active={viewMode === 'table'}
 				onclick={() => (viewMode = 'table')}
 				title={i18n.cms_view_table ?? 'Table view'}
@@ -67,8 +67,8 @@
 
 	<!-- Search -->
 	{#if showSearch}
-		<label class="input-bordered input input-sm bg-base-200">
-			<Search class="h-4 w-4" />
+		<label class="input-bordered input input-md min-w-[18rem] flex-1 bg-base-200 sm:flex-none">
+			<Search class="h-5 w-5" />
 			<input type="search" class="grow" placeholder={searchPlaceholder} bind:value={searchQuery} />
 		</label>
 	{/if}
@@ -88,8 +88,8 @@
 
 	<!-- Create Button -->
 	{#if onCreate}
-		<button class="btn items-center gap-2 btn-sm btn-primary" onclick={onCreate}>
-			<Plus class="h-4 w-4" />
+		<button class="btn items-center gap-2 btn-md btn-primary" onclick={onCreate}>
+			<Plus class="h-5 w-5" />
 			{createButtonLabel}
 		</button>
 	{/if}

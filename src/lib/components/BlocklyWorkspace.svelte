@@ -24,6 +24,7 @@
 	let blocklyDiv: HTMLDivElement;
 	let workspace: Blockly.WorkspaceSvg | null = null;
 	let scrollbarObserver: MutationObserver | null = null;
+	let resizeObserver: ResizeObserver | null = null;
 
 	function updateAccessibility() {
 		const injectionDiv = blocklyDiv.querySelector('.injectionDiv');
@@ -43,6 +44,7 @@
 		try {
 			workspace = Blockly.inject(blocklyDiv, {
 				toolbox: toolboxConfig,
+				media: '/blockly-media/',
 				...config
 			});
 			updateAccessibility();
@@ -82,6 +84,22 @@
 				// Initial cleanup
 				cleanupScrollbars();
 			}
+
+			// Blockly's SVG sizing is computed on inject and does NOT auto-update if
+			// the container's width/height changes later (e.g. when a hidden tab
+			// becomes visible, or the layout shifts after async data loads). Watch
+			// for any size change and tell Blockly to recompute.
+			if (workspace && typeof ResizeObserver !== 'undefined') {
+				resizeObserver = new ResizeObserver(() => {
+					if (!workspace) return;
+					try {
+						Blockly.svgResize(workspace);
+					} catch {
+						// Workspace may already be disposed mid-tear-down — ignore.
+					}
+				});
+				resizeObserver.observe(blocklyDiv);
+			}
 		} catch (e) {
 			console.error('Blockly inject failed:', e);
 		}
@@ -99,6 +117,9 @@
 	onDestroy(() => {
 		if (scrollbarObserver) {
 			scrollbarObserver.disconnect();
+		}
+		if (resizeObserver) {
+			resizeObserver.disconnect();
 		}
 		if (workspace) {
 			workspace.dispose();
@@ -123,13 +144,13 @@
 	}
 </script>
 
-<div class="space-y-2">
+<div class="blockly-host">
 	<p id={`${uid}-instructions`} class="sr-only">
 		Use the toolbox to choose blocks, then build your program in the workspace.
 	</p>
 	<div
 		bind:this={blocklyDiv}
-		class="blockly-shell h-full min-h-64 w-full overflow-hidden rounded-xl border border-base-300 bg-base-100"
+		class="blockly-shell w-full overflow-hidden rounded-xl border border-base-300 bg-base-100"
 		role="region"
 		aria-label={ariaLabel}
 		aria-describedby={`${uid}-instructions`}
@@ -159,8 +180,24 @@
 		visibility: hidden !important;
 	}
 
+	/*
+	 * Blockly is a non-flex SVG widget that needs its container to have an
+	 * explicit, non-collapsing height. `h-full` only works when a flex/grid
+	 * parent supplies a height, which the CMS preview wrapper does not.
+	 * Force a fixed minimum so the editor renders consistently in player,
+	 * preview, and authoring contexts.
+	 */
+	.blockly-host {
+		display: flex;
+		flex-direction: column;
+		min-height: 28rem;
+		height: 100%;
+	}
+
 	.blockly-shell {
-		min-height: 16rem;
+		flex: 1 1 auto;
+		min-height: 28rem;
+		height: 100%;
 	}
 
 	.blockly-shell:focus-within {
