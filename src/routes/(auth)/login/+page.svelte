@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { showSuccess, showError } from '$lib/utils/toast';
+	import { authClient } from '$lib/client/auth';
 
 	const features = $derived([
 		i18n.feature_short_focused,
@@ -18,6 +19,29 @@
 	let forgot = $state(false);
 	let mounted = $state(false);
 	let issues = $derived(login.fields.allIssues() ?? []);
+	let ssoEmail = $state('');
+	let ssoSubmitting = $state(false);
+
+	async function handleSsoSignIn(e: SubmitEvent) {
+		e.preventDefault();
+		if (!ssoEmail) return;
+		ssoSubmitting = true;
+		try {
+			const { error } = await authClient.signIn.sso({
+				email: ssoEmail,
+				callbackURL: resolve('/courses')
+			});
+			if (error) {
+				showError(error.message ?? i18n.login_sso_no_provider);
+				ssoSubmitting = false;
+			}
+			// On success the IdP redirect takes over; no further action here.
+		} catch (err) {
+			console.error(err);
+			showError(i18n.login_sso_no_provider);
+			ssoSubmitting = false;
+		}
+	}
 	onMount(() => {
 		mounted = true;
 	});
@@ -135,6 +159,29 @@
 							<span class="text-xs tracking-wide uppercase">{i18n.or}</span>
 							<span class="h-px flex-1 bg-slate-200" aria-hidden="true"></span>
 						</div>
+
+						<form class="space-y-2" onsubmit={handleSsoSignIn}>
+							<label class="text-sm font-medium text-slate-700" for="sso-email">
+								{i18n.login_sso_title}
+							</label>
+							<input
+								id="sso-email"
+								type="email"
+								required
+								bind:value={ssoEmail}
+								placeholder={i18n.form_email_placeholder}
+								class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-sky-400 focus:ring-2 focus:ring-sky-200 focus:outline-none"
+							/>
+							<p class="text-xs text-slate-500">{i18n.login_sso_hint}</p>
+							<button
+								type="submit"
+								class="btn w-full btn-outline"
+								disabled={ssoSubmitting || !ssoEmail}
+							>
+								{ssoSubmitting ? '…' : i18n.login_sso_submit}
+							</button>
+						</form>
+
 						<a
 							class="flex w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 font-medium text-slate-600 transition hover:border-sky-400 hover:text-sky-600"
 							href={resolve('/demo')}
