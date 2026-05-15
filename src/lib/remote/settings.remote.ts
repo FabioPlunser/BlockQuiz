@@ -117,6 +117,15 @@ export const sendTestEmail = command(sendTestEmailSchema, async (data) => {
 	}
 });
 
+// Public: minimal provider list for the login page. No auth required, only safe fields.
+export const getPublicSsoProviders = query(async () => {
+	const rows = await db.select().from(ssoProvider);
+	return rows.map((row) => ({
+		providerId: row.providerId,
+		domain: row.domain
+	}));
+});
+
 export const getSsoProviders = query(async () => {
 	requireAuth(Role.ADMIN);
 	const rows = await db.select().from(ssoProvider);
