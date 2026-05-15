@@ -1,4 +1,13 @@
 import type { Point, TargetPoint } from '$lib/canvas/types';
+import { checkReachability } from '$lib/canvas/pathfinding';
+
+const REACHABILITY_MESSAGES = {
+	'no-start': 'Place a start position on the canvas before publishing.',
+	'no-finish': 'Place a finish position on the canvas before publishing.',
+	'start-on-wall': 'The start position is on a wall. Move it to an open cell.',
+	'finish-on-wall': 'The finish position is on a wall. Move it to an open cell.',
+	unreachable: 'There is no path from start to finish — remove or move some walls.'
+} as const;
 import {
 	LOGIC_BLOCKS,
 	LOOP_BLOCKS,
@@ -135,6 +144,8 @@ export interface TurtleCanvasConfig {
 	pathOverlay: Point[];
 	targets: TargetPoint[];
 	walls: Point[];
+	start: Point | null;
+	finish: Point | null;
 }
 
 export type CanvasConfig = TurtleCanvasConfig;
@@ -275,7 +286,9 @@ export const DEFAULT_TURTLE_CANVAS_CONFIG: TurtleCanvasConfig = {
 	gridSize: 50,
 	pathOverlay: [],
 	targets: [],
-	walls: []
+	walls: [],
+	start: null,
+	finish: null
 };
 
 export const DEFAULT_TURTLE_GRADER_CONFIG: TurtleGraderConfig = {
@@ -626,7 +639,9 @@ function normalizeTurtleCanvas(value: unknown): TurtleCanvasConfig {
 		targets: Array.isArray(record.targets)
 			? record.targets.map((target) => normalizeTargetPoint(target))
 			: [],
-		walls: Array.isArray(record.walls) ? record.walls.map((wall) => normalizePoint(wall)) : []
+		walls: Array.isArray(record.walls) ? record.walls.map((wall) => normalizePoint(wall)) : [],
+		start: isRecord(record.start) ? normalizePoint(record.start) : null,
+		finish: isRecord(record.finish) ? normalizePoint(record.finish) : null
 	};
 }
 
@@ -724,7 +739,9 @@ function robotGridToCanvas(grid: RobotGridConfig): TurtleCanvasConfig {
 		gridSize: grid.cellSize,
 		pathOverlay: [],
 		targets: grid.targets.map((target) => ({ ...target })),
-		walls: grid.walls.map((wall) => ({ ...wall }))
+		walls: grid.walls.map((wall) => ({ ...wall })),
+		start: { ...grid.start },
+		finish: null
 	};
 }
 
@@ -931,6 +948,24 @@ export function validateExercise(exercise: Exercise): PublishValidationResult {
 					'canvas.invalid',
 					'canvas',
 					'Canvas width, height, and grid size must all be greater than zero.'
+				)
+			);
+		}
+
+		const reachability = checkReachability({
+			width: exercise.canvas.width,
+			height: exercise.canvas.height,
+			gridSize: exercise.canvas.gridSize,
+			walls: exercise.canvas.walls,
+			start: exercise.canvas.start,
+			finish: exercise.canvas.finish
+		});
+		if (!reachability.ok) {
+			issues.push(
+				createValidationIssue(
+					`canvas.${reachability.reason}`,
+					'canvas',
+					REACHABILITY_MESSAGES[reachability.reason]
 				)
 			);
 		}

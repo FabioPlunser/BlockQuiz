@@ -12,6 +12,11 @@
 	/** Built-in actor types for common use cases */
 	export type ActorType = 'turtle' | 'robot' | 'arrow' | 'none';
 
+		export type CanvasSelection =
+			| { kind: 'target' | 'wall' | 'path'; index: number }
+			| { kind: 'start' | 'finish' }
+			| null;
+
 	export interface CanvasProps {
 		/** The canvas engine (Turtle, Robot, Dino, etc.) */
 		engine: ICanvasEngine | IPositionEngine;
@@ -29,15 +34,21 @@
 		targets?: TargetPoint[];
 		walls?: Point[];
 		obstacles?: Obstacle[];
+		start?: Point | null;
+		finish?: Point | null;
 
 		// === Editor mode ===
 		editable?: boolean;
 		drawMode?: DrawMode;
+		/** Bindable: the currently selected canvas item (in `select` mode). */
+		selected?: CanvasSelection;
 
 		// === Callbacks ===
 		onPathChange?: (points: Point[]) => void;
 		onTargetChange?: (targets: TargetPoint[]) => void;
 		onWallsChange?: (walls: Point[]) => void;
+		onStartChange?: (point: Point | null) => void;
+		onFinishChange?: (point: Point | null) => void;
 	}
 </script>
 
@@ -46,6 +57,8 @@
 	import { onMount } from 'svelte';
 	import { watch } from 'runed';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import { dedupePointsByCell } from '$lib/canvas/grid';
+	import { checkReachability } from '$lib/canvas/pathfinding';
 
 	let {
 		engine,
@@ -57,16 +70,113 @@
 		targets = [],
 		walls = [],
 		obstacles = [],
+		start = null,
+		finish = null,
 		editable = false,
 		drawMode = null,
+		selected = $bindable(null),
 		onPathChange,
 		onTargetChange,
-		onWallsChange
+		onWallsChange,
+		onStartChange,
+		onFinishChange
 	}: CanvasProps = $props();
+
+	const START_FINISH_RADIUS = 16;
+
+	let reachability = $derived(
+		start || finish
+			? checkReachability({
+					width: engine.width,
+					height: engine.height,
+					gridSize,
+					walls,
+					start,
+					finish
+				})
+			: { ok: true as const }
+	);
+
+	let collectedTargets = $derived(
+		'collectedTargets' in engine ? (engine as { collectedTargets: number[] }).collectedTargets : []
+	);
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null;
 	let dragPoint: Point | null = null;
+	let hovered: CanvasSelection = $state(null);
+
+	export function deleteSelected() {
+		if (!selected) return;
+		const current = selected;
+		if (current.kind === 'target') {
+			const next = targets.filter((_, i) => i !== current.index);
+			targets = next;
+			onTargetChange?.(next);
+		} else if (current.kind === 'wall') {
+			const next = walls.filter((_, i) => i !== current.index);
+			walls = next;
+			onWallsChange?.(next);
+		} else if (current.kind === 'path') {
+			const next = pathOverlay.filter((_, i) => i !== current.index);
+			pathOverlay = next;
+			onPathChange?.(next);
+		} else if (current.kind === 'start') {
+			start = null;
+			onStartChange?.(null);
+		} else if (selected.kind === 'finish') {
+			finish = null;
+			onFinishChange?.(null);
+		}
+		selected = null;
+	}
+
+	export function clearSelection() {
+		selected = null;
+	}
+
+	const SELECT_HIT_TARGET = 14;
+	const SELECT_HIT_WALL = 14;
+	const SELECT_HIT_PATH = 8;
+
+	function hitTest(point: Point): typeof hovered {
+		if (start) {
+			const dx = start.x - point.x;
+			const dy = start.y - point.y;
+			if (dx * dx + dy * dy <= START_FINISH_RADIUS * START_FINISH_RADIUS) {
+				return { kind: 'start' };
+			}
+		}
+		if (finish) {
+			const dx = finish.x - point.x;
+			const dy = finish.y - point.y;
+			if (dx * dx + dy * dy <= START_FINISH_RADIUS * START_FINISH_RADIUS) {
+				return { kind: 'finish' };
+			}
+		}
+		for (let i = targets.length - 1; i >= 0; i--) {
+			const t = targets[i];
+			const dx = t.x - point.x;
+			const dy = t.y - point.y;
+			const r = Math.max(t.tolerance ?? SELECT_HIT_TARGET, SELECT_HIT_TARGET);
+			if (dx * dx + dy * dy <= r * r) return { kind: 'target', index: i };
+		}
+		for (let i = walls.length - 1; i >= 0; i--) {
+			const w = walls[i];
+			if (Math.abs(w.x - point.x) <= SELECT_HIT_WALL && Math.abs(w.y - point.y) <= SELECT_HIT_WALL) {
+				return { kind: 'wall', index: i };
+			}
+		}
+		for (let i = pathOverlay.length - 1; i >= 0; i--) {
+			const p = pathOverlay[i];
+			const dx = p.x - point.x;
+			const dy = p.y - point.y;
+			if (dx * dx + dy * dy <= SELECT_HIT_PATH * SELECT_HIT_PATH) {
+				return { kind: 'path', index: i };
+			}
+		}
+		return null;
+	}
 
 	// Type guard to check if engine is position-based
 	function isPositionEngine(e: ICanvasEngine): e is IPositionEngine {
@@ -191,9 +301,110 @@
 			ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
 		}
 
-		// Targets (apples, flags, etc.)
-		for (const target of targets) {
-			drawTarget(ctx, target);
+		// Targets (apples, flags, etc.) — collected ones are dimmed
+		const collectedSet = new Set(collectedTargets);
+		for (let i = 0; i < targets.length; i++) {
+			const target = targets[i];
+			if (collectedSet.has(i)) {
+				ctx.save();
+				ctx.globalAlpha = 0.18;
+				drawTarget(ctx, target);
+				ctx.restore();
+			} else {
+				drawTarget(ctx, target);
+			}
+		}
+
+		// Start & finish markers
+		if (start) drawStartMarker(ctx, start);
+		if (finish) drawFinishMarker(ctx, finish, !reachability.ok);
+
+		// Selection highlights (select mode only)
+		if (drawMode === 'select') {
+			drawSelectionRing(ctx, hovered, { color: '#f97316', width: 2, dashed: true });
+			drawSelectionRing(ctx, selected, { color: '#ef4444', width: 3, dashed: false });
+		}
+	}
+
+	function drawSelectionRing(
+		ctx: CanvasRenderingContext2D,
+		ring: CanvasSelection,
+		style: { color: string; width: number; dashed: boolean }
+	) {
+		if (!ring) return;
+		ctx.save();
+		ctx.strokeStyle = style.color;
+		ctx.lineWidth = style.width;
+		ctx.setLineDash(style.dashed ? [4, 3] : []);
+		if (ring.kind === 'target' && targets[ring.index]) {
+			const t = targets[ring.index];
+			ctx.beginPath();
+			ctx.arc(t.x, t.y, (t.tolerance ?? 12) + 6, 0, Math.PI * 2);
+			ctx.stroke();
+		} else if (ring.kind === 'wall' && walls[ring.index]) {
+			const w = walls[ring.index];
+			ctx.strokeRect(w.x - 14, w.y - 14, 28, 28);
+		} else if (ring.kind === 'path' && pathOverlay[ring.index]) {
+			const p = pathOverlay[ring.index];
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+			ctx.stroke();
+		} else if (ring.kind === 'start' && start) {
+			ctx.beginPath();
+			ctx.arc(start.x, start.y, START_FINISH_RADIUS + 4, 0, Math.PI * 2);
+			ctx.stroke();
+		} else if (ring.kind === 'finish' && finish) {
+			ctx.beginPath();
+			ctx.arc(finish.x, finish.y, START_FINISH_RADIUS + 4, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+		ctx.restore();
+	}
+
+	function drawStartMarker(ctx: CanvasRenderingContext2D, point: Point) {
+		ctx.save();
+		ctx.fillStyle = '#22c55e';
+		ctx.strokeStyle = '#14532d';
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		ctx.arc(point.x, point.y, 14, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.stroke();
+		ctx.fillStyle = '#ffffff';
+		ctx.beginPath();
+		ctx.moveTo(point.x - 4, point.y - 6);
+		ctx.lineTo(point.x + 6, point.y);
+		ctx.lineTo(point.x - 4, point.y + 6);
+		ctx.closePath();
+		ctx.fill();
+		ctx.restore();
+	}
+
+	function drawFinishMarker(ctx: CanvasRenderingContext2D, point: Point, dim: boolean) {
+		ctx.save();
+		if (dim) ctx.globalAlpha = 0.35;
+		const size = 22;
+		const half = size / 2;
+		const cells = 4;
+		const cell = size / cells;
+		for (let row = 0; row < cells; row++) {
+			for (let col = 0; col < cells; col++) {
+				ctx.fillStyle = (row + col) % 2 === 0 ? '#111827' : '#ffffff';
+				ctx.fillRect(point.x - half + col * cell, point.y - half + row * cell, cell, cell);
+			}
+		}
+		ctx.strokeStyle = '#111827';
+		ctx.lineWidth = 2;
+		ctx.strokeRect(point.x - half, point.y - half, size, size);
+		ctx.restore();
+		if (dim) {
+			ctx.save();
+			ctx.fillStyle = '#f59e0b';
+			ctx.font = 'bold 14px system-ui, sans-serif';
+			ctx.textAlign = 'left';
+			ctx.textBaseline = 'middle';
+			ctx.fillText('⚠', point.x + 16, point.y - 14);
+			ctx.restore();
 		}
 	}
 
@@ -269,7 +480,14 @@
 			() => walls,
 			() => targets,
 			() => obstacles,
-			() => dragPoint
+			() => start,
+			() => finish,
+			() => collectedTargets,
+			() => reachability,
+			() => dragPoint,
+			() => hovered,
+			() => selected,
+			() => drawMode
 		],
 		() => drawCanvas()
 	);
@@ -296,6 +514,12 @@
 		canvas.setPointerCapture?.(event.pointerId);
 
 		const { x: rawX, y: rawY } = getCanvasPoint(event);
+
+		if (drawMode === 'select') {
+			selected = hitTest({ x: rawX, y: rawY });
+			return;
+		}
+
 		const { x, y } = snapToGrid(rawX, rawY);
 
 		if (drawMode === 'path') {
@@ -304,22 +528,43 @@
 			onPathChange?.(next);
 			dragPoint = null;
 		} else if (drawMode === 'target') {
-			const next = [...targets, { x, y }];
+			const next = dedupePointsByCell([...targets, { x, y }], gridSize);
 			targets = next;
 			onTargetChange?.(next);
 		} else if (drawMode === 'wall') {
-			const next = [...walls, { x, y }];
+			const next = dedupePointsByCell([...walls, { x, y }], gridSize);
 			walls = next;
 			onWallsChange?.(next);
+		} else if (drawMode === 'start') {
+			start = { x, y };
+			onStartChange?.(start);
+		} else if (drawMode === 'finish') {
+			finish = { x, y };
+			onFinishChange?.(finish);
 		}
 	}
 
 	function handlePointerMove(event: PointerEvent) {
-		if (!editable || drawMode !== 'path' || !canvas || pathOverlay.length === 0) {
+		if (!editable || !canvas) {
+			dragPoint = null;
+			hovered = null;
+			return;
+		}
+
+		const { x: rawX, y: rawY } = getCanvasPoint(event);
+
+		if (drawMode === 'select') {
+			hovered = hitTest({ x: rawX, y: rawY });
 			dragPoint = null;
 			return;
 		}
-		const { x: rawX, y: rawY } = getCanvasPoint(event);
+
+		hovered = null;
+
+		if (drawMode !== 'path' || pathOverlay.length === 0) {
+			dragPoint = null;
+			return;
+		}
 		dragPoint = snapToGrid(rawX, rawY);
 	}
 </script>
@@ -333,7 +578,11 @@
 		aria-label={i18n.canvas_aria_label}
 		onpointerdown={handlePointerDown}
 		onpointermove={handlePointerMove}
-		onpointerleave={() => (dragPoint = null)}
+		onpointerleave={() => {
+			dragPoint = null;
+			hovered = null;
+		}}
+		style:cursor={drawMode === 'select' ? (hovered ? 'pointer' : 'crosshair') : null}
 	></canvas>
 
 	<!-- SVG Actor overlay -->

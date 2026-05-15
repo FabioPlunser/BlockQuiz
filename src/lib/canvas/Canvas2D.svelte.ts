@@ -7,8 +7,8 @@ import type { BlockDef } from '$lib/blockly/types';
  * Subclasses: Turtle (with pen), Robot (grid-based), etc.
  */
 export class Canvas2D implements IPositionEngine {
-	state: PositionState = { x: 0, y: 0, angle: 0 };
-	commands: Command[] = [];
+	state = $state<PositionState>({ x: 0, y: 0, angle: 0 });
+	commands = $state<Command[]>([]);
 
 	readonly width: number;
 	readonly height: number;

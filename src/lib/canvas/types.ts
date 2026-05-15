@@ -115,7 +115,15 @@ export interface TargetPoint extends Point {
 	icon?: 'apple' | 'flag' | 'star' | 'custom';
 }
 
-export type DrawMode = 'path' | 'target' | 'wall' | 'obstacle' | null;
+export type DrawMode =
+	| 'path'
+	| 'target'
+	| 'wall'
+	| 'obstacle'
+	| 'start'
+	| 'finish'
+	| 'select'
+	| null;
 
 export interface CanvasOverlays {
 	showGrid?: boolean;
@@ -124,6 +132,8 @@ export interface CanvasOverlays {
 	targets?: TargetPoint[];
 	walls?: Point[];
 	obstacles?: Obstacle[];
+	start?: Point | null;
+	finish?: Point | null;
 }
 
 export interface Obstacle {
