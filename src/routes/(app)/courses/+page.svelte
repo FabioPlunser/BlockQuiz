@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import type { Course } from '$types/course';
+	// import { browser } from '$app/environment';
+	import type { Course, UserCourse } from '$types/course';
 	import type { AttemptSubmission } from '$lib/types/attempt';
 	import type { Exercise } from '$lib/types/exercise';
 	import Boundary from '$cp/Boundary.svelte';
@@ -29,41 +29,20 @@
 	let searchQuery = $state('');
 	let viewMode = new PersistedState<'cards' | 'table'>('studentCoursesViewMode', 'cards');
 
-	let courses = $derived(getUserCourses({}));
+	let courseList = $derived(await getUserCourses({}));
+	$inspect(courseList);
 
-	// Modal state
+	// // Modal state
 	let selectedCourse = $state<Course | null>(null);
-	let selectedExercises = $state<Exercise[]>([]);
-	let selectedCourseProgress = $state<
-		Record<string, { passed: boolean; bestScore: number; attemptCount: number }>
-	>({});
-	let selectedSnapshots = $state<Record<string, { workspaceXml?: string; resultJson?: string }>>(
-		{}
-	);
-	let selectedCourseExerciseIndex = $state(0);
 	let isLoadingExercises = $state(false);
 	let hasImportableGuestState = $state(false);
 	let isImportingGuestProgress = $state(false);
-
-	// Course progress cache
-	let courseProgress = new SvelteMap<string, { completedCount: number; totalCount: number }>();
-
-	function refreshGuestState() {
-		if (!browser) {
-			return;
-		}
-		hasImportableGuestState = hasGuestProgress();
-	}
-
-	onMount(() => {
-		refreshGuestState();
-	});
 
 	// --------------------------------------------------------------------
 	// Filtered items
 	// --------------------------------------------------------------------
 	let filteredCourses = $derived.by(() => {
-		const allCourses = (courses.current as Course[]) ?? [];
+		const allCourses = (courseList ?? []) as UserCourse[];
 		if (!searchQuery.trim()) return allCourses;
 
 		const search = searchQuery.toLowerCase();
@@ -87,12 +66,12 @@
 		{
 			key: 'title',
 			label: i18n.courses_title_label,
-			render: (c: Course) => c.content?.title
+			render: (c: UserCourse) => c.content?.title
 		},
 		{
 			key: 'description',
 			label: i18n.courses_description_label,
-			render: (c: Course) => {
+			render: (c: UserCourse) => {
 				const desc = getLocalized(c.content?.description);
 				return desc.length > 80 ? desc.slice(0, 80) + '...' : desc;
 			},
@@ -101,15 +80,15 @@
 		{
 			key: 'exercises',
 			label: i18n.courses_exercises_label,
-			render: (c: Course) => String(c.exerciseIds?.length ?? 0)
+			render: (c: UserCourse) => String(c.numExercises)
 		},
 		{
 			key: 'progress',
 			label: i18n.courses_progress,
-			render: (c: Course) => {
-				const progress = courseProgress.get(c.id);
+			render: (c: UserCourse) => {
+				const progress = c.progress;
 				if (!progress) return '-';
-				return `${progress.completedCount}/${progress.totalCount}`;
+				return `${c.completedCount}/${c.numExercises}`;
 			}
 		}
 	]);
@@ -121,129 +100,10 @@
 	async function handlePlayCourse(course: Course) {
 		isLoadingExercises = true;
 		selectedCourse = course;
-
-		try {
-			const [exerciseResult, progress] = await Promise.all([
-				getCourseExercises(course.id),
-				getCourseProgress({ courseId: course.id })
-			]);
-			selectedExercises = exerciseResult;
-			selectedCourseProgress = progress.exerciseProgress ?? {};
-			selectedSnapshots = progress.latestSnapshots ?? {};
-			const firstIncompleteIndex = exerciseResult.findIndex(
-				(exercise) => !progress.exerciseProgress?.[exercise.id]?.passed
-			);
-			selectedCourseExerciseIndex = firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
-
-			if (selectedExercises.length === 0) {
-				toast.error(i18n.courses_no_exercises_toast);
-				isLoadingExercises = false;
-				return;
-			}
-		} catch (err) {
-			console.error('Failed to load exercises:', err);
-			toast.error(i18n.courses_load_failed);
-		} finally {
-			isLoadingExercises = false;
-		}
 	}
 
 	function handleBack() {
 		selectedCourse = null;
-		selectedExercises = [];
-		selectedCourseProgress = {};
-		selectedSnapshots = {};
-		selectedCourseExerciseIndex = 0;
-
-		// Refresh progress after playing
-		loadCourseProgress();
-	}
-
-	async function persistAuthenticatedAttempt(attempt: AttemptSubmission) {
-		return submitAttempt({
-			exerciseId: attempt.exerciseId,
-			workspaceXml: attempt.workspaceXml,
-			generatedCode: attempt.generatedCode,
-			resultJson: attempt.resultJson,
-			score: attempt.score,
-			passed: attempt.passed,
-			startedAt: attempt.startedAt,
-			endedAt: attempt.endedAt,
-			locale: attempt.locale,
-			hintEventsJson: attempt.hintEventsJson,
-			analyticsJson: attempt.analyticsJson
-		});
-	}
-
-	async function handleImportGuestProgress() {
-		if (!browser) {
-			return;
-		}
-
-		isImportingGuestProgress = true;
-		try {
-			const guestAttempts = readGuestProgress().attempts;
-			const result = await importGuestAttempts({ attempts: guestAttempts });
-
-			if (!result.success || result.importedCount === 0) {
-				toast(i18n.courses_no_guest_attempts, { position: 'top-right' });
-			} else {
-				toast.success(i18n.courses_guest_imported, {
-					position: 'top-right'
-				});
-			}
-
-			await loadCourseProgress();
-			refreshGuestState();
-		} catch (err) {
-			console.error('Failed to import guest attempts:', err);
-			toast.error(i18n.courses_import_failed, {
-				position: 'top-right'
-			});
-		} finally {
-			isImportingGuestProgress = false;
-		}
-	}
-
-	// Load progress for all courses
-	async function loadCourseProgress() {
-		const allCourses = (courses.current as Course[]) ?? [];
-		for (const course of allCourses) {
-			try {
-				const progress = await getCourseProgress({ courseId: course.id });
-				if (progress) {
-					courseProgress.set(course.id, {
-						completedCount: progress.completedCount,
-						totalCount: progress.exerciseCount
-					});
-					courseProgress = new SvelteMap(courseProgress);
-				}
-			} catch (err) {
-				console.error('Failed to load progress for course:', course.id, err);
-			}
-		}
-	}
-
-	// Load progress when courses are loaded
-	watch([() => courses.current, () => !courses.loading], () => {
-		loadCourseProgress();
-	});
-
-	function getProgressForCourse(courseId: string): {
-		completed: number;
-		total: number;
-		percent: number;
-	} {
-		const progress = courseProgress.get(courseId);
-		if (!progress) return { completed: 0, total: 0, percent: 0 };
-		return {
-			completed: progress.completedCount,
-			total: progress.totalCount,
-			percent:
-				progress.totalCount > 0
-					? Math.round((progress.completedCount / progress.totalCount) * 100)
-					: 0
-		};
 	}
 </script>
 
@@ -253,13 +113,13 @@
 
 {#if !selectedCourse}
 	<div class="p-4">
-		<Boundary loading={courses.loading}>
+		<Boundary>
 			<div class="mb-4">
 				<h1 class="text-2xl font-bold">{i18n.courses_my_title}</h1>
 				<p class="text-base-content/60">{i18n.courses_my_subtitle}</p>
 			</div>
 
-			{#if hasImportableGuestState}
+			<!--{#if hasImportableGuestState}
 				<div
 					class="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sky-900 lg:flex-row lg:items-center lg:justify-between"
 				>
@@ -283,6 +143,7 @@
 					</button>
 				</div>
 			{/if}
+-->
 
 			<CMSToolbar
 				bind:viewMode={viewMode.current}
@@ -291,6 +152,8 @@
 				showViewToggle={true}
 				showSearch={true}
 			/>
+
+			<br />
 
 			{#if filteredCourses.length === 0}
 				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
@@ -313,8 +176,7 @@
 	</div>
 {/if}
 
-{#snippet courseCard(course: Course)}
-	{@const progress = getProgressForCourse(course.id)}
+{#snippet courseCard(course: UserCourse)}
 	<div class="card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
 		{#if course.content?.image}
 			<figure>
@@ -331,26 +193,21 @@
 				{@html sanitizeHtml(getLocalized(course.content?.description).slice(0, 100))}
 			</p>
 
-			<!-- Progress bar -->
-			{#if progress.total > 0}
-				<div class="mt-2">
-					<div class="mb-1 flex items-center justify-between text-xs">
-						<span class="text-base-content/60">{i18n.courses_progress}</span>
-						<span class="font-medium">{progress.completed}/{progress.total}</span>
-					</div>
-					<progress class="progress w-full progress-primary" value={progress.percent} max="100"
-					></progress>
+			<div class="mt-2">
+				<div class="mb-1 flex items-center justify-between text-xs">
+					<span class="text-base-content/60">{i18n.courses_progress}</span>
+					<span class="font-medium">{course.completedCount}/{course.numExercises}</span>
 				</div>
-			{/if}
+				<progress class="progress w-full progress-primary" value={course.progress} max="100"
+				></progress>
+			</div>
 
 			<div class="mt-2 flex flex-wrap gap-1">
-				{#if course.exerciseIds?.length}
-					<span class="badge badge-sm badge-accent">
-						{course.exerciseIds.length}
-						{i18n.courses_exercises_label}
-					</span>
-				{/if}
-				{#if progress.percent === 100}
+				<span class="badge badge-sm badge-accent">
+					{course.numExercises}
+					{i18n.courses_exercises_label}
+				</span>
+				{#if course.progress === 100}
 					<span class="badge gap-1 badge-sm badge-success">
 						<CircleCheckBig class="h-3 w-3" />
 						{i18n.courses_completed}
@@ -369,9 +226,9 @@
 					{:else}
 						<Play />
 					{/if}
-					{progress.percent === 100
+					{course.progress === 100
 						? i18n.courses_review
-						: progress.percent > 0
+						: course.progress > 0
 							? i18n.courses_continue
 							: i18n.courses_start}
 				</button>
@@ -380,7 +237,7 @@
 	</div>
 {/snippet}
 
-{#snippet courseActions(course: Course)}
+{#snippet courseActions(course: UserCourse)}
 	<button
 		class="btn gap-1 btn-sm btn-primary"
 		onclick={() => handlePlayCourse(course)}
@@ -397,13 +254,5 @@
 
 <!-- Course Player -->
 {#if selectedCourse}
-	<CoursePlayer
-		course={selectedCourse}
-		exercises={selectedExercises}
-		onBack={handleBack}
-		persistAttempt={persistAuthenticatedAttempt}
-		initialProgress={selectedCourseProgress}
-		initialSnapshots={selectedSnapshots}
-		initialExerciseIndex={selectedCourseExerciseIndex}
-	/>
+	<CoursePlayer courseId={selectedCourse.id} onBack={handleBack} />
 {/if}
