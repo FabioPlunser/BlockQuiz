@@ -83,6 +83,7 @@ async function readDatabaseAuditEntries(): Promise<LogEntry[]> {
 }
 
 export const getAuditLogs = query(auditLogQuerySchema, async (filters: AuditLogQueryInput) => {
+	console.log('getAuditLogs', filters);
 	requireAuth(Role.ADMIN);
 	try {
 		const logs = [...(await readDatabaseAuditEntries()), ...(await readAppLogEntries())]

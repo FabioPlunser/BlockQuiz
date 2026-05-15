@@ -118,7 +118,6 @@
 
 <div class="mx-auto w-full space-y-6 p-6">
 	<h1 class="text-2xl font-bold">{i18n.logs_title}</h1>
-
 	<!-- Toolbar -->
 	<div
 		class="flex flex-row items-center gap-6 rounded-box bg-base-200/50 p-4 text-sm text-base-content/80 shadow-sm"
@@ -149,39 +148,33 @@
 			<ColumnPicker columns={tableColumns} bind:visibleColumns={visibleColumns.current} />
 		</div>
 
-		<Boundary loading={logs.loading}>
-			{@const _logs = logs.current}
-			{#if _logs}
-				<!-- Refresh (Right) -->
-				<div class="flex w-full flex-col gap-2 md:ml-auto md:w-auto md:items-end">
-					<button
-						class="btn w-full btn-sm btn-primary md:w-auto"
-						onclick={() => logs.refresh()}
-						disabled={logs.loading}
-					>
-						<RefreshCw class="h-4 w-4 {logs.loading ? 'animate-spin' : ''}" />
-						{logs.loading ? i18n.logs_refreshing : i18n.logs_refresh}
-					</button>
-				</div>
-			{/if}
-		</Boundary>
+		<!-- Refresh (Right) -->
+		<div class="flex w-full flex-col gap-2 md:ml-auto md:w-auto md:items-end">
+			<button
+				class="btn w-full btn-sm btn-primary md:w-auto"
+				onclick={() => logs.refresh()}
+				disabled={logs.loading}
+			>
+				<RefreshCw class="h-4 w-4 {logs.loading ? 'animate-spin' : ''}" />
+				{logs.loading ? i18n.logs_refreshing : i18n.logs_refresh}
+			</button>
+		</div>
 	</div>
 
 	<!-- Logs Table -->
-	<Boundary loading={logs.loading}>
-		{@const _logs = logs.current}
-		{#if _logs}
+	<Boundary>
+		{#await logs then data}
 			<div class="rounded-box border border-base-300 bg-base-100 shadow">
 				<div class="max-h-[60vh] overflow-auto">
 					<DataTable
-						items={_logs.logs.map((log) => ({ ...log, id: log.__key ?? String(log.timestamp) }))}
+						items={data.logs.map((log) => ({ ...log, id: log.__key ?? String(log.timestamp) }))}
 						columns={tableColumns}
 						bind:visibleColumns={visibleColumns.current}
 						showSearch={false}
 						showPagination={true}
 						{pageSize}
 						bind:currentPage
-						totalItems={_logs.totalFiltered}
+						totalItems={data.totalFiltered}
 						serverSidePagination={true}
 						onPageChange={handlePageChange}
 						emptyMessage={i18n.logs_empty}
@@ -194,6 +187,6 @@
 					/>
 				</div>
 			</div>
-		{/if}
+		{/await}
 	</Boundary>
 </div>
