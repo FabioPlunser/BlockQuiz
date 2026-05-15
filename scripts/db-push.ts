@@ -147,7 +147,24 @@ const statements = [
 		awarded_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
 		context_json text
 	)`,
-	`CREATE INDEX IF NOT EXISTS achievements_user_idx ON achievements (user_id)`
+	`CREATE INDEX IF NOT EXISTS achievements_user_idx ON achievements (user_id)`,
+	`CREATE TABLE IF NOT EXISTS ssoProvider (
+		id text PRIMARY KEY NOT NULL,
+		issuer text NOT NULL,
+		oidcConfig text,
+		samlConfig text,
+		userId text REFERENCES user(id) ON DELETE cascade,
+		providerId text NOT NULL UNIQUE,
+		organizationId text,
+		domain text NOT NULL
+	)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS ssoProvider_providerId_unique ON ssoProvider (providerId)`,
+	`CREATE TABLE IF NOT EXISTS app_settings (
+		key text PRIMARY KEY NOT NULL,
+		value text NOT NULL,
+		updated_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		updated_by text REFERENCES user(id)
+	)`
 ];
 
 db.exec('PRAGMA foreign_keys = ON');
