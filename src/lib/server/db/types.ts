@@ -8,6 +8,10 @@ export type AttemptRow = InferSelectModel<typeof attempts>;
 export type AuditLogRow = InferSelectModel<typeof auditLogs>;
 
 export type User = UserRow;
+// Returned by getUsers — adds the user's class memberships for the admin
+// table's classes column. `ssoClassIds` is the subset where source='sso' (used
+// to grey-out IdP-managed entries in the dropdown).
+export type UserWithClasses = UserRow & { classIds: string[]; ssoClassIds: string[] };
 export type Exercise = ExerciseRow;
 export type ExerciseVersion = ExerciseVersionRow;
 export type Attempt = AttemptRow;

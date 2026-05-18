@@ -66,7 +66,6 @@ const statements = [
 	)`,
 	`CREATE TABLE IF NOT EXISTS exercises (
 		id text PRIMARY KEY NOT NULL,
-		course_id text NOT NULL REFERENCES courses(id) ON DELETE cascade,
 		type text NOT NULL,
 		image text,
 		content text NOT NULL,
@@ -129,6 +128,7 @@ const statements = [
 		id text PRIMARY KEY NOT NULL,
 		ts integer DEFAULT (unixepoch() * 1000) NOT NULL,
 		actor_user_id text REFERENCES user(id),
+		category text DEFAULT 'user' NOT NULL,
 		action text NOT NULL,
 		details_json text
 	)`,
@@ -164,7 +164,51 @@ const statements = [
 		value text NOT NULL,
 		updated_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
 		updated_by text REFERENCES user(id)
-	)`
+	)`,
+	`CREATE TABLE IF NOT EXISTS classes (
+		id text PRIMARY KEY NOT NULL,
+		name text NOT NULL,
+		description text,
+		sso_provider_id text REFERENCES ssoProvider(id) ON DELETE SET NULL,
+		external_key text,
+		archived_at integer,
+		created_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		updated_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		created_by text REFERENCES user(id) ON DELETE SET NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS classes_provider_external_idx ON classes (sso_provider_id, external_key)`,
+	`CREATE INDEX IF NOT EXISTS classes_name_idx ON classes (name)`,
+	`CREATE TABLE IF NOT EXISTS class_users (
+		id text PRIMARY KEY NOT NULL,
+		class_id text NOT NULL REFERENCES classes(id) ON DELETE cascade,
+		user_id text NOT NULL REFERENCES user(id) ON DELETE cascade,
+		source text DEFAULT 'manual' NOT NULL,
+		added_by text REFERENCES user(id) ON DELETE SET NULL,
+		created_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		updated_at integer DEFAULT (unixepoch() * 1000) NOT NULL
+	)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS class_users_class_user_source_uq ON class_users (class_id, user_id, source)`,
+	`CREATE INDEX IF NOT EXISTS class_users_user_idx ON class_users (user_id)`,
+	`CREATE TABLE IF NOT EXISTS course_classes (
+		id text PRIMARY KEY NOT NULL,
+		course_id text NOT NULL REFERENCES courses(id) ON DELETE cascade,
+		class_id text NOT NULL REFERENCES classes(id) ON DELETE cascade,
+		added_by text REFERENCES user(id) ON DELETE SET NULL,
+		created_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		updated_at integer DEFAULT (unixepoch() * 1000) NOT NULL
+	)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS course_classes_course_class_uq ON course_classes (course_id, class_id)`,
+	`CREATE INDEX IF NOT EXISTS course_classes_class_idx ON course_classes (class_id)`,
+	`CREATE TABLE IF NOT EXISTS idp_group_seen (
+		id text PRIMARY KEY NOT NULL,
+		sso_provider_id text NOT NULL REFERENCES ssoProvider(id) ON DELETE cascade,
+		external_key text NOT NULL,
+		first_seen_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		last_seen_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
+		occurrence_count integer DEFAULT 1 NOT NULL,
+		sample_user_ids text DEFAULT '[]' NOT NULL
+	)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS idp_group_seen_provider_key_uq ON idp_group_seen (sso_provider_id, external_key)`
 ];
 
 db.exec('PRAGMA foreign_keys = ON');
@@ -172,5 +216,24 @@ db.exec('PRAGMA foreign_keys = ON');
 for (const statement of statements) {
 	db.exec(statement);
 }
+
+// Idempotent ALTERs for columns added after initial table creation.
+function ensureColumn(table: string, column: string, definition: string) {
+	const rows = db.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+	if (!rows.some((r) => r.name === column)) {
+		db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+	}
+}
+
+ensureColumn('audit_logs', 'category', `text DEFAULT 'user' NOT NULL`);
+
+// Role 'author' was retired in favour of just teacher/admin/student. Re-map any
+// existing rows so the runtime enum stays valid.
+db.run(`UPDATE user SET role = 'teacher' WHERE role = 'author'`);
+
+db.exec(`CREATE INDEX IF NOT EXISTS audit_logs_actor_ts_idx ON audit_logs (actor_user_id, ts)`);
+db.exec(`CREATE INDEX IF NOT EXISTS audit_logs_category_ts_idx ON audit_logs (category, ts)`);
+db.exec(`CREATE INDEX IF NOT EXISTS audit_logs_action_ts_idx ON audit_logs (action, ts)`);
+db.exec(`CREATE INDEX IF NOT EXISTS audit_logs_ts_idx ON audit_logs (ts)`);
 
 console.log(`Schema pushed to ${sqlitePath}`);

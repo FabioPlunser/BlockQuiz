@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, check } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, check, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 const nowMs = () => sql`(unixepoch() * 1000)`;
@@ -12,7 +12,7 @@ export const user = sqliteTable('user', {
 	image: text('image'),
 	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull().default(nowMs()),
 	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull().default(nowMs()),
-	role: text('role', { enum: ['student', 'teacher', 'author', 'admin'] })
+	role: text('role', { enum: ['student', 'teacher', 'admin'] })
 		.notNull()
 		.default('student'),
 	active: integer('active', { mode: 'boolean' }).notNull().default(true)
@@ -108,12 +108,10 @@ export const courseUsers = sqliteTable('course_users', {
 	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
 });
 
-// Exercises table
+// Exercises table — membership in courses is M:N via `courseExercises`.
+// Exercises themselves have no `courseId` column.
 export const exercises = sqliteTable('exercises', {
 	id: text('id').primaryKey(),
-	courseId: text('course_id')
-		.notNull()
-		.references(() => courses.id, { onDelete: 'cascade' }),
 	type: text('type', { enum: ['io', 'turtle', 'robot'] }).notNull(),
 	image: text('image'),
 	content: text('content', { mode: 'json' }).notNull(),
@@ -180,13 +178,25 @@ export const attempts = sqliteTable(
 );
 
 // Audit logs table
-export const auditLogs = sqliteTable('audit_logs', {
-	id: text('id').primaryKey(),
-	ts: integer('ts', { mode: 'number' }).notNull().default(nowMs()),
-	actorUserId: text('actor_user_id').references(() => user.id),
-	action: text('action').notNull(),
-	detailsJson: text('details_json')
-});
+export const auditLogs = sqliteTable(
+	'audit_logs',
+	{
+		id: text('id').primaryKey(),
+		ts: integer('ts', { mode: 'number' }).notNull().default(nowMs()),
+		actorUserId: text('actor_user_id').references(() => user.id),
+		category: text('category', { enum: ['system', 'admin', 'user'] })
+			.notNull()
+			.default('user'),
+		action: text('action').notNull(),
+		detailsJson: text('details_json')
+	},
+	(table) => [
+		index('audit_logs_actor_ts_idx').on(table.actorUserId, table.ts),
+		index('audit_logs_category_ts_idx').on(table.category, table.ts),
+		index('audit_logs_action_ts_idx').on(table.action, table.ts),
+		index('audit_logs_ts_idx').on(table.ts)
+	]
+);
 
 // Achievement badges earned by authenticated users
 export const achievements = sqliteTable('achievements', {
@@ -217,3 +227,98 @@ export const translations = sqliteTable('translations', {
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
 	updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
 });
+
+// Class/cohort entity. Either "IdP-owned" (ssoProviderId + externalKey both set;
+// membership reconciled from group claims on every login) or "manual" (both null;
+// membership maintained by admin). On ssoProvider delete, fall back to manual so
+// historical enrolment is preserved.
+export const classes = sqliteTable(
+	'classes',
+	{
+		id: text('id').primaryKey(),
+		name: text('name').notNull(),
+		description: text('description'),
+		ssoProviderId: text('sso_provider_id').references(() => ssoProvider.id, {
+			onDelete: 'set null'
+		}),
+		externalKey: text('external_key'),
+		archivedAt: integer('archived_at', { mode: 'number' }),
+		createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
+		updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs()),
+		createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' })
+	},
+	(t) => [
+		index('classes_provider_external_idx').on(t.ssoProviderId, t.externalKey),
+		index('classes_name_idx').on(t.name)
+	]
+);
+
+// M:N user ↔ class. `source` records why the row exists: 'sso' rows are managed
+// by the provisionUser hook (added/removed from claim deltas); 'manual' rows are
+// admin-managed and MUST NOT be touched by the sync algorithm. A user can have
+// both for the same class.
+export const classUsers = sqliteTable(
+	'class_users',
+	{
+		id: text('id').primaryKey(),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id, { onDelete: 'cascade' }),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		source: text('source', { enum: ['sso', 'manual'] }).notNull().default('manual'),
+		addedBy: text('added_by').references(() => user.id, { onDelete: 'set null' }),
+		createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
+		updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
+	},
+	(t) => [
+		uniqueIndex('class_users_class_user_source_uq').on(t.classId, t.userId, t.source),
+		index('class_users_user_idx').on(t.userId)
+	]
+);
+
+// Course assignment by class. Effective enrolment for a course = direct
+// courseUsers ∪ members of classes linked here (deduped).
+export const courseClasses = sqliteTable(
+	'course_classes',
+	{
+		id: text('id').primaryKey(),
+		courseId: text('course_id')
+			.notNull()
+			.references(() => courses.id, { onDelete: 'cascade' }),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id, { onDelete: 'cascade' }),
+		addedBy: text('added_by').references(() => user.id, { onDelete: 'set null' }),
+		createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),
+		updatedAt: integer('updated_at', { mode: 'number' }).notNull().default(nowMs())
+	},
+	(t) => [
+		uniqueIndex('course_classes_course_class_uq').on(t.courseId, t.classId),
+		index('course_classes_class_idx').on(t.classId)
+	]
+);
+
+// Discovery surface: every distinct group-claim value seen on login, per provider.
+// Lets admins audit which IdP groups exist before promoting any into class rows.
+// Appended (upserted) outside the sync transaction so login is never blocked by
+// discovery bookkeeping.
+export const idpGroupSeen = sqliteTable(
+	'idp_group_seen',
+	{
+		id: text('id').primaryKey(),
+		ssoProviderId: text('sso_provider_id')
+			.notNull()
+			.references(() => ssoProvider.id, { onDelete: 'cascade' }),
+		externalKey: text('external_key').notNull(),
+		firstSeenAt: integer('first_seen_at', { mode: 'number' }).notNull().default(nowMs()),
+		lastSeenAt: integer('last_seen_at', { mode: 'number' }).notNull().default(nowMs()),
+		occurrenceCount: integer('occurrence_count', { mode: 'number' }).notNull().default(1),
+		sampleUserIds: text('sample_user_ids', { mode: 'json' })
+			.$type<string[]>()
+			.notNull()
+			.default(sql`'[]'`)
+	},
+	(t) => [uniqueIndex('idp_group_seen_provider_key_uq').on(t.ssoProviderId, t.externalKey)]
+);
