@@ -108,7 +108,6 @@
 	"settings_password_hint": "Nutze die Passwort-Zurücksetzung auf der Anmeldeseite oder bitte eine Administration, dein Passwort zurückzusetzen.",
 	"settings_support_admin_prefix": "Administratoren können Benutzerstatus und Optionen zur Passwort-Zurücksetzung unter ",
 	"settings_support_admin_suffix": " prüfen.",
-
 	"settings_admin_kicker": "Administration",
 	"settings_admin_title": "Systemkonfiguration",
 	"settings_admin_description": "Konfiguriere Single Sign-On, E-Mail-Versand und IdP-Rollen-Mapping. Änderungen werden sofort wirksam. Umgebungsvariablen überschreiben hier gespeicherte Werte.",
@@ -163,7 +162,6 @@
 	"settings_role_description": "Komma-getrennte Listen von IdP-Gruppennamen. Benutzer in einer passenden Gruppe erhalten bei jedem Login die zugehörige BlockQuiz-Rolle; alle anderen werden zu Schüler:innen.",
 	"settings_role_hint": "Änderungen an Gruppen im IdP wirken sich beim nächsten Login aus.",
 	"settings_role_saved": "Rollen-Mapping gespeichert",
-
 	"player_run": "Ausführen",
 	"player_replay_title": "Programm Schritt für Schritt anschauen",
 	"player_replay_hint": "Schau deinem Programm Schritt für Schritt zu und sieh genau, was es macht.",
@@ -225,7 +223,6 @@
 	"player_hint_available_in": "Tipp verfügbar in {n}s",
 	"player_no_code": "Kein Code zum Ausführen. Füge Blöcke hinzu.",
 	"player_no_code_submit": "Kein Code zum Abgeben. Füge zuerst Blöcke hinzu.",
-
 	"course_exercise_label": "Übung",
 	"course_no_exercises": "Keine Übungen in diesem Kurs",
 	"course_no_exercises_friendly": "Deine Lehrperson hat hier noch keine Aufgaben hinzugefügt – schau bald wieder vorbei!",
@@ -241,7 +238,6 @@
 	"course_close_course": "Kurs schließen",
 	"course_back_to_list": "Zurück zur Kursliste",
 	"course_exercise_navigation": "Übungsnavigation",
-
 	"courses_my_title": "Meine Kurse",
 	"courses_my_subtitle": "Dir zugewiesene Kurse",
 	"courses_no_found": "Keine Kurse gefunden",
@@ -255,7 +251,6 @@
 	"courses_play": "Spielen",
 	"courses_no_exercises_toast": "Dieser Kurs hat noch keine Übungen",
 	"courses_load_failed": "Kursübungen konnten nicht geladen werden. Bitte erneut versuchen.",
-
 	"demo_back_login": "Zurück zur Anmeldung",
 	"demo_kicker": "Ohne Anmeldung",
 	"demo_play_as_guest": "Probiere BlockQuiz direkt aus",
@@ -309,16 +304,13 @@
 	"canvas_editor_place_walls_title": "Wände platzieren - Hindernisse, die Lernende vermeiden müssen",
 	"canvas_editor_clear_all_title": "Alles löschen",
 	"column_picker_select_columns_title": "Spalten auswählen",
-
 	"confirm_delete_exercise": "Möchtest du diese Übung wirklich löschen?",
-
 	"toast_login_success": "Anmeldung erfolgreich",
 	"toast_login_failed": "Anmeldung fehlgeschlagen",
 	"toast_register_success": "Registrierung erfolgreich",
 	"toast_register_failed": "Registrierung fehlgeschlagen",
 	"toast_password_reset_success": "Passwort erfolgreich zurückgesetzt",
 	"toast_password_reset_failed": "Passwort-Zurücksetzung fehlgeschlagen",
-
 	"forgot_password_title": "Passwort zurücksetzen",
 	"forgot_password_back": "Zurück",
 	"forgot_password_unavailable_message": "Die Passwort-Zurücksetzung ist hier nicht verfügbar. Bitte kontaktiere deine Lehrperson oder Administration, wenn du Hilfe beim Anmelden brauchst.",
@@ -341,14 +333,12 @@
 	"language_select": "Sprache auswählen",
 	"theme_toggle_label": "Helles oder dunkles Design umschalten",
 	"app_footer_tagline": "Für neugierige Kinder von 8-12 Jahren gemacht.",
-
 	"exercise_type_io": "Mit Code etwas sagen",
 	"exercise_type_turtle": "Turtle zeichnen",
 	"exercise_type_robot": "Roboter-Puzzle",
 	"exercise_mode_default": "Standardaufgabe",
 	"exercise_mode_path": "Pfad folgen",
 	"exercise_mode_apple": "Ziel erreichen",
-
 	"player_try": "Ausprobieren",
 	"player_check_answer": "Antwort prüfen",
 	"player_visual_run_hint": "Schau dir zuerst an, was deine Blöcke machen, bevor du deine Antwort prüfst.",
@@ -363,7 +353,6 @@
 	"player_io_example_output_label": "Dein Programm soll sagen",
 	"player_io_empty_output": "Hier erscheint deine Ausgabe, sobald du dein Programm ausprobierst.",
 	"player_exercise_image_alt": "Übungsbild",
-
 	"toolbox_logic": "Logik",
 	"toolbox_loops": "Schleifen",
 	"toolbox_math": "Mathe",
@@ -371,7 +360,6 @@
 	"toolbox_variables": "Variablen",
 	"toolbox_turtle": "Turtle",
 	"toolbox_robot": "Roboter",
-
 	"demo_intro": "Wähle einen Kurs, spiele direkt im Browser – dein Fortschritt bleibt auf diesem Gerät.",
 	"demo_published_only_hint": "Hier erscheinen nur Kurse, die von einer Lehrperson als Demo markiert wurden.",
 	"demo_no_published_exercises": "Dieser Demo-Kurs hat noch keine veröffentlichten Übungen.",
@@ -380,16 +368,13 @@
 	"demo_guest_continue": "Demo fortsetzen",
 	"demo_guest_start": "Demo starten",
 	"demo_exercises_count": "Übungen",
-
 	"courses_search_placeholder": "Kurse suchen...",
 	"courses_title_label": "Titel",
 	"courses_description_label": "Beschreibung",
 	"courses_exercises_label": "Übungen",
 	"courses_image_alt": "Kursbild",
-
 	"language_german": "Deutsch",
 	"language_english": "Englisch",
-
 	"cms_io_example_input_placeholder": "z. B. 5",
 	"cms_io_example_output_placeholder": "z. B. 10",
 	"cms_io_advanced_title": "Erweiterte Vergleichsregeln",
@@ -397,7 +382,6 @@
 	"cms_io_decimal_only_dot": "Nur Punkt",
 	"cms_io_decimal_only_comma": "Nur Komma",
 	"cms_io_decimal_dot_or_comma": "Punkt oder Komma",
-
 	"cms_type_mode_type_label": "Übungstyp",
 	"cms_type_mode_mode_label": "Aufgabenstil",
 	"cms_type_mode_selected_label": "Ausgewählt",
@@ -413,7 +397,6 @@
 	"cms_mode_option_path_description": "Kinder sollen einen geplanten Weg oder eine Zeichnung nachbilden.",
 	"cms_mode_option_apple_label": "Ziel erreichen",
 	"cms_mode_option_apple_description": "Kinder sollen das Ziel erreichen und Fehler vermeiden.",
-
 	"cms_blockpicker_title": "Toolbox auswählen",
 	"cms_blockpicker_hint": "Starte mit einem kleinen Preset und passe dann die Blöcke für Kinder an.",
 	"cms_blockpicker_selected": "ausgewählt",
@@ -451,7 +434,6 @@
 	"cms_blockpicker_preset_beginner_io_desc": "Eine kleine Auswahl für einfache Eingabe- und Ausgabeaufgaben.",
 	"cms_blockpicker_no_matches": "Keine Blöcke passen zu deiner Suche.",
 	"cms_blockpicker_remove_selected": "{name} entfernen",
-
 	"cms_exercise_create_title": "Übung erstellen",
 	"cms_exercise_edit_title": "Übung bearbeiten",
 	"cms_exercise_header_hint": "Stelle die Lernenden-Erfahrung ein und speichere erst, wenn sich die Übung stimmig anfühlt.",
@@ -542,7 +524,6 @@
 	"toast_generic_error": "Es ist ein Fehler aufgetreten",
 	"toast_exercise_create_error": "Beim Erstellen der Übung ist ein Fehler aufgetreten",
 	"toast_exercise_update_error": "Beim Aktualisieren der Übung ist ein Fehler aufgetreten",
-
 	"cms_course_create_title": "Kurs erstellen",
 	"cms_course_edit_title": "Kurs bearbeiten",
 	"cms_course_section_overview": "Übersicht",
@@ -607,6 +588,7 @@
 	"cms_exercises_all_types": "Alle Typen",
 	"cms_exercises_all_status": "Alle Status",
 	"cms_exercises_order": "Reihenfolge",
+	"cms_course_assign_users_error": "Kann nur einzelne Benutzer auswählen, wenn keine Klassen zugewiesen sind",
 	"toast_exercise_deleted": "Übung erfolgreich gelöscht",
 	"toast_exercise_delete_failed": "Übung konnte nicht gelöscht werden",
 	"users_all_roles": "Alle Rollen",
@@ -743,7 +725,6 @@
 	"cms_manual_test_tolerance": "Toleranz",
 	"cms_manual_test_expected_commands": "Erwartete Befehle (einer pro Zeile)",
 	"cms_manual_test_expected_commands_placeholder": "move:50\nturn:90\nmove:50",
-
 	"save": "Speichern",
 	"cancel": "Abbrechen",
 	"published": "Veröffentlicht",

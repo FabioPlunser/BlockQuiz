@@ -43,16 +43,19 @@
 		onExerciseChange
 	}: Props = $props();
 
-	const player = new CoursePlayerState(untrack(() => courseId), {
-		mode: untrack(() => mode),
-		guestCourse: untrack(() => guestCourse) as never,
-		loadExercises: untrack(() => loadExercises),
-		persistAttempt: untrack(() => persistAttempt),
-		initialProgress: untrack(() => initialProgress),
-		initialSnapshots: untrack(() => initialSnapshots),
-		initialExerciseIndex: untrack(() => initialExerciseIndex),
-		onExerciseChange: untrack(() => onExerciseChange)
-	});
+	const player = new CoursePlayerState(
+		untrack(() => courseId),
+		{
+			mode: untrack(() => mode),
+			guestCourse: untrack(() => guestCourse) as never,
+			loadExercises: untrack(() => loadExercises),
+			persistAttempt: untrack(() => persistAttempt),
+			initialProgress: untrack(() => initialProgress),
+			initialSnapshots: untrack(() => initialSnapshots),
+			initialExerciseIndex: untrack(() => initialExerciseIndex),
+			onExerciseChange: untrack(() => onExerciseChange)
+		}
+	);
 	setCoursePlayer(player);
 
 	onMount(() => {
@@ -91,7 +94,7 @@
 		<button class="btn btn-primary" onclick={onBack}>{i18n.course_close}</button>
 	</div>
 {:else}
-	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
+	<div class="mx-auto flex w-full max-w-400 flex-col gap-4">
 		<header class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
 			<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 				<div class="flex items-start gap-3">
@@ -141,7 +144,7 @@
 							<button
 								type="button"
 								class={[
-									'group flex max-w-[10rem] min-w-[7rem] shrink-0 flex-col items-stretch gap-1 rounded-xl border px-2 py-2 text-left transition',
+									'group flex max-w-40 min-w-28 shrink-0 flex-col items-stretch gap-1 rounded-xl border px-2 py-2 text-left transition',
 									isCurrent && 'border-primary bg-primary/10 ring-2 ring-primary/30',
 									!isCurrent && passed && 'border-success bg-success/10 hover:border-success/60',
 									!isCurrent &&
@@ -226,7 +229,7 @@
 	<BadgeUnlock badges={player.pendingBadges} onDismiss={() => player.dismissBadges()} />
 
 	{#if player.showCompletionModal}
-		<div class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4">
+		<div class="fixed inset-0 z-1000 flex items-center justify-center bg-black/50 px-4">
 			<div class="max-w-md rounded-xl bg-base-100 p-8 text-center shadow-2xl">
 				<div class="flex justify-center">
 					<div class="flex h-20 w-20 items-center justify-center rounded-full bg-success/20">

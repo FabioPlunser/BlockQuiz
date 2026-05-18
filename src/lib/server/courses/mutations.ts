@@ -152,16 +152,16 @@ export async function submitAttemptImpl(user: AuthedUser, data: SubmitAttemptInp
 	const newBadges = alreadySolved
 		? []
 		: await evaluateAndPersistBadges({
-				userId: user.id,
-				attemptSignal: {
-					exerciseId: data.exerciseId,
-					passed: authoritative.grading.passed,
-					score: authoritative.grading.score,
-					hintEventCount: hintCount,
-					locale: data.locale
-				},
-				relatedCourseIds: relatedCourses.map((r) => r.courseId)
-			});
+			userId: user.id,
+			attemptSignal: {
+				exerciseId: data.exerciseId,
+				passed: authoritative.grading.passed,
+				score: authoritative.grading.score,
+				hintEventCount: hintCount,
+				locale: data.locale
+			},
+			relatedCourseIds: relatedCourses.map((r) => r.courseId)
+		});
 
 	void writeAuditLog({
 		actorUserId: user.id,
@@ -280,6 +280,7 @@ export async function updateCourseImpl(
 		const validationError = await validatePublishedCourseInput(content, exerciseIds);
 		if (validationError) return { success: false, error: validationError };
 	}
+	console.log('updateCourseImpl', { id, content, published: targetPublished, exerciseIds, userIds, classIds });
 
 	try {
 		await db

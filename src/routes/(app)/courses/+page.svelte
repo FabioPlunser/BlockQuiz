@@ -133,7 +133,7 @@
 {/if}
 
 {#snippet courseCard(course: UserCourse)}
-	<div class="card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
+	<div class="card h-full bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
 		{#if course.content?.image}
 			<figure>
 				<img

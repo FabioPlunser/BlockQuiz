@@ -4,7 +4,8 @@
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { Lightbulb, ChevronRight, Clock, Eye } from '@lucide/svelte';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	type Props = {
 		exercise: Exercise;
@@ -18,7 +19,7 @@
 	// Hint state - use array for better reactivity in Svelte 5
 	let revealedHints = $state<string[]>([]);
 	let hintEvents = $state<HintRevealEvent[]>([]);
-	let hintTimers = $state<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+	let hintTimers = $state<SvelteMap<string, ReturnType<typeof setTimeout>>>(new SvelteMap());
 	let exerciseStartTime = $state(Date.now());
 	let hintClock = $state(Date.now());
 	let hintClockInterval = $state<ReturnType<typeof setInterval> | null>(null);
@@ -56,20 +57,8 @@
 		]);
 	}
 
-	// Reset hints when exercise changes
-	$effect(() => {
-		// Clear previous timers
-		hintTimers.forEach((timer) => clearTimeout(timer));
-		hintTimers.clear();
-		if (hintClockInterval) {
-			clearInterval(hintClockInterval);
-			hintClockInterval = null;
-		}
-		syncHintEvents([]);
-		exerciseStartTime = Date.now();
-		hintClock = Date.now();
-
-		// Set up timed hints
+	async function handleHintClick(exercise: Exercise) {
+		console.log('handleHintClick');
 		if (exercise.config.hints) {
 			const hasTimedHints = exercise.config.hints.some((hint) => hint.trigger === 'time');
 			if (hasTimedHints) {
@@ -77,7 +66,6 @@
 					hintClock = Date.now();
 				}, 1000);
 			}
-
 			exercise.config.hints.forEach((hint) => {
 				if (hint.trigger === 'time' && hint.delaySeconds) {
 					const timer = setTimeout(() => {
@@ -88,13 +76,53 @@
 				}
 			});
 		}
+	}
+	$inspect(hintClockInterval);
+
+	function clearHintTimers() {
+		hintTimers.forEach((timer) => clearTimeout(timer));
+		hintTimers.clear();
+
+		if (hintClockInterval) {
+			clearInterval(hintClockInterval);
+			hintClockInterval = null;
+		}
+	}
+
+	function initHintTimers() {
+		clearHintTimers();
+
+		if (!exercise.config.hints?.length) return;
+
+		const hasTimedHints = exercise.config.hints.some((hint) => hint.trigger === 'time');
+		if (hasTimedHints) {
+			hintClockInterval = setInterval(() => {
+				hintClock = Date.now();
+				console.log('clock tick:', hintClock);
+			}, 1000);
+		}
+
+		for (const hint of exercise.config.hints) {
+			if (hint.trigger === 'time' && hint.delaySeconds != null) {
+				const timer = setTimeout(() => {
+					recordHintReveal(hint);
+				}, hint.delaySeconds * 1000);
+
+				hintTimers.set(hint.id, timer);
+			}
+		}
+	}
+
+	onMount(() => {
+		initHintTimers();
+
+		return () => {
+			clearHintTimers();
+		};
 	});
 
 	onDestroy(() => {
-		hintTimers.forEach((timer) => clearTimeout(timer));
-		if (hintClockInterval) {
-			clearInterval(hintClockInterval);
-		}
+		clearHintTimers();
 	});
 
 	function revealHint(hintId: string) {
@@ -129,7 +157,7 @@
 	);
 </script>
 
-<div class="flex flex-col gap-4 overflow-y-auto rounded-xl bg-base-300 p-4 shadow-md">
+<div class="flex flex-col gap-4 overflow-y-auto rounded-xl bg-base-200 p-4 shadow-md">
 	<!-- Progress Indicator -->
 	<div class="flex items-center justify-between">
 		<span class="text-sm font-medium text-base-content/60">
@@ -173,7 +201,8 @@
 	</div>
 
 	<!-- Description -->
-	<div class="prose prose-sm max-w-none text-base-content/80">
+	<h1 class="underline">Description:</h1>
+	<div class="prose max-w-none text-base-content">
 		{@html sanitizeHtml(getLocalized(exercise.content.description))}
 	</div>
 

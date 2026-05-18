@@ -35,18 +35,19 @@
 		initialResult = null
 	}: Props = $props();
 
-	const player = new ExercisePlayerState(untrack(() => exercise), {
-		initialResult: untrack(() => initialResult)
-	});
+	const player = new ExercisePlayerState(
+		untrack(() => exercise),
+		{
+			initialResult: untrack(() => initialResult)
+		}
+	);
 	setExercisePlayer(player);
 
 	let blocklyRef = $state<BlocklyWorkspace | undefined>(undefined);
 	let activeTab = $state<'task' | 'blocks' | 'run'>('blocks');
 
 	let workspaceHeading = $derived(
-		exercise.type === 'io'
-			? i18n.player_workspace_heading_io
-			: i18n.player_workspace_heading_visual
+		exercise.type === 'io' ? i18n.player_workspace_heading_io : i18n.player_workspace_heading_visual
 	);
 	let workspaceDescription = $derived(
 		exercise.type === 'io'
@@ -158,10 +159,10 @@
 			</div>
 
 			<div class="flex min-h-[28rem] flex-1 flex-col">
-				{#key exercise.id}
+				{#key exercise.i}
 					<BlocklyWorkspace
 						bind:this={blocklyRef}
-						toolboxConfig={toolboxConfig}
+						{toolboxConfig}
 						starterXml={initialWorkspaceXml ||
 							(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
 						ariaLabel={i18n.player_workspace_aria_label}

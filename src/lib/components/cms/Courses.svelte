@@ -43,6 +43,7 @@
 	let newCourse = $state(false);
 	let editCourse = $state(false);
 	let selectedCourse: Course | undefined = $state(undefined);
+	$inspect('selectedCourse', selectedCourse);
 	let searchQuery = $state('');
 	let archivedFilter = new PersistedState<'active' | 'archived' | 'all'>(
 		'coursesArchivedFilter',

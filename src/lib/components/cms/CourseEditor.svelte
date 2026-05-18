@@ -48,7 +48,7 @@
 	// Local editable form state intentionally diverges from the incoming prop while the user edits.
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let formData = $state<CourseFormData>(createDefaultCourseFormData());
-
+	$inspect(formData);
 	$effect(() => {
 		formData = course
 			? {
@@ -69,10 +69,13 @@
 	// because Svelte 5 $derived blocks read state lazily but TypeScript still
 	// enforces top-down declaration order.
 	let publishedOnly = new PersistedState<boolean>('courseEditorPublishedOnly', false);
-	let visibleExerciseColumnKeys = new PersistedState<string[]>(
-		'courseEditorExerciseColumns',
-		['title', 'type', 'description', 'published', 'edit']
-	);
+	let visibleExerciseColumnKeys = new PersistedState<string[]>('courseEditorExerciseColumns', [
+		'title',
+		'type',
+		'description',
+		'published',
+		'edit'
+	]);
 
 	// Fetch exercises and assignable students/classes (live reactive query handles).
 	const exercises = getExercises({});
@@ -186,8 +189,7 @@
 		{
 			key: 'published',
 			label: i18n.cms_exercises_status,
-			render: (e: Exercise) =>
-				e.published ? i18n.cms_status_published : i18n.cms_status_draft
+			render: (e: Exercise) => (e.published ? i18n.cms_status_published : i18n.cms_status_draft)
 		},
 		{
 			key: 'edit',
@@ -384,7 +386,8 @@
 					content: formData.content,
 					published: formData.published,
 					exerciseIds: formData.exerciseIds,
-					userIds: formData.userIds
+					userIds: formData.userIds,
+					classIds: formData.classIds
 				});
 
 				handleServerResult(result, i18n.toast_course_created, i18n.toast_course_create_failed);
@@ -398,7 +401,8 @@
 					content: formData.content,
 					published: formData.published,
 					exerciseIds: formData.exerciseIds,
-					userIds: formData.userIds
+					userIds: formData.userIds,
+					classIds: formData.classIds
 				});
 
 				handleServerResult(result, i18n.toast_course_updated, i18n.toast_course_update_failed);
@@ -654,22 +658,26 @@
 
 				<!-- Users Section -->
 				{#if activeSection === 'users'}
-					<div class="mt-4">
-						<h2 class="mb-2 font-bold">{i18n.cms_course_assign_users}</h2>
-						<p class="mb-4 text-sm text-base-content/60">
-							{i18n.cms_course_assign_users_hint}
-							{formData.userIds.length}
-						</p>
-						<SelectableTable
-							items={filteredUsers}
-							columns={userColumns}
-							bind:searchQuery={searchQueryUsers}
-							bind:selectedIds={formData.userIds}
-							onSelect={handleSelectUser}
-							onSelectAll={handleSelectAllUsers}
-							tableClass="h-96"
-						/>
-					</div>
+					{#if formData.classIds.length > 0}
+						<h2 class="mb-2 font-bold">{i18n.cms_course_assign_users_error}</h2>
+					{:else}
+						<div class="mt-4">
+							<h2 class="mb-2 font-bold">{i18n.cms_course_assign_users}</h2>
+							<p class="mb-4 text-sm text-base-content/60">
+								{i18n.cms_course_assign_users_hint}
+								{formData.userIds.length}
+							</p>
+							<SelectableTable
+								items={filteredUsers}
+								columns={userColumns}
+								bind:searchQuery={searchQueryUsers}
+								bind:selectedIds={formData.userIds}
+								onSelect={handleSelectUser}
+								onSelectAll={handleSelectAllUsers}
+								tableClass="h-96"
+							/>
+						</div>
+					{/if}
 				{/if}
 
 				<!-- Classes Section -->

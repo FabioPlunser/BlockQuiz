@@ -118,6 +118,7 @@ export async function replaceCourseClasses(
 	actorId: string,
 	now: number
 ): Promise<{ inserted: number }> {
+	console.log('replaceCourseClasses', { courseId, classIds, actorId, now });
 	await db.delete(courseClasses).where(eq(courseClasses.courseId, courseId));
 	if (classIds.length === 0) return { inserted: 0 };
 	await db.insert(courseClasses).values(
