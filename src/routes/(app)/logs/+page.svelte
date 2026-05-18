@@ -1,21 +1,31 @@
 <script lang="ts">
-	import { getAuditLogs, type LogEntry, type LogLevelFilter } from '$remote/logs.remote';
+	import {
+		getAuditLogs,
+		getAuditUsers,
+		exportAuditLogsCsv,
+		type LogEntry,
+		type LogLevelFilter,
+		type LogCategoryFilter
+	} from '$remote/logs.remote';
 	import { PersistedState } from 'runed';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 	import { Debounced } from 'runed';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
+	import SearchableDropdown from '$lib/components/SearchableDropdown.svelte';
+	import ExportLogsModal from '$lib/components/ExportLogsModal.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import { Search, RefreshCw } from '@lucide/svelte';
+	import { Search, RefreshCw, Download } from '@lucide/svelte';
 	import Boundary from '$cp/Boundary.svelte';
 
-	//-----------------------------------------------------------------------------
-	// State
-	//-----------------------------------------------------------------------------
 	const pageSize = 25;
 
 	let searchQuery = $state('');
 	let selectedLevel = $state<LogLevelFilter>('all');
+	let selectedCategory = $state<LogCategoryFilter>('all');
+	let selectedUserId = $state<string>('');
 	let currentPage = $state(1);
+	let exporting = $state(false);
+	let exportModalOpen = $state(false);
 	const debouncedQuery = new Debounced(() => searchQuery.trim(), 200);
 
 	let logs = $derived(
@@ -23,21 +33,29 @@
 			page: currentPage,
 			pageSize,
 			level: selectedLevel,
+			category: selectedCategory,
+			actorUserId: selectedUserId || undefined,
 			search: debouncedQuery.current
 		})
 	);
 
-	// Column visibility
+	let users = $derived(getAuditUsers());
+
+	$effect(() => {
+		if (selectedCategory === 'system' && selectedUserId) {
+			selectedUserId = '';
+		}
+	});
+
 	let visibleColumns = new PersistedState<string[]>('logsVisibleColumns', [
 		'timestamp',
+		'category',
 		'level',
 		'message',
+		'actorUserId',
 		'details'
 	]);
 
-	//-----------------------------------------------------------------------------
-	// Helpers
-	//-----------------------------------------------------------------------------
 	function getLevelBadgeClass(level: string) {
 		switch (level) {
 			case 'info':
@@ -51,13 +69,66 @@
 		}
 	}
 
+	function getCategoryBadgeClass(category: string) {
+		switch (category) {
+			case 'admin':
+				return 'badge-warning';
+			case 'user':
+				return 'badge-success';
+			case 'system':
+				return 'badge-neutral';
+			default:
+				return 'badge-ghost';
+		}
+	}
+
 	function handlePageChange(page: number) {
 		currentPage = page;
 	}
 
-	//-----------------------------------------------------------------------------
-	// Table columns definition
-	//-----------------------------------------------------------------------------
+	async function runExport(input: {
+		fromTs: number;
+		toTs: number;
+		categories: ('system' | 'admin' | 'user')[];
+		columns: (
+			| 'timestamp'
+			| 'category'
+			| 'level'
+			| 'action'
+			| 'actorEmail'
+			| 'actorUserId'
+			| 'message'
+			| 'details'
+			| 'source'
+		)[];
+	}) {
+		exporting = true;
+		try {
+			const result = await exportAuditLogsCsv({
+				level: selectedLevel,
+				categories: input.categories,
+				columns: input.columns,
+				fromTs: input.fromTs,
+				toTs: input.toTs,
+				actorUserId: selectedUserId || undefined,
+				search: debouncedQuery.current,
+				limit: 50000
+			});
+			const blob = new Blob([result.content], { type: 'text/csv;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = result.filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(url);
+			exportModalOpen = false;
+		} finally {
+			exporting = false;
+		}
+	}
+
 	type LogWithId = LogEntry & { id: string };
 
 	let tableColumns = $derived<Column<LogWithId>[]>([
@@ -66,25 +137,35 @@
 			label: i18n.logs_timestamp,
 			sortable: true,
 			class: 'whitespace-nowrap',
-			cellSnippet: 'timestamp' // Reference by key
+			cellSnippet: 'timestamp'
+		},
+		{
+			key: 'category',
+			label: i18n.logs_category,
+			sortable: true,
+			cellSnippet: 'category'
 		},
 		{
 			key: 'level',
 			label: i18n.logs_level,
 			sortable: true,
-			cellSnippet: 'level' // Reference by key
+			cellSnippet: 'level'
 		},
 		{
 			key: 'message',
 			label: i18n.logs_message,
 			sortable: true,
 			class: 'font-medium'
-			// No cellSnippet - will use defaultCell
+		},
+		{
+			key: 'actorUserId',
+			label: i18n.logs_actor,
+			cellSnippet: 'actor'
 		},
 		{
 			key: 'details',
 			label: i18n.logs_details,
-			cellSnippet: 'details' // Reference by key
+			cellSnippet: 'details'
 		}
 	]);
 </script>
@@ -93,11 +174,20 @@
 	<title>{i18n.logs_title} | BlockQuiz</title>
 </svelte:head>
 
-<!-- Define snippets in template - these will be passed as props -->
 {#snippet levelCell(log: LogWithId)}
 	<div class="badge {getLevelBadgeClass(log.level)} gap-2 text-xs font-bold uppercase">
 		{log.level}
 	</div>
+{/snippet}
+
+{#snippet categoryCell(log: LogWithId)}
+	<div class="badge {getCategoryBadgeClass(log.category ?? '')} gap-2 text-xs uppercase">
+		{log.category ?? '—'}
+	</div>
+{/snippet}
+
+{#snippet actorCell(log: LogWithId)}
+	<span class="text-xs opacity-70">{log.actorEmail ?? '—'}</span>
 {/snippet}
 
 {#snippet detailsCell(log: LogWithId)}
@@ -118,53 +208,67 @@
 
 <div class="mx-auto w-full space-y-6 p-6">
 	<h1 class="text-2xl font-bold">{i18n.logs_title}</h1>
-	<!-- Toolbar -->
-	<div
-		class="flex flex-row items-center gap-6 rounded-box bg-base-200/50 p-4 text-sm text-base-content/80 shadow-sm"
+
+	<section
+		class="card gap-4 border border-base-300 bg-base-100 p-4 text-sm shadow-sm w-full"
 	>
-		<!-- Search + Filter (Left) -->
-		<div class="flex w-full flex-col gap-2 md:max-w-md">
-			<div class="flex flex-col gap-2 sm:flex-row">
-				<label class="input-bordered input flex w-full items-center gap-2">
-					<input
-						type="text"
-						class="grow"
-						placeholder={i18n.logs_search_placeholder}
-						bind:value={searchQuery}
+		<div class="flex flex-wrap items-end gap-4">
+			<label class="input-bordered input flex w-full max-w-md items-center gap-2">
+				<input
+					type="text"
+					class="grow"
+					placeholder={i18n.logs_search_placeholder}
+					bind:value={searchQuery}
+				/>
+				<Search class="h-4 w-4 opacity-60" />
+			</label>
+
+			<select class="select-bordered select w-40" bind:value={selectedCategory}>
+				<option value="all">{i18n.logs_all_categories}</option>
+				<option value="system">{i18n.logs_category_system}</option>
+				<option value="admin">{i18n.logs_category_admin}</option>
+				<option value="user">{i18n.logs_category_user}</option>
+			</select>
+
+			<select class="select-bordered select w-40" bind:value={selectedLevel}>
+				<option value="all">{i18n.logs_all_levels}</option>
+				<option value="info">{i18n.logs_level_info}</option>
+				<option value="warn">{i18n.logs_level_warning}</option>
+				<option value="error">{i18n.logs_level_error}</option>
+			</select>
+
+			{#if selectedCategory !== 'system'}
+				{#await users then userList}
+					<SearchableDropdown
+						bind:value={selectedUserId}
+						options={userList.map((u) => ({ value: u.id, label: u.label }))}
+						placeholder={i18n.logs_all_users}
+						searchPlaceholder={i18n.logs_user_filter}
+						emptyOptionLabel={i18n.logs_all_users}
 					/>
-					<Search class="h-4 w-4 opacity-60" />
-				</label>
-				<select class="select-bordered select w-full sm:w-40" bind:value={selectedLevel}>
-					<option value="all">{i18n.logs_all_levels}</option>
-					<option value="info">{i18n.logs_level_info}</option>
-					<option value="warn">{i18n.logs_level_warning}</option>
-					<option value="error">{i18n.logs_level_error}</option>
-				</select>
+				{/await}
+			{/if}
+
+			<ColumnPicker columns={tableColumns} bind:visibleColumns={visibleColumns.current} />
+
+			<div class="ml-auto flex gap-2">
+				<button class="btn btn-sm" onclick={() => (exportModalOpen = true)} disabled={exporting}>
+					<Download class="h-4 w-4" />
+					{exporting ? i18n.logs_exporting : i18n.logs_export_csv}
+				</button>
+				<button
+					class="btn btn-sm btn-primary"
+					onclick={() => logs.refresh()}
+					disabled={logs.loading}
+				>
+					<RefreshCw class="h-4 w-4 {logs.loading ? 'animate-spin' : ''}" />
+					{logs.loading ? i18n.logs_refreshing : i18n.logs_refresh}
+				</button>
 			</div>
 		</div>
 
-		<div class="flex items-center">
-			<!-- Column Picker -->
-			<ColumnPicker columns={tableColumns} bind:visibleColumns={visibleColumns.current} />
-		</div>
-
-		<!-- Refresh (Right) -->
-		<div class="flex w-full flex-col gap-2 md:ml-auto md:w-auto md:items-end">
-			<button
-				class="btn w-full btn-sm btn-primary md:w-auto"
-				onclick={() => logs.refresh()}
-				disabled={logs.loading}
-			>
-				<RefreshCw class="h-4 w-4 {logs.loading ? 'animate-spin' : ''}" />
-				{logs.loading ? i18n.logs_refreshing : i18n.logs_refresh}
-			</button>
-		</div>
-	</div>
-
-	<!-- Logs Table -->
-	<Boundary>
-		{#await logs then data}
-			<div class="rounded-box border border-base-300 bg-base-100 shadow">
+		<Boundary>
+			{#await logs then data}
 				<div class="max-h-[60vh] overflow-auto">
 					<DataTable
 						items={data.logs.map((log) => ({ ...log, id: log.__key ?? String(log.timestamp) }))}
@@ -181,12 +285,21 @@
 						tableClass="[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10"
 						cellSnippets={{
 							timestamp: timestampCell,
+							category: categoryCell,
 							level: levelCell,
+							actor: actorCell,
 							details: detailsCell
 						}}
 					/>
 				</div>
-			</div>
-		{/await}
-	</Boundary>
+			{/await}
+		</Boundary>
+	</section>
 </div>
+
+<ExportLogsModal
+	open={exportModalOpen}
+	{exporting}
+	onClose={() => (exportModalOpen = false)}
+	onExport={runExport}
+/>

@@ -10,7 +10,7 @@
 
 	const isAdmin = $derived(user?.role === Role.ADMIN);
 	const canManageContent = $derived(
-		user?.role === Role.TEACHER || user?.role === Role.AUTHOR || user?.role === Role.ADMIN
+		user?.role === Role.TEACHER || user?.role === Role.ADMIN
 	);
 	const currentPath = $derived(page.url.pathname);
 

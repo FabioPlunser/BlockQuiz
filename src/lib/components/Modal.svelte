@@ -69,7 +69,9 @@
 			<div class="modal-action">
 				<div class="flex gap-4">
 					{@render controls?.()}
-					<button class="btn" onclick={handleClose}>{i18n.modal_close}</button>
+					<button type="button" class="btn" onclick={handleClose}>
+						{i18n.modal_close}
+					</button>
 				</div>
 			</div>
 		</div>

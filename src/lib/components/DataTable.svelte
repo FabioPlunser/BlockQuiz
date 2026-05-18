@@ -290,7 +290,9 @@
 						</th>
 					{/each}
 					{#if rowActions}
-						<th class="text-right">{i18n.datatable_actions_header}</th>
+						<th class="w-px whitespace-nowrap text-right">
+							{i18n.datatable_actions_header}
+						</th>
 					{/if}
 				</tr>
 			</thead>
@@ -304,8 +306,10 @@
 							</td>
 						{/each}
 						{#if rowActions}
-							<td class="text-right">
-								{@render rowActions(item)}
+							<td class="w-px whitespace-nowrap">
+								<div class="flex justify-end gap-2">
+									{@render rowActions(item)}
+								</div>
 							</td>
 						{/if}
 					</tr>
