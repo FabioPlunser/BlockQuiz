@@ -1,15 +1,19 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/* Fonts used only by the 'warm' theme. Loaded once; existing themes keep system fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Albert+Sans:wght@400;500;600&display=swap');
+
 @plugin 'daisyui/index.js' {
 	themes:
-		light --default,
-		dark --prefersdark;
+		light,
+		dark --prefersdark,
+		warm --default;
 }
 
 @plugin 'daisyui/theme' {
 	name: 'light';
-	default: true;
+	default: false;
 	prefersdark: false;
 	color-scheme: 'light';
 	--color-base-100: oklch(100% 0 0);
@@ -75,6 +79,54 @@
 	--border: 1px;
 	--depth: 1;
 	--noise: 0;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'warm';
+	default: true;
+	prefersdark: false;
+	color-scheme: 'light';
+	--color-base-100: oklch(98% 0.013 76);
+	--color-base-200: oklch(95% 0.018 76);
+	--color-base-300: oklch(89% 0.022 76);
+	--color-base-content: oklch(22% 0.02 40);
+	--color-primary: oklch(58% 0.14 35);
+	--color-primary-content: oklch(98% 0.01 76);
+	--color-secondary: oklch(65% 0.07 145);
+	--color-secondary-content: oklch(20% 0.02 145);
+	--color-accent: oklch(82% 0.13 85);
+	--color-accent-content: oklch(20% 0.04 50);
+	--color-neutral: oklch(35% 0.02 40);
+	--color-neutral-content: oklch(95% 0.01 76);
+	--color-info: oklch(62% 0.09 230);
+	--color-info-content: oklch(15% 0.03 230);
+	--color-success: oklch(58% 0.11 150);
+	--color-success-content: oklch(15% 0.03 150);
+	--color-warning: oklch(75% 0.14 75);
+	--color-warning-content: oklch(20% 0.05 75);
+	--color-error: oklch(54% 0.18 28);
+	--color-error-content: oklch(95% 0.01 76);
+	--radius-selector: 0.75rem;
+	--radius-field: 0.85rem;
+	--radius-box: 1.25rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1.5px;
+	--depth: 1;
+	--noise: 0;
+}
+
+/* Warm-theme-scoped typography: serif display, sans body. Doesn't touch other themes. */
+[data-theme='warm'] {
+	font-family: 'Albert Sans', 'Avenir Next', system-ui, sans-serif;
+}
+[data-theme='warm'] h1,
+[data-theme='warm'] h2,
+[data-theme='warm'] h3,
+[data-theme='warm'] .font-display {
+	font-family: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+	font-weight: 500;
+	letter-spacing: -0.015em;
 }
 
 /* Speed up DaisyUI checkbox checkmark animation */

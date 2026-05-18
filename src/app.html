@@ -8,10 +8,11 @@
 				try {
 					var stored = localStorage.getItem('theme');
 					var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-					var theme = stored === 'dark' || stored === 'light' ? stored : prefersDark ? 'dark' : 'light';
+					var valid = stored === 'dark' || stored === 'light' || stored === 'warm';
+					var theme = valid ? stored : prefersDark ? 'dark' : 'warm';
 					document.documentElement.setAttribute('data-theme', theme);
 				} catch (e) {
-					document.documentElement.setAttribute('data-theme', 'light');
+					document.documentElement.setAttribute('data-theme', 'warm');
 				}
 			})();
 		</script>

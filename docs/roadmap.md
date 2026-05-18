@@ -16,8 +16,9 @@ Current branch convention: small feature commits straight onto `dev`, each indiv
 | Turtle start / finish / collision / apples | ✅ shipped (live reachability check + strict-fail) |
 | BFS reachability + path generation | ✅ helpers exist; UI button dropped (revisit later) |
 | CMS folder moved to `lib/components/cms/` | ✅ shipped |
-| `courses.remote.ts` — badges + analytics extracted, getUserCourses BFS | ✅ shipped (file still ~1100 LOC) |
-| Service-layer split for `courses.remote.ts` | ⏳ partial — see §4 |
+| `courses.remote.ts` — badges + analytics extracted, getUserCourses BFS | ✅ shipped |
+| Service-layer split for `courses.remote.ts` | ✅ shipped — file is ~214 LOC of thin wrappers; logic in `$lib/server/courses/{schemas,helpers,queries,mutations}.ts` |
+| Vestigial validator + guest-import server code removed | ✅ shipped — `attempts/invariants.ts` (+ spec) deleted; mutations.ts writes `actorType: 'user'` directly |
 | CMS UX (section nav, validation checklist, empty state, filter chip, card heights) | ✅ shipped |
 | Container-query player layout | ✅ shipped |
 | SSO + email transport + password-login mode | ✅ shipped |
@@ -137,7 +138,16 @@ B. **Sibling `GuestCoursePlayer.svelte`** with its own state class — separatio
 
 ---
 
-## 4. Service-layer split for `courses.remote.ts`
+## 4. Service-layer split for `courses.remote.ts` — ✅ done
+
+**Landed:**
+- `src/lib/server/courses/schemas.ts` — every zod input schema (createCourseSchema, updateCourseSchema, courseCloneSchema, courseArchiveSchema, importCourseSchema, submitAttemptSchema, hintRevealEventSchema, attemptAnalyticsSchema).
+- `src/lib/server/courses/helpers.ts` — pure JSON sanitisers (sanitizeHintEventsJson, sanitizeAnalyticsJson, countHintEvents, parseAttemptAnalytics) and relation projections (mapCoursesWithRelations, loadPublishedCourseExercises, loadCoursePublishExercises, validatePublishedCourseInput).
+- `src/lib/server/courses/queries.ts` — every read body: `loadStaffCourses`, `loadPublicCourses`, `loadCourseRow`, `loadCourseWithRelations`, `listAssignedCoursesForUser`, `loadCourseExercisesForMember`, `loadPublicCourseExercises`, `loadEarnedBadges`, `loadCourseProgress`, `loadCourseAnalytics`, `loadCourseAttemptsExport`, `loadCourseResearchExport`, `loadCourseExercisesForExport`. Permission-aware reads return a discriminated `{ reason: 'ok' | 'not-found' | 'not-member' | 'not-published' }` so the SvelteKit wrapper layer maps to `error(...)` cleanly.
+- `src/lib/server/courses/mutations.ts` — every write body: `submitAttemptImpl`, `createCourseImpl`, `updateCourseImpl`, `deleteCourseImpl`, `cloneCourseImpl`, `archiveCourseImpl`, `restoreCourseImpl`, `importCourseImpl`. Each returns a `CommandResult<T>` discriminated by `success`.
+- `src/lib/remote/courses.remote.ts` — **1089 → 214 LOC**. Each export is a 5–10-line wrapper: parse → auth check → call service → return.
+
+## 4 (deprecated section kept for context)
 
 **Why:** the file is still ~1100 lines and mixes zod schemas, DB queries, business helpers, and the SvelteKit wrappers. The natural shape is "thin remote function → service call." We already extracted badges and analytics; finishing the split shrinks each remote function to ~5–10 lines.
 
@@ -226,6 +236,16 @@ Not landed; revisit if non-technical-teacher feedback says they're needed:
 - Warm theme fine-tuning across components beyond what DaisyUI inherits.
 
 ---
+
+## Schema cleanup deferred (needs migration)
+
+After removing server-side guest attempt import, two schema bits are vestigial:
+
+- `attempts.actorType` enum keeps the `'guest'` value alongside `'user'`. No live code path inserts `'guest'`; the DB check constraint still enforces the (now unused) guest invariant.
+- `attempts.clientId` column is only populated by `'guest'` rows. Live mutations always write `clientId: null`.
+- `AttemptActorType = 'user' | 'guest'` in `$lib/types/attempt.ts` keeps the `'guest'` literal for legacy row shape.
+
+A migration could drop the `'guest'` enum value, drop the `clientId` column, and simplify the check constraint, then narrow `AttemptActorType` to just `'user'`. Defer until the demo/guest path is settled — keeping the column makes it easier to reintroduce guest-account-import later if needed.
 
 ## Open questions to confirm before §2 lands
 
