@@ -28,8 +28,8 @@ export function requireTeacherOrAdmin() {
 	}
 
 	const userRole = locals.user.role;
-	if (userRole !== Role.TEACHER && userRole !== Role.AUTHOR && userRole !== Role.ADMIN) {
-		error(403, 'Access denied. Teacher, author, or admin role required.');
+	if (userRole !== Role.TEACHER && userRole !== Role.ADMIN) {
+		error(403, 'Access denied. Teacher or admin role required.');
 	}
 
 	return locals.user;
@@ -38,5 +38,10 @@ export function requireTeacherOrAdmin() {
 export function isTeacherOrAdmin() {
 	const { locals } = getRequestEvent();
 	return locals.user && locals.user.role === Role.TEACHER || locals.user && locals.user.role === Role.ADMIN;
+}
+
+export function currentUser() {
+	const { locals } = getRequestEvent();
+	return locals.user ?? null;
 }
 	

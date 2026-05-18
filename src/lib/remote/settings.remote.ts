@@ -24,8 +24,12 @@ import {
 	passwordLoginModeSchema
 } from '$remote/schemas/settingsSchema';
 import { env } from '$env/dynamic/private';
-
-const SECRET_PLACEHOLDER = '__keep__';
+import {
+	SECRET_PLACEHOLDER,
+	buildOidcConfig,
+	buildSamlConfig,
+	mapRowToProvider
+} from '$lib/server/sso-config';
 
 export const getEmailSettings = query(async () => {
 	requireAuth(Role.ADMIN);
@@ -109,6 +113,7 @@ export const sendTestEmail = command(sendTestEmailSchema, async (data) => {
 		await writeAuditLog({
 			actorUserId: actor.id,
 			action: 'settings.email.test',
+			category: 'admin',
 			details: { to }
 		});
 		return { success: true as const, to };
@@ -125,7 +130,8 @@ export const getPublicSsoProviders = query(async () => {
 	const rows = await db.select().from(ssoProvider);
 	return rows.map((row) => ({
 		providerId: row.providerId,
-		domain: row.domain
+		domain: row.domain,
+		type: row.samlConfig ? ('saml' as const) : ('oidc' as const)
 	}));
 });
 
@@ -155,27 +161,8 @@ export const saveAuthSettings = form(passwordLoginModeSchema, async (data) => {
 export const getSsoProviders = query(async () => {
 	requireAuth(Role.ADMIN);
 	const rows = await db.select().from(ssoProvider);
-	return rows.map((row) => {
-		let parsedOidc: Record<string, unknown> | null = null;
-		try {
-			parsedOidc = row.oidcConfig ? JSON.parse(row.oidcConfig) : null;
-		} catch {
-			parsedOidc = null;
-		}
-		return {
-			id: row.id,
-			providerId: row.providerId,
-			issuer: row.issuer,
-			domain: row.domain,
-			discoveryEndpoint: (parsedOidc?.discoveryEndpoint as string | undefined) ?? '',
-			clientId: (parsedOidc?.clientId as string | undefined) ?? '',
-			scopes: Array.isArray(parsedOidc?.scopes)
-				? (parsedOidc?.scopes as string[]).join(' ')
-				: 'openid profile email',
-			clientSecretSet: Boolean(parsedOidc?.clientSecret),
-			callbackUrl: `${env.BETTER_AUTH_URL ?? ''}/api/auth/sso/callback/${row.providerId}`
-		};
-	});
+	const baseUrl = env.BETTER_AUTH_URL ?? '';
+	return rows.map((row) => mapRowToProvider(row, baseUrl));
 });
 
 export const saveSsoProvider = form(saveSsoProviderSchema, async (data) => {
@@ -191,51 +178,60 @@ export const saveSsoProvider = form(saveSsoProviderSchema, async (data) => {
 					.limit(1)
 			: [];
 
-		let existingSecret: string | undefined;
-		if (existing.length > 0 && existing[0].oidcConfig) {
+		const baseUrl = env.BETTER_AUTH_URL ?? '';
+
+		let prevOidc: Record<string, unknown> | null = null;
+		let prevSaml: Record<string, unknown> | null = null;
+		if (existing.length > 0) {
 			try {
-				const parsed = JSON.parse(existing[0].oidcConfig);
-				existingSecret = parsed.clientSecret;
+				prevOidc = existing[0].oidcConfig ? JSON.parse(existing[0].oidcConfig) : null;
 			} catch {
-				/* ignore */
+				prevOidc = null;
+			}
+			try {
+				prevSaml = existing[0].samlConfig ? JSON.parse(existing[0].samlConfig) : null;
+			} catch {
+				prevSaml = null;
 			}
 		}
 
-		const clientSecret =
-			data.clientSecret && data.clientSecret !== SECRET_PLACEHOLDER
-				? data.clientSecret
-				: existingSecret;
+		const providerId = data.providerId || crypto.randomUUID();
 
-		if (!clientSecret) {
-			invalid('Client secret is required for new providers');
-			return { success: false as const, error: 'Client secret is required for new providers' };
+		let oidcConfig: string | null = null;
+		let samlConfig: string | null = null;
+
+		if (data.type === 'oidc') {
+			const built = buildOidcConfig(data, prevOidc);
+			if (!built.ok) {
+				if (built.error.startsWith('Client secret')) invalid(built.error);
+				return { success: false as const, error: built.error };
+			}
+			oidcConfig = built.value;
+		} else {
+			const built = buildSamlConfig(data, prevSaml, baseUrl, providerId);
+			if (!built.ok) {
+				if (built.error.startsWith('IdP certificate')) invalid(built.error);
+				return { success: false as const, error: built.error };
+			}
+			samlConfig = built.value;
 		}
 
-		const oidcConfig = JSON.stringify({
-			clientId: data.clientId,
-			clientSecret,
-			discoveryEndpoint: data.discoveryEndpoint,
-			scopes: data.scopes.split(/\s+/).filter(Boolean)
-		});
-
 		if (existing.length === 0) {
-			// New provider: use the client-supplied UUID if present (admin already copied the
-			// callback URL to the IdP), otherwise generate one server-side.
-			const providerId = data.providerId || crypto.randomUUID();
 			await db.insert(ssoProvider).values({
 				id: crypto.randomUUID(),
 				providerId,
 				issuer: data.issuer,
 				domain: data.domain,
 				oidcConfig,
-				samlConfig: null,
+				samlConfig,
 				organizationId: null,
 				userId: null
 			});
 			await writeAuditLog({
 				actorUserId: actor.id,
 				action: 'sso.provider.create',
-				details: { providerId, domain: data.domain }
+				category: 'admin',
+				details: { providerId, domain: data.domain, type: data.type }
 			});
 			return { success: true as const, providerId };
 		} else {
@@ -244,13 +240,15 @@ export const saveSsoProvider = form(saveSsoProviderSchema, async (data) => {
 				.set({
 					issuer: data.issuer,
 					domain: data.domain,
-					oidcConfig
+					oidcConfig,
+					samlConfig
 				})
 				.where(eq(ssoProvider.providerId, data.providerId));
 			await writeAuditLog({
 				actorUserId: actor.id,
 				action: 'sso.provider.update',
-				details: { providerId: data.providerId, domain: data.domain }
+				category: 'admin',
+				details: { providerId: data.providerId, domain: data.domain, type: data.type }
 			});
 			return { success: true as const, providerId: data.providerId };
 		}
@@ -270,6 +268,7 @@ export const deleteSsoProvider = command(deleteSsoProviderSchema, async (data) =
 		await writeAuditLog({
 			actorUserId: actor.id,
 			action: 'sso.provider.delete',
+			category: 'admin',
 			details: { providerId: data.providerId }
 		});
 		return { success: true as const };
@@ -292,7 +291,6 @@ export const saveRoleMap = form(saveRoleMapSchema, async (data) => {
 		await saveSsoRoleMap(
 			{
 				admin: data.admin,
-				author: data.author,
 				teacher: data.teacher
 			},
 			actor.id

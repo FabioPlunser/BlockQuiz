@@ -96,6 +96,7 @@ export const requestPasswordReset = form(requestPasswordResetSchema, async (data
 
 	await writeAuditLog({
 		action: 'password.reset_requested',
+		category: 'user',
 		details: { email: data.email }
 	});
 
@@ -118,7 +119,8 @@ export const completePasswordReset = form(completePasswordResetSchema, async (da
 	}
 
 	await writeAuditLog({
-		action: 'password.reset_completed'
+		action: 'password.reset_completed',
+		category: 'user'
 	});
 
 	return { success: true as const };

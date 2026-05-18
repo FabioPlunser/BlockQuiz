@@ -32,7 +32,6 @@ export interface EmailConfig {
 
 export interface SsoRoleMap {
 	admin: string;
-	author: string;
 	teacher: string;
 }
 
@@ -64,7 +63,12 @@ export async function setSetting(
 			.where(eq(appSettings.key, key));
 	}
 	if (auditAction) {
-		await writeAuditLog({ actorUserId: updatedBy, action: auditAction, details: { key } });
+		await writeAuditLog({
+			actorUserId: updatedBy,
+			action: auditAction,
+			category: 'admin',
+			details: { key }
+		});
 	}
 }
 
@@ -140,11 +144,9 @@ export async function getSsoRoleMap(): Promise<SsoRoleMap & { envOverrides: Reco
 	const stored = await getSetting<Partial<SsoRoleMap>>('sso.roleMap', {});
 	return {
 		admin: env.SSO_ROLE_MAP_ADMIN ?? stored.admin ?? '',
-		author: env.SSO_ROLE_MAP_AUTHOR ?? stored.author ?? '',
 		teacher: env.SSO_ROLE_MAP_TEACHER ?? stored.teacher ?? '',
 		envOverrides: {
 			admin: env.SSO_ROLE_MAP_ADMIN !== undefined,
-			author: env.SSO_ROLE_MAP_AUTHOR !== undefined,
 			teacher: env.SSO_ROLE_MAP_TEACHER !== undefined
 		}
 	};

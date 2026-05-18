@@ -5,10 +5,8 @@
 	import CoursePlayer from '$lib/components/player/CoursePlayer.svelte';
 	import {
 		clearGuestProgress,
-		exportGuestProgress,
 		getGuestCourseProgress,
 		getGuestLatestAttemptsByExercise,
-		importGuestProgressJson,
 		readGuestProgress,
 		recordGuestAttempt,
 		evaluateAndPersistGuestBadges,
@@ -24,11 +22,12 @@
 	import {
 		ArrowLeft,
 		BookOpen,
-		Download,
-		FolderUp,
+		CheckCircle2,
 		LogIn,
+		Pencil,
 		Play,
 		RefreshCcw,
+		Sparkles,
 		Trash2
 	} from '@lucide/svelte';
 	import toast from '$lib/toaster';
@@ -45,7 +44,6 @@
 	let selectedCourseExerciseIndex = $state(0);
 	let isLoadingExercises = $state(false);
 	let loadingCourseId = $state<string | null>(null);
-	let fileInput = $state<HTMLInputElement | null>(null);
 	let guestProgress = $state(browser ? readGuestProgress() : null);
 
 	function refreshGuestProgress() {
@@ -191,53 +189,6 @@
 		return { success: true, newBadges };
 	}
 
-	function handleExport() {
-		if (!browser) {
-			return;
-		}
-
-		const blob = new Blob([exportGuestProgress()], {
-			type: 'application/json'
-		});
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `blockquiz-guest-progress-${new Date().toISOString().slice(0, 10)}.json`;
-		link.click();
-		URL.revokeObjectURL(url);
-		toast.success(i18n.demo_export_success, { position: 'top-right' });
-	}
-
-	async function handleImport(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const [file] = input.files ?? [];
-
-		if (!file) {
-			return;
-		}
-
-		try {
-			importGuestProgressJson(await file.text());
-			refreshGuestProgress();
-
-			if (selectedCourse) {
-				hydrateSelectedCourseState(
-					selectedCourse.id,
-					selectedExercises.map((exercise) => exercise.id)
-				);
-			}
-
-			toast.success(i18n.demo_import_success, { position: 'top-right' });
-		} catch (error) {
-			console.error('Failed to import guest progress:', error);
-			toast.error(i18n.demo_import_failed, {
-				position: 'top-right'
-			});
-		} finally {
-			input.value = '';
-		}
-	}
-
 	function handleClear() {
 		clearGuestProgress();
 		refreshGuestProgress();
@@ -258,94 +209,95 @@
 </svelte:head>
 
 {#if selectedCourse}
-	{@const playerProps = {
-		course: selectedCourse,
-		exercises: selectedExercises,
-		onBack: handleBack,
-		persistAttempt: persistGuestAttempt,
-		initialProgress: selectedCourseProgress,
-		initialSnapshots: selectedSnapshots,
-		initialExerciseIndex: selectedCourseExerciseIndex,
-		onExerciseChange: handleExerciseChange
-	} as unknown as { courseId: string; onBack: () => void }}
-	<!-- TODO(guest-mode): CoursePlayer was refactored to load data from authed remote queries.
-		 Guest playback needs a parallel path or a `mode="guest"` variant. -->
-	<CoursePlayer {...playerProps} />
+	<CoursePlayer
+		mode="guest"
+		courseId={selectedCourse.id}
+		guestCourse={selectedCourse}
+		loadExercises={async (id) => (await getPublicCourseExercises(id)) as never}
+		persistAttempt={persistGuestAttempt}
+		initialProgress={selectedCourseProgress}
+		initialSnapshots={selectedSnapshots}
+		initialExerciseIndex={selectedCourseExerciseIndex}
+		onExerciseChange={handleExerciseChange}
+		onBack={handleBack}
+	/>
 {:else}
 	<section class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
 		<div
-			class="flex flex-col gap-4 rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl sm:px-8"
+			class="flex flex-col gap-6 rounded-[2rem] border border-primary/20 bg-base-200 px-6 py-8 shadow-sm sm:px-8"
 		>
-			<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-				<div class="max-w-3xl space-y-3">
-					<a
-						href={resolve('/login')}
-						class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white/90 transition hover:bg-white/20"
-					>
-						<ArrowLeft class="h-4 w-4" />
-						{i18n.demo_back_login}
-					</a>
-					<h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">
-						{i18n.demo_play_as_guest}
-					</h1>
-					<p class="max-w-2xl text-base text-white/70 sm:text-lg">
-						{i18n.demo_intro}
-					</p>
-				</div>
-
-				<div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
-					<button class="btn gap-2 border-white/20 text-white btn-outline" onclick={handleExport}>
-						<Download class="h-4 w-4" />
-						{i18n.demo_export_json}
-					</button>
-					<button
-						class="btn gap-2 border-white/20 text-white btn-outline"
-						onclick={() => fileInput?.click()}
-					>
-						<FolderUp class="h-4 w-4" />
-						{i18n.demo_import_json}
-					</button>
-					<button class="btn gap-2 border-white/20 text-white btn-outline" onclick={handleClear}>
+			<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<a
+					href={resolve('/login')}
+					class="inline-flex w-fit items-center gap-2 rounded-full bg-base-100 px-4 py-2 text-sm font-medium text-base-content/80 shadow-sm transition hover:text-primary"
+				>
+					<ArrowLeft class="h-4 w-4" />
+					{i18n.demo_back_login}
+				</a>
+				<div class="flex flex-wrap gap-2">
+					<button class="btn gap-2 btn-ghost btn-sm" onclick={handleClear}>
 						<Trash2 class="h-4 w-4" />
 						{i18n.demo_clear_data}
 					</button>
-					<a href={resolve('/login')} class="btn gap-2 btn-primary">
+					<a href={resolve('/login')} class="btn gap-2 btn-primary btn-sm">
 						<LogIn class="h-4 w-4" />
 						{i18n.demo_sign_in_later}
 					</a>
 				</div>
 			</div>
 
-			<div class="grid gap-3 text-sm text-white/80 sm:grid-cols-3">
-				<div class="rounded-2xl bg-white/10 p-4">
-					<div class="text-white/60">{i18n.demo_courses_started}</div>
-					<div class="mt-1 text-2xl font-semibold">{guestProgress?.courses.length ?? 0}</div>
+			<div class="max-w-3xl space-y-3">
+				<div
+					class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+				>
+					<Sparkles class="h-3.5 w-3.5" />
+					{i18n.demo_kicker}
 				</div>
-				<div class="rounded-2xl bg-white/10 p-4">
-					<div class="text-white/60">{i18n.demo_attempts_saved}</div>
-					<div class="mt-1 text-2xl font-semibold">{guestProgress?.attempts.length ?? 0}</div>
+				<h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">
+					{i18n.demo_play_as_guest}
+				</h1>
+				<p class="text-base text-base-content/70 sm:text-lg">
+					{i18n.demo_intro}
+				</p>
+			</div>
+
+			<div class="grid gap-3 text-sm sm:grid-cols-3">
+				<div class="flex items-center gap-3 rounded-2xl bg-base-100 p-4 shadow-sm">
+					<div class="rounded-xl bg-primary/10 p-2 text-primary">
+						<BookOpen class="h-5 w-5" />
+					</div>
+					<div>
+						<div class="text-xs text-base-content/60">{i18n.demo_courses_started}</div>
+						<div class="text-2xl font-semibold">{guestProgress?.courses.length ?? 0}</div>
+					</div>
 				</div>
-				<div class="rounded-2xl bg-white/10 p-4">
-					<div class="text-white/60">{i18n.demo_courses_completed}</div>
-					<div class="mt-1 text-2xl font-semibold">
-						{guestProgress?.courses.filter((course) => course.progress === 100).length ?? 0}
+				<div class="flex items-center gap-3 rounded-2xl bg-base-100 p-4 shadow-sm">
+					<div class="rounded-xl bg-primary/10 p-2 text-primary">
+						<Pencil class="h-5 w-5" />
+					</div>
+					<div>
+						<div class="text-xs text-base-content/60">{i18n.demo_attempts_saved}</div>
+						<div class="text-2xl font-semibold">{guestProgress?.attempts.length ?? 0}</div>
+					</div>
+				</div>
+				<div class="flex items-center gap-3 rounded-2xl bg-base-100 p-4 shadow-sm">
+					<div class="rounded-xl bg-primary/10 p-2 text-primary">
+						<CheckCircle2 class="h-5 w-5" />
+					</div>
+					<div>
+						<div class="text-xs text-base-content/60">{i18n.demo_courses_completed}</div>
+						<div class="text-2xl font-semibold">
+							{guestProgress?.courses.filter((course) => course.progress === 100).length ?? 0}
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<input
-			bind:this={fileInput}
-			type="file"
-			accept="application/json"
-			class="hidden"
-			onchange={handleImport}
-		/>
-
 		<div class="flex items-center justify-between">
 			<div>
-				<h2 class="text-2xl font-semibold text-slate-900">{i18n.demo_public_courses}</h2>
-				<p class="text-sm text-slate-600">{i18n.demo_published_only_hint}</p>
+				<h2 class="text-2xl font-semibold">{i18n.demo_public_courses}</h2>
+				<p class="text-sm text-base-content/70">{i18n.demo_published_only_hint}</p>
 			</div>
 			<button class="btn gap-2 btn-ghost" onclick={refreshGuestProgress}>
 				<RefreshCcw class="h-4 w-4" />
@@ -355,9 +307,9 @@
 
 		{#if ((publicCourseList ?? []) as Course[]).length === 0}
 			<div
-				class="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-600"
+				class="rounded-3xl border border-dashed border-base-300 bg-base-100 p-12 text-center text-base-content/70"
 			>
-				<BookOpen class="mx-auto h-10 w-10 text-slate-400" />
+				<BookOpen class="mx-auto h-10 w-10 text-base-content/40" />
 				<p class="mt-4 text-lg font-medium">{i18n.demo_no_courses}</p>
 			</div>
 		{:else}
@@ -365,7 +317,7 @@
 				{#each (publicCourseList ?? []) as Course[] as course (course.id)}
 					{@const progress = getProgressForCourse(course.id)}
 					<article
-						class="flex flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
+						class="flex flex-col overflow-hidden rounded-[2rem] border border-base-300 bg-base-100 shadow-sm transition hover:shadow-md"
 					>
 						{#if course.content?.image}
 							<img
@@ -377,16 +329,16 @@
 
 						<div class="flex flex-1 flex-col gap-4 p-6">
 							<div class="space-y-2">
-								<h3 class="text-2xl font-semibold text-slate-900">
+								<h3 class="text-2xl font-semibold">
 									{getLocalized(course.content.title)}
 								</h3>
-								<div class="text-sm text-slate-600">
+								<div class="text-sm text-base-content/70">
 									{@html sanitizeHtml(getLocalized(course.content.description))}
 								</div>
 							</div>
 
-							<div class="space-y-2 rounded-2xl bg-slate-50 p-4">
-								<div class="flex items-center justify-between text-sm text-slate-600">
+							<div class="space-y-2 rounded-2xl bg-base-200 p-4">
+								<div class="flex items-center justify-between text-sm text-base-content/70">
 									<span>{i18n.courses_progress}</span>
 									<span>{progress.completed}/{progress.total || course.exerciseIds.length}</span>
 								</div>
@@ -397,7 +349,7 @@
 								></progress>
 							</div>
 
-							<div class="mt-auto flex items-center justify-between text-sm text-slate-500">
+							<div class="mt-auto flex items-center justify-between text-sm text-base-content/60">
 								<span>{course.exerciseIds.length} {i18n.demo_exercises_count}</span>
 							</div>
 

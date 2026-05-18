@@ -23,6 +23,7 @@
 	type ProviderRow = {
 		id: string;
 		providerId: string;
+		type: 'oidc' | 'saml';
 		issuer: string;
 		domain: string;
 		discoveryEndpoint: string;
@@ -30,20 +31,34 @@
 		scopes: string;
 		clientSecretSet: boolean;
 		callbackUrl: string;
+		entryPoint: string;
+		idpEntityId: string;
+		audience: string;
+		attrEmail: string;
+		attrName: string;
+		attrGroups: string;
+		idpCertSet: boolean;
+		spPrivateKeySet: boolean;
+		spCertSet: boolean;
+		acsUrl: string;
+		samlMetadataUrl: string;
 	};
 
 	let providerModalOpen = $state(false);
 	let editingProvider = $state<ProviderRow | null>(null);
 	let newProviderId = $state(''); // pre-generated UUID for a new provider, shown before save
+	let activeType = $state<'oidc' | 'saml'>('oidc');
 
 	function openNewProvider() {
 		editingProvider = null;
 		newProviderId = crypto.randomUUID();
+		activeType = 'oidc';
 		providerModalOpen = true;
 	}
 
 	function openEditProvider(p: ProviderRow) {
 		editingProvider = p;
+		activeType = p.type;
 		providerModalOpen = true;
 	}
 
@@ -70,6 +85,15 @@
 		{ value: 'smtp', label: 'SMTP' },
 		{ value: 'graph', label: 'Microsoft Graph' }
 	];
+
+	let selectedDriver = $state<'file' | 'smtp' | 'graph'>('file');
+	let driverInitialized = $state(false);
+	function syncDriver(initial: 'file' | 'smtp' | 'graph') {
+		if (!driverInitialized) {
+			selectedDriver = initial;
+			driverInitialized = true;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -115,6 +139,7 @@
 							<thead>
 								<tr>
 									<th>{i18n.settings_sso_provider_id}</th>
+									<th>{i18n.settings_sso_type}</th>
 									<th>{i18n.settings_sso_domain}</th>
 									<th>{i18n.settings_sso_issuer}</th>
 									<th></th>
@@ -124,6 +149,13 @@
 								{#each providers as p (p.providerId)}
 									<tr>
 										<td class="font-mono text-sm">{p.providerId}</td>
+										<td>
+											<span class="badge badge-sm badge-outline">
+												{p.type === 'saml'
+													? i18n.settings_sso_type_saml
+													: i18n.settings_sso_type_oidc}
+											</span>
+										</td>
 										<td>{p.domain}</td>
 										<td class="max-w-xs truncate text-xs text-base-content/70">{p.issuer}</td>
 										<td class="flex gap-2">
@@ -221,6 +253,7 @@
 				{/snippet}
 
 				{@const emailCfg = await getEmailSettings()}
+				{@const _drvInit = syncDriver(emailCfg.driver as 'file' | 'smtp' | 'graph')}
 
 				<form
 					{...saveEmailSettings.enhance(async ({ submit }) => {
@@ -251,11 +284,10 @@
 								{...saveEmailSettings.fields.driver.as('select')}
 								class="select-bordered select"
 								disabled={emailCfg.envOverrides.driver}
+								bind:value={selectedDriver}
 							>
 								{#each driverOptions as o (o.value)}
-									<option value={o.value} selected={o.value === emailCfg.driver}>
-										{o.label}
-									</option>
+									<option value={o.value}>{o.label}</option>
 								{/each}
 							</select>
 						</label>
@@ -276,6 +308,7 @@
 						</label>
 					</div>
 
+					{#if selectedDriver === 'smtp'}
 					<fieldset class="rounded-box border border-base-300 p-4">
 						<legend class="px-2 text-sm font-semibold">{i18n.settings_email_smtp_legend}</legend>
 						<div class="grid gap-4 md:grid-cols-2">
@@ -364,7 +397,9 @@
 							</label>
 						</div>
 					</fieldset>
+					{/if}
 
+					{#if selectedDriver === 'graph'}
 					<fieldset class="rounded-box border border-base-300 p-4">
 						<legend class="px-2 text-sm font-semibold">{i18n.settings_email_graph_legend}</legend>
 						<div class="grid gap-4 md:grid-cols-2">
@@ -432,6 +467,7 @@
 							</label>
 						</div>
 					</fieldset>
+					{/if}
 
 					<div class="flex flex-wrap items-center gap-2">
 						<button type="submit" class="btn btn-primary">{i18n.settings_save}</button>
@@ -495,7 +531,7 @@
 							showError(e instanceof Error ? e.message : i18n.toast_generic_error);
 						}
 					})}
-					class="grid gap-4 md:grid-cols-3"
+					class="grid gap-4 md:grid-cols-2"
 				>
 					<label class="flex flex-col gap-1">
 						<span class="label-text text-sm font-semibold">
@@ -514,21 +550,6 @@
 					</label>
 					<label class="flex flex-col gap-1">
 						<span class="label-text text-sm font-semibold">
-							{i18n.role_author}
-							{#if roleMap.envOverrides.author}
-								<span class="badge badge-xs badge-warning">env</span>
-							{/if}
-						</span>
-						<input
-							{...saveRoleMap.fields.author.as('text')}
-							value={roleMap.author}
-							placeholder="ContentAuthors"
-							class="input-bordered input input-sm"
-							disabled={roleMap.envOverrides.author}
-						/>
-					</label>
-					<label class="flex flex-col gap-1">
-						<span class="label-text text-sm font-semibold">
 							{i18n.role_teacher}
 							{#if roleMap.envOverrides.teacher}
 								<span class="badge badge-xs badge-warning">env</span>
@@ -542,7 +563,7 @@
 							disabled={roleMap.envOverrides.teacher}
 						/>
 					</label>
-					<div class="md:col-span-3">
+					<div class="md:col-span-2">
 						<button type="submit" class="btn btn-sm btn-primary">{i18n.settings_save}</button>
 						<p class="mt-2 text-xs text-base-content/60">{i18n.settings_role_hint}</p>
 					</div>
@@ -562,22 +583,90 @@
 	}}
 >
 	{@const activeProviderId = editingProvider?.providerId ?? newProviderId}
-	{@const callbackUrl =
-		editingProvider?.callbackUrl ?? `${data.authBaseUrl}/api/auth/sso/callback/${newProviderId}`}
+	{@const oidcCallbackUrl =
+		editingProvider?.type === 'oidc'
+			? editingProvider.callbackUrl
+			: `${data.authBaseUrl}/api/auth/sso/callback/${activeProviderId}`}
+	{@const samlAcsUrl =
+		editingProvider?.type === 'saml'
+			? editingProvider.acsUrl
+			: `${data.authBaseUrl}/api/auth/sso/saml2/sp/acs/${activeProviderId}`}
+	{@const samlMetadataUrl =
+		editingProvider?.type === 'saml'
+			? editingProvider.samlMetadataUrl
+			: `${data.authBaseUrl}/api/auth/sso/saml2/sp/metadata?providerId=${activeProviderId}`}
 	<div class="flex flex-col gap-4">
-		<div class="mb-2">
-			<p class="text-sm font-semibold">{i18n.settings_sso_callback_label}</p>
-			<div class="flex items-center gap-2">
-				<code class="grow rounded bg-base-200 px-2 py-1 text-xs break-all">{callbackUrl}</code>
+		<!-- Protocol selector: locked on edit so saved data isn't mismatched against the
+		     wrong config branch. -->
+		<div class="flex flex-col gap-1">
+			<span class="label-text text-sm font-semibold">{i18n.settings_sso_type}</span>
+			<div class="join">
 				<button
 					type="button"
-					class="btn btn-ghost btn-xs"
-					onclick={() => copyToClipboard(callbackUrl)}
+					class="btn join-item btn-sm {activeType === 'oidc' ? 'btn-primary' : 'btn-ghost'}"
+					disabled={editingProvider !== null}
+					onclick={() => (activeType = 'oidc')}
 				>
-					<Copy class="h-3 w-3" />
+					{i18n.settings_sso_type_oidc}
+				</button>
+				<button
+					type="button"
+					class="btn join-item btn-sm {activeType === 'saml' ? 'btn-primary' : 'btn-ghost'}"
+					disabled={editingProvider !== null}
+					onclick={() => (activeType = 'saml')}
+				>
+					{i18n.settings_sso_type_saml}
 				</button>
 			</div>
+			<input {...saveSsoProvider.fields.type.as('text')} value={activeType} type="hidden" />
 		</div>
+
+		{#if activeType === 'oidc'}
+			<div class="mb-2">
+				<p class="text-sm font-semibold">{i18n.settings_sso_callback_label}</p>
+				<div class="flex items-center gap-2">
+					<code class="grow rounded bg-base-200 px-2 py-1 text-xs break-all">{oidcCallbackUrl}</code>
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs"
+						onclick={() => copyToClipboard(oidcCallbackUrl)}
+					>
+						<Copy class="h-3 w-3" />
+					</button>
+				</div>
+			</div>
+		{:else}
+			<div class="mb-2 grid gap-2">
+				<div>
+					<p class="text-sm font-semibold">{i18n.settings_sso_saml_acs_label}</p>
+					<div class="flex items-center gap-2">
+						<code class="grow rounded bg-base-200 px-2 py-1 text-xs break-all">{samlAcsUrl}</code>
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs"
+							onclick={() => copyToClipboard(samlAcsUrl)}
+						>
+							<Copy class="h-3 w-3" />
+						</button>
+					</div>
+				</div>
+				<div>
+					<p class="text-sm font-semibold">{i18n.settings_sso_saml_metadata_label}</p>
+					<div class="flex items-center gap-2">
+						<code class="grow rounded bg-base-200 px-2 py-1 text-xs break-all"
+							>{samlMetadataUrl}</code
+						>
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs"
+							onclick={() => copyToClipboard(samlMetadataUrl)}
+						>
+							<Copy class="h-3 w-3" />
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<!-- providerId stays constant for the life of the record. For new providers we
 		     pre-generate a UUID client-side so the admin can copy the callback URL to the
@@ -604,48 +693,160 @@
 				<input
 					{...saveSsoProvider.fields.issuer.as('text')}
 					value={editingProvider?.issuer ?? ''}
-					placeholder="https://login.microsoftonline.com/<tenant>/v2.0"
+					placeholder={activeType === 'oidc'
+						? 'https://login.microsoftonline.com/<tenant>/v2.0'
+						: 'https://idp.example.org'}
 					class="input-bordered input"
 				/>
 			</label>
-			<label class="flex flex-col gap-1 md:col-span-2">
-				<span class="label-text text-sm font-semibold">{i18n.settings_sso_discovery}</span>
-				<input
-					{...saveSsoProvider.fields.discoveryEndpoint.as('text')}
-					value={editingProvider?.discoveryEndpoint ?? ''}
-					placeholder="https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration"
-					class="input-bordered input"
-				/>
-			</label>
-			<label class="flex flex-col gap-1">
-				<span class="label-text text-sm font-semibold">{i18n.settings_sso_client_id}</span>
-				<input
-					{...saveSsoProvider.fields.clientId.as('text')}
-					value={editingProvider?.clientId ?? ''}
-					class="input-bordered input"
-				/>
-			</label>
-			<label class="flex flex-col gap-1">
-				<span class="label-text text-sm font-semibold">
-					{i18n.settings_sso_client_secret}
-					{#if editingProvider?.clientSecretSet}
-						<span class="badge badge-xs badge-success">{i18n.settings_secret_set}</span>
-					{/if}
-				</span>
-				<input
-					{...saveSsoProvider.fields.clientSecret.as('password')}
-					placeholder={editingProvider?.clientSecretSet ? '••••••• (leave blank to keep)' : ''}
-					class="input-bordered input"
-				/>
-			</label>
-			<label class="flex flex-col gap-1 md:col-span-2">
-				<span class="label-text text-sm font-semibold">{i18n.settings_sso_scopes}</span>
-				<input
-					{...saveSsoProvider.fields.scopes.as('text')}
-					value={editingProvider?.scopes ?? 'openid profile email'}
-					class="input-bordered input"
-				/>
-			</label>
+
+			{#if activeType === 'oidc'}
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">{i18n.settings_sso_discovery}</span>
+					<input
+						{...saveSsoProvider.fields.discoveryEndpoint.as('text')}
+						value={editingProvider?.discoveryEndpoint ?? ''}
+						placeholder="https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration"
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="label-text text-sm font-semibold">{i18n.settings_sso_client_id}</span>
+					<input
+						{...saveSsoProvider.fields.clientId.as('text')}
+						value={editingProvider?.clientId ?? ''}
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_client_secret}
+						{#if editingProvider?.clientSecretSet}
+							<span class="badge badge-xs badge-success">{i18n.settings_secret_set}</span>
+						{/if}
+					</span>
+					<input
+						{...saveSsoProvider.fields.clientSecret.as('password')}
+						placeholder={editingProvider?.clientSecretSet ? '••••••• (leave blank to keep)' : ''}
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">{i18n.settings_sso_scopes}</span>
+					<input
+						{...saveSsoProvider.fields.scopes.as('text')}
+						value={editingProvider?.scopes ?? 'openid profile email'}
+						class="input-bordered input"
+					/>
+				</label>
+			{:else}
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">{i18n.settings_sso_saml_entrypoint}</span>
+					<input
+						{...saveSsoProvider.fields.entryPoint.as('text')}
+						value={editingProvider?.entryPoint ?? ''}
+						placeholder="https://idp.example.org/sso/saml2"
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_saml_idp_entity_id}
+					</span>
+					<input
+						{...saveSsoProvider.fields.idpEntityId.as('text')}
+						value={editingProvider?.idpEntityId ?? ''}
+						placeholder="https://idp.example.org/metadata"
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_saml_idp_cert}
+						{#if editingProvider?.idpCertSet}
+							<span class="badge badge-xs badge-success">{i18n.settings_secret_set}</span>
+						{/if}
+					</span>
+					<textarea
+						{...saveSsoProvider.fields.idpCert.as('text')}
+						placeholder={editingProvider?.idpCertSet
+							? '••••••• (leave blank to keep)'
+							: '-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----'}
+						rows="5"
+						class="textarea-bordered textarea font-mono text-xs"
+					></textarea>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_saml_audience}
+					</span>
+					<input
+						{...saveSsoProvider.fields.audience.as('text')}
+						value={editingProvider?.audience ?? ''}
+						placeholder={samlMetadataUrl}
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="label-text text-sm font-semibold">{i18n.settings_sso_saml_attr_email}</span>
+					<input
+						{...saveSsoProvider.fields.attrEmail.as('text')}
+						value={editingProvider?.attrEmail ?? ''}
+						placeholder="email"
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="label-text text-sm font-semibold">{i18n.settings_sso_saml_attr_name}</span>
+					<input
+						{...saveSsoProvider.fields.attrName.as('text')}
+						value={editingProvider?.attrName ?? ''}
+						placeholder="displayName"
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_saml_attr_groups}
+					</span>
+					<input
+						{...saveSsoProvider.fields.attrGroups.as('text')}
+						value={editingProvider?.attrGroups ?? ''}
+						placeholder="http://schemas.xmlsoap.org/claims/Group"
+						class="input-bordered input"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_saml_sp_cert}
+						{#if editingProvider?.spCertSet}
+							<span class="badge badge-xs badge-success">{i18n.settings_secret_set}</span>
+						{/if}
+					</span>
+					<textarea
+						{...saveSsoProvider.fields.spCert.as('text')}
+						placeholder={editingProvider?.spCertSet ? '••••••• (leave blank to keep)' : ''}
+						rows="3"
+						class="textarea-bordered textarea font-mono text-xs"
+					></textarea>
+				</label>
+				<label class="flex flex-col gap-1 md:col-span-2">
+					<span class="label-text text-sm font-semibold">
+						{i18n.settings_sso_saml_sp_private_key}
+						{#if editingProvider?.spPrivateKeySet}
+							<span class="badge badge-xs badge-success">{i18n.settings_secret_set}</span>
+						{/if}
+					</span>
+					<textarea
+						{...saveSsoProvider.fields.spPrivateKey.as('text')}
+						placeholder={editingProvider?.spPrivateKeySet
+							? '••••••• (leave blank to keep)'
+							: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----'}
+						rows="3"
+						class="textarea-bordered textarea font-mono text-xs"
+					></textarea>
+				</label>
+			{/if}
 		</div>
 	</div>
 	{#each saveSsoProvider.fields.allIssues() as issue (issue.path)}

@@ -36,7 +36,6 @@
 				showError(error.message ?? i18n.login_sso_no_provider);
 				ssoSubmitting = false;
 			}
-			// On success the IdP redirect takes over; no further action here.
 		} catch (err) {
 			console.error(err);
 			showError(i18n.login_sso_no_provider);
@@ -56,21 +55,21 @@
 	<section class="flex flex-col gap-12 lg:flex-row lg:items-center">
 		<div class="flex-1 space-y-6">
 			<p
-				class="inline-flex items-center rounded-full bg-sky-100 px-4 py-1 text-sm font-semibold text-sky-700"
+				class="inline-flex items-center rounded-full bg-primary px-4 py-1 text-sm font-semibold text-primary-content"
 			>
 				🚀 {i18n.welcome_tagline}
 			</p>
-			<h1 class="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+			<h1 class="text-4xl font-bold tracking-tight sm:text-5xl">
 				{i18n.welcome_title}
 			</h1>
-			<p class="text-lg text-slate-600 sm:max-w-xl">
+			<p class="text-lg text-base-content/70 sm:max-w-xl">
 				{i18n.welcome_description}
 			</p>
-			<ul class="space-y-3 text-base text-slate-700">
+			<ul class="space-y-3 text-base">
 				{#each features as feature, i (i)}
 					<li
 						in:fly={{ x: -200, duration: 500, delay: i * 100 }}
-						class="flex items-start gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-lg"
+						class="flex items-start gap-3 rounded-2xl border border-base-300 px-4 py-3 shadow-sm backdrop-blur"
 					>
 						<span class="mt-1 text-lg">✨</span>
 						<span>{feature}</span>
@@ -80,117 +79,157 @@
 		</div>
 
 		<div class="w-full max-w-md" in:fly={{ duration: 300, y: -200, delay: 200 }}>
-			<div class="rounded-3xl bg-white p-8 shadow-xl shadow-purple-200 backdrop-blur">
+			<div class="rounded-3xl bg-base-200 p-8 shadow-sm backdrop-blur">
 				{#if forgot}
 					<ForgotPassword bind:forgot />
 				{:else}
-					<h2 class="text-2xl font-semibold text-slate-900">{i18n.login_title}</h2>
-					<p class="mt-1 text-sm text-slate-500">
+					<h2 class="text-2xl font-semibold">{i18n.login_title}</h2>
+					<p class="mt-1 text-sm">
 						{i18n.login_subtitle}
 					</p>
 
 					{#if page.form?.message}
-						<p class="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+						<p class="mt-4 rounded-xl bg-error/10 px-4 py-3 text-sm text-error">
 							{page.form.message}
 						</p>
 					{/if}
 
-					<form
-						id="login-form"
-						class="mt-6 space-y-5"
-						{...login.enhance(async ({ submit }) => {
-							try {
-								await submit();
-								const loginIssues = login.fields.allIssues() ?? [];
-								if (loginIssues.length > 0) {
-									showError(loginIssues[0].message);
-								} else {
-									showSuccess(i18n.toast_login_success);
-									goto(resolve('/courses'));
-								}
-							} catch (e) {
-								console.error(e);
-								showError(i18n.toast_login_failed);
-							}
-						})}
-					>
-						<p class="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-							{i18n.login_account_managed_hint}
-						</p>
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-slate-700" for="email"
-								>{i18n.form_email_label}</label
+					{#snippet ssoLink(providers: { providerId: string; domain: string }[])}
+						{#if providers.length === 1}
+							<button
+								type="button"
+								onclick={() => signInWithProvider(providers[0].providerId)}
+								disabled={ssoSubmitting}
+								class="cursor-pointer text-sm text-base-content/70 disabled:opacity-50"
 							>
-							<input
-								id="email"
-								{...login.fields.email.as('email')}
-								class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-sky-400 focus:ring-2 focus:ring-sky-200 focus:outline-none"
-							/>
-						</div>
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-slate-700" for="password"
-								>{i18n.form_password_label}</label
-							>
-							<input
-								id="password"
-								{...login.fields.password.as('password')}
-								class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-inner focus:border-purple-400 focus:ring-2 focus:ring-purple-200 focus:outline-none"
-							/>
-						</div>
-						<div class="flex w-full justify-center">
-							<button type="submit" class="btn w-full btn-primary">
-								{i18n.login_submit_button}
+								{ssoSubmitting ? '…' : i18n.login_sso_submit}
 							</button>
-						</div>
-						{#each issues as issue (`${issue.path}-${issue.message}`)}
-							{#if issue}
-								<span class="text-red-500 opacity-80">{issue.message}</span>
-							{/if}
-						{/each}
-					</form>
-					<div class="mt-4">
-						<button onclick={() => (forgot = true)} class="cursor-pointer text-sm text-slate-600">
-							{i18n.form_forgot_password}
-						</button>
-					</div>
+						{:else if providers.length > 1}
+							<div class="flex flex-col items-start gap-1">
+								{#each providers as p (p.providerId)}
+									<button
+										type="button"
+										onclick={() => signInWithProvider(p.providerId)}
+										disabled={ssoSubmitting}
+										class="cursor-pointer text-sm text-base-content/70 disabled:opacity-50"
+									>
+										{i18n.login_sso_submit} — {p.domain}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					{/snippet}
 
-					<div class="mt-6 space-y-4 text-sm text-slate-500">
-						<svelte:boundary>
-							{#snippet pending()}{/snippet}
-							{#snippet failed()}{/snippet}
-							{@const providers = await ssoProvidersQuery}
-							{#if providers.length > 0}
-								<div class="flex items-center gap-3">
-									<span class="h-px flex-1 bg-slate-200" aria-hidden="true"></span>
-									<span class="text-xs tracking-wide uppercase">{i18n.or}</span>
-									<span class="h-px flex-1 bg-slate-200" aria-hidden="true"></span>
-								</div>
-								<div class="space-y-2">
-									{#each providers as p (p.providerId)}
-										<button
-											type="button"
-											class="btn w-full btn-outline"
-											disabled={ssoSubmitting}
-											onclick={() => signInWithProvider(p.providerId)}
-										>
-											{ssoSubmitting
-												? '…'
-												: providers.length === 1
-													? i18n.login_sso_submit
-													: `${i18n.login_sso_submit} — ${p.domain}`}
-										</button>
-									{/each}
-								</div>
-							{/if}
-						</svelte:boundary>
-
-						<a
-							class="flex w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 font-medium text-slate-600 transition hover:border-sky-400 hover:text-sky-600"
-							href={resolve('/demo')}
+					{#snippet passwordForm()}
+						<form
+							id="login-form"
+							class="mt-6 space-y-5"
+							{...login.enhance(async ({ submit }) => {
+								try {
+									await submit();
+									const loginIssues = login.fields.allIssues() ?? [];
+									if (loginIssues.length > 0) {
+										showError(loginIssues[0].message);
+									} else {
+										showSuccess(i18n.toast_login_success);
+										goto(resolve('/courses'));
+									}
+								} catch (e) {
+									console.error(e);
+									showError(i18n.toast_login_failed);
+								}
+							})}
 						>
-							{i18n.explore_as_guest}
-						</a>
-					</div>
+							<div class="space-y-2">
+								<label class="text-sm font-medium" for="email">{i18n.form_email_label}</label>
+								<input
+									id="email"
+									{...login.fields.email.as('email')}
+									class="w-full rounded-2xl border border-base-300 bg-base-100 px-4 py-3 shadow-inner focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+								/>
+							</div>
+							<div class="space-y-2">
+								<label class="text-sm font-medium" for="password">{i18n.form_password_label}</label>
+								<input
+									id="password"
+									{...login.fields.password.as('password')}
+									class="w-full rounded-2xl border border-base-300 bg-base-100 px-4 py-3 shadow-inner focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+								/>
+							</div>
+							<div class="flex w-full justify-center">
+								<button type="submit" class="btn w-full btn-primary">
+									{i18n.login_submit_button}
+								</button>
+							</div>
+							{#each issues as issue (`${issue.path}-${issue.message}`)}
+								{#if issue}
+									<span class="text-error opacity-80">{issue.message}</span>
+								{/if}
+							{/each}
+						</form>
+					{/snippet}
+
+					{#snippet authLinks(providers: { providerId: string; domain: string }[])}
+						<div class="mt-4 flex flex-col items-start gap-2">
+							<button
+								onclick={() => (forgot = true)}
+								class="cursor-pointer text-sm text-base-content/70"
+							>
+								{i18n.form_forgot_password}
+							</button>
+							{@render ssoLink(providers)}
+						</div>
+					{/snippet}
+
+					<svelte:boundary>
+						{#snippet pending()}{/snippet}
+						{#snippet failed()}
+							{@render passwordForm()}
+							{@render authLinks([])}
+						{/snippet}
+
+						{@const providers = await ssoProvidersQuery}
+						{@const auth = await authSettingsQuery}
+						{@const ssoPrimary = providers.length > 0 && auth.passwordLoginMode === 'fallback'}
+
+						{#if ssoPrimary && !showPasswordLogin}
+							<div class="mt-6 space-y-3">
+								{#each providers as p (p.providerId)}
+									<button
+										type="button"
+										class="btn w-full btn-primary"
+										disabled={ssoSubmitting}
+										onclick={() => signInWithProvider(p.providerId)}
+									>
+										{ssoSubmitting
+											? '…'
+											: providers.length === 1
+												? i18n.login_sso_submit
+												: `${i18n.login_sso_submit} — ${p.domain}`}
+									</button>
+								{/each}
+							</div>
+							<div class="mt-6 text-center">
+								<button
+									type="button"
+									onclick={() => (showPasswordLogin = true)}
+									class="cursor-pointer text-sm text-base-content/70 underline"
+								>
+									{i18n.login_sso_password_fallback}
+								</button>
+							</div>
+						{:else}
+							{@render passwordForm()}
+							{@render authLinks(providers)}
+						{/if}
+					</svelte:boundary>
+
+					<a
+						class="mt-6 flex w-full items-center justify-center rounded-2xl border border-dashed border-base-300 bg-base-100 px-4 py-3 text-sm font-medium text-base-content/70 transition hover:border-primary hover:text-primary"
+						href={resolve('/demo')}
+					>
+						{i18n.explore_as_guest}
+					</a>
 				{/if}
 			</div>
 		</div>
