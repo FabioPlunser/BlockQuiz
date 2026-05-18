@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
 	import type { Exercise, PublishValidationResult } from '$lib/types/exercise';
 	import ExercisePlayer from '$cp/player/ExercisePlayer.svelte';
+	import Loading from '$cp/Loading.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
 
 	type Props = {
@@ -12,6 +14,26 @@
 	};
 
 	let { previewExercise, previewVersion, validationResult, onRefresh, onEdit }: Props = $props();
+
+	// Defer the heavy ExercisePlayer mount by one tick so the loading skeleton
+	// gets a chance to paint before Blockly's expensive workspace injection runs.
+	let ready = $state(false);
+	let bootKey = $derived(previewVersion);
+
+	$effect(() => {
+		// Re-run when previewVersion changes (Refresh button or applyExercise).
+		bootKey;
+		ready = false;
+		tick().then(() => {
+			ready = true;
+		});
+	});
+
+	onMount(() => {
+		tick().then(() => {
+			ready = true;
+		});
+	});
 
 	function noop() {}
 	function handleSubmit() {
@@ -46,15 +68,21 @@
 
 	<div class="min-h-[80vh] rounded-2xl border border-base-300 bg-base-100 p-3">
 		{#key previewVersion}
-			<ExercisePlayer
-				exercise={previewExercise}
-				currentIndex={0}
-				totalExercises={1}
-				onSubmit={handleSubmit}
-				onNext={noop}
-				hasNextExercise={false}
-				initialWorkspaceXml={previewExercise.hasStarterBlocks ? previewExercise.starterXml : ''}
-			/>
+			{#if ready}
+				<ExercisePlayer
+					exercise={previewExercise}
+					currentIndex={0}
+					totalExercises={1}
+					onSubmit={handleSubmit}
+					onNext={noop}
+					hasNextExercise={false}
+					initialWorkspaceXml={previewExercise.hasStarterBlocks
+						? previewExercise.starterXml
+						: ''}
+				/>
+			{:else}
+				<Loading />
+			{/if}
 		{/key}
 	</div>
 </div>

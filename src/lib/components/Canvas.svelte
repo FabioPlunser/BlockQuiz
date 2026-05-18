@@ -36,6 +36,7 @@
 		obstacles?: Obstacle[];
 		start?: Point | null;
 		finish?: Point | null;
+		hideActor?: boolean;
 
 		// === Editor mode ===
 		editable?: boolean;
@@ -72,6 +73,7 @@
 		obstacles = [],
 		start = null,
 		finish = null,
+		hideActor = false,
 		editable = false,
 		drawMode = null,
 		selected = $bindable(null),
@@ -586,6 +588,7 @@
 	></canvas>
 
 	<!-- SVG Actor overlay -->
+	{#if !hideActor}
 	<svg
 		width={engine.width}
 		height={engine.height}
@@ -640,6 +643,7 @@
 			<!-- No actor rendered -->
 		{/if}
 	</svg>
+	{/if}
 </div>
 
 <style>

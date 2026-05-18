@@ -1,5 +1,5 @@
 import { getContext, setContext } from 'svelte';
-import { Blocks, Eye, FlaskConical, Info, Lightbulb, Palette } from '@lucide/svelte';
+import { Blocks, Eye, FlaskConical, History, Info, Lightbulb, Palette } from '@lucide/svelte';
 import {
 	canonicalizeExercise,
 	createDefaultExerciseFormData,
@@ -31,7 +31,7 @@ import { i18n } from '$lib/i18n/index.svelte';
 import { rebuildPathTest, rebuildTargetTests } from './canvas-sync';
 import { handleServerResult, showError } from '$lib/utils/toast';
 
-export type SectionId = 'basics' | 'blocks' | 'canvas' | 'hints' | 'preview';
+export type SectionId = 'basics' | 'blocks' | 'canvas' | 'hints' | 'preview' | 'versions';
 
 export type ExerciseVersionItem = {
 	id: string;
@@ -61,6 +61,10 @@ export class ExerciseEditorState {
 	isNew = true;
 	private remote: any = null;
 	private onSave?: () => void;
+	// Optional hook installed by the .svelte component; invoked after a
+	// successful update so things like the author dropdown can flush their
+	// staged change in the same Save round-trip.
+	persistAuthorChange?: () => Promise<void>;
 
 	// --- UI ---
 	activeSection = $state<SectionId>('basics');
@@ -68,6 +72,7 @@ export class ExerciseEditorState {
 	drawMode = $state<DrawMode>(null);
 	canvasSelected = $state<unknown>(null);
 	showManualTests = $state(false);
+	hideActor = $state(false);
 
 	// --- Cache-busting version stamps for keyed re-renders ---
 	toolboxVersion = $state(0);
@@ -111,26 +116,90 @@ export class ExerciseEditorState {
 		`starter-${this.toolboxVersion}-${this.starterWorkspaceVersion}`
 	);
 
-	sections = $derived([
-		{ id: 'basics' as const, label: i18n.cms_exercise_section_basics, icon: Info },
-		{ id: 'blocks' as const, label: i18n.cms_exercise_section_blocks, icon: Blocks },
-		{
-			id: 'canvas' as const,
-			label:
-				this.exercise.type === 'io'
-					? i18n.cms_exercise_section_io
-					: this.isRobot
-						? i18n.cms_exercise_section_grid
-						: i18n.cms_exercise_section_canvas,
-			icon: this.exercise.type === 'io' ? FlaskConical : Palette
-		},
-		{ id: 'hints' as const, label: i18n.cms_exercise_section_hints, icon: Lightbulb },
-		{ id: 'preview' as const, label: i18n.cms_exercise_section_preview, icon: Eye }
-	]);
+	sections = $derived(
+		[
+			{ id: 'basics' as const, label: i18n.cms_exercise_section_basics, icon: Info },
+			{ id: 'blocks' as const, label: i18n.cms_exercise_section_blocks, icon: Blocks },
+			{
+				id: 'canvas' as const,
+				label:
+					this.exercise.type === 'io'
+						? i18n.cms_exercise_section_io
+						: this.isRobot
+							? i18n.cms_exercise_section_grid
+							: i18n.cms_exercise_section_canvas,
+				icon: this.exercise.type === 'io' ? FlaskConical : Palette
+			},
+			{ id: 'hints' as const, label: i18n.cms_exercise_section_hints, icon: Lightbulb },
+			{ id: 'preview' as const, label: i18n.cms_exercise_section_preview, icon: Eye },
+			// Only surface the History section for existing exercises — new ones
+			// have nothing to show until the first save.
+			!this.isNew && this.exercise.id
+				? {
+						id: 'versions' as const,
+						label: i18n.cms_exercise_section_versions,
+						icon: History
+					}
+				: null
+		].filter((s): s is NonNullable<typeof s> => s !== null)
+	);
 
 	versionHistory = $derived(
 		this.exercise.id ? getExerciseVersions({ exerciseId: this.exercise.id }) : null
 	);
+
+	sectionStatus(id: SectionId): 'todo' | 'done' | 'issue' {
+		const issues = this.validationResult?.issues ?? [];
+		const has = (...prefixes: string[]) =>
+			issues.some((i) =>
+				prefixes.some((p) => i.field.startsWith(p) || i.code.startsWith(p))
+			);
+
+		if (id === 'basics') {
+			if (has('content', 'title', 'description')) return 'issue';
+			const t = this.exercise.content.title;
+			return t?.de || t?.en ? 'done' : 'todo';
+		}
+		if (id === 'blocks') {
+			if (has('toolbox', 'starterXml')) return 'issue';
+			return this.exercise.config.toolbox.length > 0 ? 'done' : 'todo';
+		}
+		if (id === 'canvas') {
+			if (has('canvas', 'grid', 'io', 'tests')) return 'issue';
+			if (this.exercise.type === 'io' && this.exercise.config.io.tests.length > 0) return 'done';
+			if (this.exercise.type === 'turtle' && this.exercise.config.canvas.finish) return 'done';
+			if (this.exercise.type === 'robot' && this.exercise.config.grid.targets.length > 0)
+				return 'done';
+			return 'todo';
+		}
+		if (id === 'hints') {
+			return this.exercise.config.hints.length > 0 ? 'done' : 'todo';
+		}
+		if (id === 'preview') {
+			return this.validationResult?.valid === true ? 'done' : 'todo';
+		}
+		if (id === 'versions') return 'done';
+		return 'todo';
+	}
+
+	sectionForField(field: string): SectionId {
+		if (
+			field.startsWith('content') ||
+			field.startsWith('title') ||
+			field.startsWith('description')
+		)
+			return 'basics';
+		if (field.startsWith('toolbox') || field.startsWith('starterXml')) return 'blocks';
+		if (
+			field.startsWith('canvas') ||
+			field.startsWith('grid') ||
+			field.startsWith('io') ||
+			field.startsWith('tests')
+		)
+			return 'canvas';
+		if (field.startsWith('hints')) return 'hints';
+		return 'preview';
+	}
 
 	constructor(options: Options = {}) {
 		this.exercise = options.exercise ?? createDefaultExerciseFormData();
@@ -148,7 +217,6 @@ export class ExerciseEditorState {
 	runValidation(): PublishValidationResult {
 		const hydrated = canonicalizeExercise({
 			id: this.exercise.id ?? 'validation-check',
-			courseId: this.exercise.courseId,
 			type: this.exercise.type,
 			content: this.exercise.content,
 			config: this.exercise.config,
@@ -203,7 +271,11 @@ export class ExerciseEditorState {
 		if (!this.isRobot) this.exercise.config.canvas.finish = point;
 	};
 
-	clearCanvas = () => {
+	clearPath = () => {
+		this.exercise.config.canvas.pathOverlay = [];
+	};
+
+	clearAll = () => {
 		this.exercise.config.canvas.pathOverlay = [];
 		if (this.isRobot) {
 			this.exercise.config.grid.targets = [];
@@ -211,6 +283,8 @@ export class ExerciseEditorState {
 		} else {
 			this.exercise.config.canvas.targets = [];
 			this.exercise.config.canvas.walls = [];
+			this.exercise.config.canvas.start = null;
+			this.exercise.config.canvas.finish = null;
 		}
 	};
 
@@ -319,7 +393,6 @@ export class ExerciseEditorState {
 	buildPreviewExercise(): Exercise {
 		return canonicalizeExercise({
 			id: this.exercise.id ?? 'preview-exercise',
-			courseId: this.exercise.courseId,
 			type: this.exercise.type,
 			content: this.exercise.content,
 			config: this.exercise.config,
@@ -335,7 +408,6 @@ export class ExerciseEditorState {
 
 	private applyExercise(next: Exercise) {
 		this.exercise.id = next.id;
-		this.exercise.courseId = next.courseId;
 		this.exercise.type = next.type;
 		this.exercise.content = structuredClone(next.content);
 		this.exercise.config = structuredClone(next.config);
@@ -374,11 +446,13 @@ export class ExerciseEditorState {
 					type: this.exercise.type,
 					content: this.exercise.content,
 					config: this.exercise.config,
-					courseId: this.exercise.courseId,
 					published: this.exercise.published
-				}).updates(this.remote);
+				});
 				handleServerResult(result, i18n.toast_exercise_created, i18n.toast_exercise_create_failed);
-				if (result.success) this.onSave?.();
+				if (result.success) {
+					await this.remote?.refresh?.();
+					this.onSave?.();
+				}
 				return;
 			}
 
@@ -396,11 +470,20 @@ export class ExerciseEditorState {
 				type: this.exercise.type,
 				content: this.exercise.content,
 				config: this.exercise.config,
-				courseId: this.exercise.courseId,
 				published: this.exercise.published
-			}).updates(this.remote);
+			});
 			handleServerResult(result, i18n.toast_exercise_updated, i18n.toast_exercise_update_failed);
-			if (result.success) this.onSave?.();
+			if (result.success) {
+				if (this.persistAuthorChange) {
+					try {
+						await this.persistAuthorChange();
+					} catch (err) {
+						console.error('persistAuthorChange failed', err);
+					}
+				}
+				await this.remote?.refresh?.();
+				// Stay on the detail page — the user clicks back to leave.
+			}
 		} catch (error) {
 			console.error(error);
 			handleServerResult(

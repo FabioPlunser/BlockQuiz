@@ -1,9 +1,15 @@
 import { z } from 'zod';
 import { error } from '@sveltejs/kit';
 import { command, query } from '$app/server';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '$lib/server/db/client';
-import { courseExercises, courses, exercises, exerciseVersions } from '$lib/server/db/schema';
+import {
+	courseExercises,
+	courses,
+	exercises,
+	exerciseVersions,
+	user
+} from '$lib/server/db/schema';
 import { createExerciseTransfer, exerciseTransferSchema } from '$lib/import-export/transfers';
 import {
 	canonicalizeExercise,
@@ -23,8 +29,12 @@ const exerciseFilterSchema = z.object({
 	archived: z.boolean().optional()
 });
 
+// `courseId` is optional now: a freshly-created exercise can live in zero
+// courses and be assigned later via the courses editor. When provided we
+// also insert a `courseExercises` row so the exercise immediately shows up
+// in that course.
 const createExerciseSchema = z.object({
-	courseId: z.string(),
+	courseId: z.string().optional(),
 	type: z.enum(['io', 'turtle', 'robot']),
 	content: z.unknown(),
 	config: z.unknown(),
@@ -32,12 +42,20 @@ const createExerciseSchema = z.object({
 	order: z.number().optional().default(0)
 });
 
-const updateExerciseSchema = createExerciseSchema.partial().extend({
-	id: z.string()
+// updateExercise no longer accepts courseId — course membership is managed
+// in the course editor through `courseExercises` directly.
+const updateExerciseSchema = z.object({
+	id: z.string(),
+	type: z.enum(['io', 'turtle', 'robot']).optional(),
+	content: z.unknown().optional(),
+	config: z.unknown().optional(),
+	published: z.boolean().optional(),
+	order: z.number().optional()
 });
 
 const cloneExerciseSchema = z.object({
 	id: z.string(),
+	// Optional: also attach the clone to this course on creation.
 	courseId: z.string().optional()
 });
 
@@ -46,7 +64,8 @@ const exerciseArchiveSchema = z.object({
 });
 
 const importExerciseSchema = z.object({
-	courseId: z.string(),
+	// Optional: bridge the imported exercise into this course.
+	courseId: z.string().optional(),
 	payload: exerciseTransferSchema
 });
 
@@ -58,7 +77,8 @@ const restoreExerciseVersionSchema = z.object({
 const exerciseVersionSnapshotSchema = z.object({
 	schemaVersion: z.literal(1),
 	exercise: z.object({
-		courseId: z.string(),
+		// `courseId` was part of old snapshots; tolerate it on read, never write it.
+		courseId: z.string().optional(),
 		type: z.enum(['io', 'turtle', 'robot']),
 		content: z.unknown(),
 		config: z.unknown(),
@@ -85,7 +105,6 @@ function createExerciseVersionSnapshotPayload(exercise: Exercise) {
 	return JSON.stringify({
 		schemaVersion: 1,
 		exercise: {
-			courseId: exercise.courseId,
 			type: exercise.type,
 			content: exercise.content,
 			config: exercise.config,
@@ -97,6 +116,36 @@ function createExerciseVersionSnapshotPayload(exercise: Exercise) {
 	});
 }
 
+/**
+ * Walk two snapshot objects in parallel and return a flat list of dot-paths
+ * whose values differ. Used by the version-history panel to show "what
+ * changed" between adjacent versions without a heavy diff library.
+ */
+function diffSnapshots(
+	prev: unknown,
+	next: unknown,
+	prefix = '',
+	out: string[] = []
+): string[] {
+	if (prev === next) return out;
+	if (prev == null || next == null) {
+		if (prefix) out.push(prefix);
+		return out;
+	}
+	if (typeof prev !== 'object' || typeof next !== 'object') {
+		if (prev !== next && prefix) out.push(prefix);
+		return out;
+	}
+	const a = prev as Record<string, unknown>;
+	const b = next as Record<string, unknown>;
+	const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+	for (const key of keys) {
+		const path = prefix ? `${prefix}.${key}` : key;
+		diffSnapshots(a[key], b[key], path, out);
+	}
+	return out;
+}
+
 function formatPublishValidationError(exercise: Exercise) {
 	return exercise.validation.issues.map((issue) => issue.message).join(' ');
 }
@@ -105,10 +154,22 @@ async function createExerciseVersion(
 	exercise: Exercise,
 	options: { createdBy: string; message: string }
 ) {
+	const snapshot = createExerciseVersionSnapshotPayload(exercise);
+
+	// Skip if the latest version's snapshot is byte-identical — nothing
+	// changed, so a new history entry would just be noise.
+	const [latest] = await db
+		.select({ snapshotJson: exerciseVersions.snapshotJson })
+		.from(exerciseVersions)
+		.where(eq(exerciseVersions.exerciseId, exercise.id))
+		.orderBy(desc(exerciseVersions.createdAt))
+		.limit(1);
+	if (latest && latest.snapshotJson === snapshot) return;
+
 	await db.insert(exerciseVersions).values({
 		id: crypto.randomUUID(),
 		exerciseId: exercise.id,
-		snapshotJson: createExerciseVersionSnapshotPayload(exercise),
+		snapshotJson: snapshot,
 		message: options.message,
 		createdBy: options.createdBy,
 		createdAt: Date.now()
@@ -152,7 +213,6 @@ async function insertExerciseFromInput(
 
 	await db.insert(exercises).values({
 		id: exercise.id,
-		courseId: exercise.courseId,
 		type: exercise.type,
 		image: exercise.content.image ?? '',
 		content: persisted.content,
@@ -196,7 +256,6 @@ async function updateExerciseFromInput(
 	await db
 		.update(exercises)
 		.set({
-			courseId: exercise.courseId,
 			type: exercise.type,
 			image: exercise.content.image ?? '',
 			content: persisted.content,
@@ -204,7 +263,6 @@ async function updateExerciseFromInput(
 			validationJson: exercise.validation,
 			published: exercise.published,
 			archivedAt: exercise.archivedAt ?? null,
-			archivedBy: exercise.archivedBy ?? null,
 			order: exercise.order,
 			updatedAt: exercise.updatedAt
 		})
@@ -218,12 +276,59 @@ async function updateExerciseFromInput(
 	return exercise;
 }
 
+/**
+ * Inserts a `courseExercises` bridge row, appending the exercise to the end
+ * of the course's exercise order. No-op when the membership already exists.
+ */
+async function attachExerciseToCourse(exerciseId: string, courseId: string) {
+	const [existing] = await db
+		.select()
+		.from(courseExercises)
+		.where(
+			and(
+				eq(courseExercises.exerciseId, exerciseId),
+				eq(courseExercises.courseId, courseId)
+			)
+		)
+		.limit(1);
+	if (existing) return;
+
+	const siblings = await db
+		.select({ order: courseExercises.order })
+		.from(courseExercises)
+		.where(eq(courseExercises.courseId, courseId));
+	const nextOrder = siblings.reduce((max, row) => Math.max(max, row.order), -1) + 1;
+
+	const now = Date.now();
+	await db.insert(courseExercises).values({
+		id: crypto.randomUUID(),
+		courseId,
+		exerciseId,
+		order: nextOrder,
+		createdAt: now,
+		updatedAt: now
+	});
+}
+
 export const getExercises = query(exerciseFilterSchema, async (filters) => {
 	requireTeacherOrAdmin();
+
+	// When filtering by course, scope to the exercises that course owns via
+	// the M:N bridge.
+	let allowedIds: Set<string> | null = null;
+	if (filters.courseId) {
+		const rows = await db
+			.select({ exerciseId: courseExercises.exerciseId })
+			.from(courseExercises)
+			.where(eq(courseExercises.courseId, filters.courseId));
+		allowedIds = new Set(rows.map((row) => row.exerciseId));
+		if (allowedIds.size === 0) return [];
+	}
+
 	const rows = await db.select().from(exercises);
 	return rows
 		.filter((row) => {
-			if (filters.courseId && row.courseId !== filters.courseId) return false;
+			if (allowedIds && !allowedIds.has(row.id)) return false;
 			if (filters.type && filters.type !== 'all' && row.type !== filters.type) return false;
 			if (filters.published !== undefined && row.published !== filters.published) return false;
 			if (filters.archived !== undefined) {
@@ -246,12 +351,16 @@ export const getExercisesByCourse = query(
 		await ensureCourseExists(courseId);
 
 		const rows = await db
-			.select()
-			.from(exercises)
-			.where(eq(exercises.courseId, courseId))
-			.orderBy(exercises.order);
+			.select({
+				exercise: exercises,
+				order: courseExercises.order
+			})
+			.from(courseExercises)
+			.innerJoin(exercises, eq(exercises.id, courseExercises.exerciseId))
+			.where(eq(courseExercises.courseId, courseId))
+			.orderBy(courseExercises.order);
 
-		return rows.map((row) => hydrateExerciseRow(row));
+		return rows.map((row) => hydrateExerciseRow(row.exercise));
 	}
 );
 
@@ -261,11 +370,12 @@ export const createExercise = command(createExerciseSchema, async (data) => {
 	const now = Date.now();
 
 	try {
-		await ensureCourseExists(data.courseId);
+		if (data.courseId) {
+			await ensureCourseExists(data.courseId);
+		}
 		await insertExerciseFromInput(
 			{
 				id,
-				courseId: data.courseId,
 				type: data.type,
 				content: data.content,
 				config: data.config,
@@ -279,12 +389,15 @@ export const createExercise = command(createExerciseSchema, async (data) => {
 			},
 			{ versionAuthor: user.id, versionMessage: 'Created exercise' }
 		);
+		if (data.courseId) {
+			await attachExerciseToCourse(id, data.courseId);
+		}
 		await writeAuditLog({
 			actorUserId: user.id,
 			action: 'exercise.create',
 			details: {
 				exerciseId: id,
-				courseId: data.courseId,
+				courseId: data.courseId ?? null,
 				type: data.type,
 				published: data.published ?? false
 			}
@@ -305,8 +418,6 @@ export const updateExercise = command(updateExerciseSchema, async (data) => {
 
 	try {
 		const existing = await ensureExerciseExists(data.id);
-		const targetCourseId = data.courseId ?? existing.courseId;
-		await ensureCourseExists(targetCourseId);
 
 		await updateExerciseFromInput(
 			data.id,
@@ -315,7 +426,6 @@ export const updateExercise = command(updateExerciseSchema, async (data) => {
 				content: data.content ?? existing.content,
 				config: data.config ?? existing.config,
 				id: data.id,
-				courseId: targetCourseId,
 				type: data.type ?? existing.type,
 				published: data.published ?? existing.published,
 				order: data.order ?? existing.order,
@@ -333,7 +443,6 @@ export const updateExercise = command(updateExerciseSchema, async (data) => {
 			action: 'exercise.update',
 			details: {
 				exerciseId: data.id,
-				courseId: targetCourseId,
 				type: data.type ?? existing.type,
 				published: data.published ?? existing.published
 			}
@@ -354,14 +463,14 @@ export const cloneExercise = command(cloneExerciseSchema, async ({ id, courseId 
 
 	try {
 		const existing = hydrateExerciseRow(await ensureExerciseExists(id));
-		const targetCourseId = courseId ?? existing.courseId;
-		await ensureCourseExists(targetCourseId);
+		if (courseId) {
+			await ensureCourseExists(courseId);
+		}
 
 		const clone = await insertExerciseFromInput(
 			{
 				...existing,
 				id: crypto.randomUUID(),
-				courseId: targetCourseId,
 				published: false,
 				order: existing.order + 1,
 				createdBy: user.id,
@@ -372,10 +481,29 @@ export const cloneExercise = command(cloneExerciseSchema, async ({ id, courseId 
 			},
 			{ versionAuthor: user.id, versionMessage: `Cloned from ${existing.id}` }
 		);
+
+		// Mirror the source's course memberships so the clone shows up in the
+		// same courses (or just `courseId` if provided).
+		const memberships = courseId
+			? [courseId]
+			: (
+					await db
+						.select({ courseId: courseExercises.courseId })
+						.from(courseExercises)
+						.where(eq(courseExercises.exerciseId, existing.id))
+				).map((row) => row.courseId);
+		for (const target of memberships) {
+			await attachExerciseToCourse(clone.id, target);
+		}
+
 		await writeAuditLog({
 			actorUserId: user.id,
 			action: 'exercise.clone',
-			details: { sourceExerciseId: id, exerciseId: clone.id, courseId: targetCourseId }
+			details: {
+				sourceExerciseId: id,
+				exerciseId: clone.id,
+				courseIds: memberships
+			}
 		});
 
 		return { success: true as const, id: clone.id };
@@ -407,7 +535,7 @@ export const archiveExercise = command(exerciseArchiveSchema, async ({ id }) => 
 		await writeAuditLog({
 			actorUserId: user.id,
 			action: 'exercise.archive',
-			details: { exerciseId: id, courseId: existing.courseId }
+			details: { exerciseId: id }
 		});
 
 		return { success: true as const };
@@ -438,7 +566,7 @@ export const restoreExercise = command(exerciseArchiveSchema, async ({ id }) => 
 		await writeAuditLog({
 			actorUserId: user.id,
 			action: 'exercise.restore',
-			details: { exerciseId: id, courseId: existing.courseId }
+			details: { exerciseId: id }
 		});
 
 		return { success: true as const };
@@ -462,11 +590,12 @@ export const importExercise = command(importExerciseSchema, async ({ courseId, p
 	const user = requireTeacherOrAdmin();
 
 	try {
-		await ensureCourseExists(courseId);
+		if (courseId) {
+			await ensureCourseExists(courseId);
+		}
 		const imported = await insertExerciseFromInput(
 			{
 				id: crypto.randomUUID(),
-				courseId,
 				type: payload.exercise.type,
 				content: payload.exercise.content,
 				config: payload.exercise.config,
@@ -480,10 +609,17 @@ export const importExercise = command(importExerciseSchema, async ({ courseId, p
 			},
 			{ versionAuthor: user.id, versionMessage: 'Imported exercise' }
 		);
+		if (courseId) {
+			await attachExerciseToCourse(imported.id, courseId);
+		}
 		await writeAuditLog({
 			actorUserId: user.id,
 			action: 'exercise.import',
-			details: { exerciseId: imported.id, courseId, type: payload.exercise.type }
+			details: {
+				exerciseId: imported.id,
+				courseId: courseId ?? null,
+				type: payload.exercise.type
+			}
 		});
 
 		return { success: true as const, id: imported.id };
@@ -508,18 +644,28 @@ export const getExerciseVersions = query(
 			.where(eq(exerciseVersions.exerciseId, exerciseId))
 			.orderBy(desc(exerciseVersions.createdAt));
 
-		return rows.map((row) => {
+		// Pre-compute snapshot parses + the change-set vs the previous (older)
+		// version. Returning rows ordered newest-first; "previous" is the next
+		// item in the array.
+		const parsedRows = rows.map((row) => {
 			const parsed = exerciseVersionSnapshotSchema.safeParse(JSON.parse(row.snapshotJson));
-			const snapshot = parsed.success ? parsed.data.exercise : null;
-
 			return {
-				id: row.id,
-				message: row.message,
-				createdBy: row.createdBy,
-				createdAt: row.createdAt,
-				type: snapshot?.type ?? null,
-				published: snapshot?.published ?? null,
-				title: snapshot?.content ?? null
+				row,
+				snapshot: parsed.success ? parsed.data.exercise : null
+			};
+		});
+
+		return parsedRows.map((entry, index) => {
+			const prev = parsedRows[index + 1]?.snapshot ?? null;
+			return {
+				id: entry.row.id,
+				message: entry.row.message,
+				createdBy: entry.row.createdBy,
+				createdAt: entry.row.createdAt,
+				type: entry.snapshot?.type ?? null,
+				published: entry.snapshot?.published ?? null,
+				title: entry.snapshot?.content ?? null,
+				changes: diffSnapshots(prev, entry.snapshot)
 			};
 		});
 	}
@@ -558,7 +704,6 @@ export const restoreExerciseVersion = command(
 				{
 					...existing,
 					id: exerciseId,
-					courseId: parsed.data.exercise.courseId,
 					type: parsed.data.exercise.type as ExerciseType,
 					content: parsed.data.exercise.content,
 					config: parsed.data.exercise.config,
@@ -579,6 +724,46 @@ export const restoreExerciseVersion = command(
 				error: cause instanceof Error ? cause.message : 'Failed to restore exercise version'
 			};
 		}
+	}
+);
+
+// Reassign an exercise's author. exercises.created_by is a FK to user.id, so
+// we store the target user's id directly. Any teacher/admin can reassign.
+export const setExerciseAuthor = command(
+	z.object({ exerciseId: z.string().min(1), userId: z.string().min(1) }),
+	async ({ exerciseId, userId }) => {
+		const actor = requireTeacherOrAdmin();
+
+		const [target] = await db
+			.select({ id: user.id })
+			.from(user)
+			.where(eq(user.id, userId))
+			.limit(1);
+		if (!target) return { success: false as const, error: 'Target user not found' };
+
+		const [existing] = await db
+			.select({ id: exercises.id, createdBy: exercises.createdBy })
+			.from(exercises)
+			.where(eq(exercises.id, exerciseId))
+			.limit(1);
+		if (!existing) return { success: false as const, error: 'Exercise not found' };
+
+		await db
+			.update(exercises)
+			.set({ createdBy: userId, updatedAt: Date.now() })
+			.where(eq(exercises.id, exerciseId));
+
+		await writeAuditLog({
+			actorUserId: actor.id,
+			action: 'exercise.author.set',
+			category: 'admin',
+			details: {
+				exerciseId,
+				previousCreatedBy: existing.createdBy,
+				newAuthorUserId: userId
+			}
+		});
+		return { success: true as const };
 	}
 );
 

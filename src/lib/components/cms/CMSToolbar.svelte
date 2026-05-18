@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { LayoutGrid, Table, Search, Plus } from '@lucide/svelte';
+	import { slide } from 'svelte/transition';
+	import { LayoutGrid, Table, Search, Plus, SlidersHorizontal, X } from '@lucide/svelte';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -18,6 +19,9 @@
 		onCreate?: () => void;
 		filters?: Snippet;
 		actions?: Snippet;
+		collapsibleFilters?: boolean;
+		activeFilterCount?: number;
+		onClearFilters?: () => void;
 	};
 
 	let {
@@ -32,8 +36,16 @@
 		createButtonLabel = 'Add Item',
 		onCreate,
 		filters,
-		actions
+		actions,
+		collapsibleFilters = false,
+		activeFilterCount = 0,
+		onClearFilters
 	}: Props = $props();
+
+	let filtersOpen = $state(false);
+	$effect(() => {
+		if (activeFilterCount > 0) filtersOpen = true;
+	});
 </script>
 
 <div class="flex flex-wrap items-center gap-3 p-2">
@@ -80,7 +92,30 @@
 
 	<!-- Additional Filters -->
 	{#if filters}
-		{@render filters()}
+		{#if collapsibleFilters}
+			<button
+				type="button"
+				class="btn gap-2 btn-md"
+				class:btn-primary={filtersOpen || activeFilterCount > 0}
+				class:btn-ghost={!filtersOpen && activeFilterCount === 0}
+				onclick={() => (filtersOpen = !filtersOpen)}
+				aria-expanded={filtersOpen}
+			>
+				<SlidersHorizontal class="h-5 w-5" />
+				<span>{i18n.cms_filters ?? 'Filters'}</span>
+				{#if activeFilterCount > 0}
+					<span class="badge badge-sm">{activeFilterCount}</span>
+				{/if}
+			</button>
+			{#if activeFilterCount > 0 && onClearFilters}
+				<button type="button" class="btn gap-1 btn-ghost btn-md" onclick={() => onClearFilters?.()}>
+					<X class="h-4 w-4" />
+					{i18n.cms_clear_filters ?? 'Clear'}
+				</button>
+			{/if}
+		{:else}
+			{@render filters()}
+		{/if}
 	{/if}
 
 	<!-- Spacer -->
@@ -99,3 +134,12 @@
 		{@render actions()}
 	{/if}
 </div>
+
+{#if collapsibleFilters && filters && filtersOpen}
+	<div
+		class="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-base-300 bg-base-200/40 p-3"
+		transition:slide={{ duration: 180 }}
+	>
+		{@render filters()}
+	</div>
+{/if}

@@ -87,8 +87,9 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="flex gap-1 rounded-lg bg-base-200 p-1 xl:hidden">
+<div class="@container/player flex flex-col gap-4">
+	<!-- Tab bar: shown only when container is narrow enough that even a vertical stack is too cramped. -->
+	<div class="flex gap-1 rounded-lg bg-base-200 p-1 @md/player:hidden">
 		<button
 			class="btn flex-1 btn-sm"
 			class:btn-primary={activeTab === 'task'}
@@ -115,14 +116,21 @@
 		</button>
 	</div>
 
+	<!--
+		Layout tiers driven by the container's width (so embeds in narrower
+		columns like the CMS preview pick the right layout, regardless of viewport):
+		  • narrow  (default)         → tab bar above, single panel below
+		  • medium  (@md/player)      → all three panels stacked vertically, full width
+		  • wide    (@4xl/player ~56rem) → three-column grid
+	-->
 	<div
-		class="grid min-h-[70vh] gap-4 xl:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(20rem,24rem)]"
+		class="grid min-h-[60vh] gap-4 @4xl/player:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(20rem,24rem)]"
 	>
 		<section
-			class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100 xl:block"
+			class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100 @md/player:block"
 			class:hidden={activeTab !== 'task'}
 		>
-			<div class="max-h-[28rem] overflow-y-auto p-4 xl:max-h-[70vh]">
+			<div class="max-h-[28rem] overflow-y-auto p-4 @4xl/player:max-h-[70vh]">
 				<ExerciseInfoPanel
 					{exercise}
 					{currentIndex}
@@ -133,7 +141,7 @@
 		</section>
 
 		<section
-			class="flex min-h-[36rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4 xl:flex"
+			class="flex min-h-[36rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4 @md/player:flex"
 			class:hidden={activeTab !== 'blocks'}
 		>
 			<div
@@ -168,7 +176,7 @@
 			{/if}
 		</section>
 
-		<section class="flex flex-col gap-4 xl:flex" class:hidden={activeTab !== 'run'}>
+		<section class="flex flex-col gap-4 @md/player:flex" class:hidden={activeTab !== 'run'}>
 			{#if player.collision}
 				<CollisionBanner onRetry={() => player.handleRetry()} />
 			{/if}

@@ -39,7 +39,11 @@ export type BlockCategory = {
 export type BlocklyCategoryConfig = {
 	kind: 'category';
 	name: string;
-	colour: number;
+	// Either a raw hue (legacy) or a categorystyle key resolved by the active
+	// Blockly theme. Theme key is preferred — it lets the theme decide the
+	// colour so the toolbox skin can swap with the app theme.
+	colour?: number;
+	categorystyle?: string;
 	contents: BlockCategory[];
 };
 

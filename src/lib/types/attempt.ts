@@ -10,10 +10,6 @@ export interface AttemptAnalytics {
 	submittedAt: number;
 	workspaceBlockCount?: number;
 	generatedCodeLength?: number;
-	importedFromGuest?: {
-		clientId: string;
-		importedAt: number;
-	};
 }
 
 export interface HintRevealEvent {

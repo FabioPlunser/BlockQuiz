@@ -72,17 +72,19 @@ export function initBlocks(blocks: BlockDef[], prefix: string) {
 	}
 }
 
-// Helper to get toolbox category for blocks
+// Helper to get toolbox category for blocks. The fourth arg is a Blockly
+// `categorystyle` key resolved against the active theme's `categoryStyles`
+// map — lets the toolbox colour follow the app theme without per-call hues.
 export function getCategoryForBlocks(
 	blocks: BlockDef[],
 	prefix: string,
 	name: string,
-	colour = 160
+	categorystyle = 'engine_category'
 ): BlocklyCategoryConfig {
 	return {
 		kind: 'category',
 		name,
-		colour,
+		categorystyle,
 		contents: blocks.map((block) => {
 			const blocklyId = `${prefix}_${block.id}`;
 			return { kind: 'block', type: blocklyId };

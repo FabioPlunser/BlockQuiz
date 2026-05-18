@@ -28,9 +28,35 @@ export type ExerciseResult = {
 	attemptCount: number;
 };
 
+export type PersistAttemptFn = (submission: AttemptSubmission) => Promise<{
+	success?: boolean;
+	grading?: GradingResult;
+	newBadges?: BadgeKey[];
+} | void>;
+
 type Options = {
 	initialExerciseIndex?: number;
 	onExerciseChange?: (payload: { exerciseId?: string; exerciseIndex: number }) => void;
+
+	/**
+	 * 'student' (default) authenticates via the standard remote queries and
+	 * persists attempts through `submitAttempt`. 'guest' uses the public
+	 * remote queries and the caller-provided `persistAttempt` / initial
+	 * progress (typically backed by localStorage). Badges are never awarded
+	 * in guest mode.
+	 */
+	mode?: 'student' | 'guest';
+
+	/** Required in guest mode: the public course summary (already loaded). */
+	guestCourse?: CourseData;
+	/** Optional override for fetching exercises (defaults to the auth-required query). */
+	loadExercises?: (courseId: string) => Promise<Exercise[]>;
+	/** Optional override for persistence (defaults to `submitAttempt`). */
+	persistAttempt?: PersistAttemptFn;
+	/** Pre-populate per-exercise progress (used by guest mode). */
+	initialProgress?: Record<string, ExerciseProgress>;
+	/** Pre-populate latest workspace/result snapshots (used by guest mode). */
+	initialSnapshots?: Record<string, ExerciseSnapshot>;
 };
 
 type CourseData = Awaited<ReturnType<typeof getCourse>>;
@@ -90,16 +116,25 @@ export class CoursePlayerState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const [course, exercises, progress] = await Promise.all([
-				getCourse(this.courseId),
-				getCourseExercises(this.courseId),
-				getCourseProgress(this.courseId)
-			]);
-
-			this.course = course;
-			this.exercises = exercises;
-			this.exerciseResults = this.buildResults(progress.exerciseProgress ?? {});
-			this.initialSnapshots = progress.latestSnapshots ?? {};
+			if (this.options.mode === 'guest') {
+				const exercises = this.options.loadExercises
+					? await this.options.loadExercises(this.courseId)
+					: [];
+				this.course = (this.options.guestCourse ?? null) as CourseData | null;
+				this.exercises = exercises;
+				this.exerciseResults = this.buildResults(this.options.initialProgress ?? {});
+				this.initialSnapshots = this.options.initialSnapshots ?? {};
+			} else {
+				const [course, exercises, progress] = await Promise.all([
+					getCourse(this.courseId),
+					getCourseExercises(this.courseId),
+					getCourseProgress(this.courseId)
+				]);
+				this.course = course;
+				this.exercises = exercises;
+				this.exerciseResults = this.buildResults(progress.exerciseProgress ?? {});
+				this.initialSnapshots = progress.latestSnapshots ?? {};
+			}
 			this.currentExerciseIndex = this.pickInitialIndex();
 			this.courseStartTime = Date.now();
 			this.startTime = Date.now();
@@ -132,7 +167,9 @@ export class CoursePlayerState {
 				analyticsJson: capture.analyticsJson
 			} satisfies AttemptSubmission;
 
-			const persisted = await submitAttempt(submission);
+			const persisted = this.options.persistAttempt
+				? await this.options.persistAttempt(submission)
+				: await submitAttempt(submission);
 			const grading = persisted?.grading ?? result;
 
 			this.exerciseResults.set(exercise.id, {

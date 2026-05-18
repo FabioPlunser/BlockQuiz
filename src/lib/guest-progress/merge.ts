@@ -1,6 +1,5 @@
 import type {
 	GuestAttemptSnapshot,
-	GuestBadgeRecord,
 	GuestCourseProgress,
 	GuestProgressExport
 } from './types';
@@ -119,72 +118,3 @@ export function normalizeGuestProgress(
 	};
 }
 
-export function mergeGuestProgressData(
-	current: GuestProgressExport,
-	incoming: GuestProgressExport,
-	now = Date.now()
-): GuestProgressExport {
-	const mergedAttempts = new Map<string, GuestAttemptSnapshot>();
-
-	for (const attempt of current.attempts) {
-		mergedAttempts.set(attempt.id, {
-			...attempt,
-			clientId: current.clientId,
-			actorType: 'guest'
-		});
-	}
-
-	for (const attempt of incoming.attempts ?? []) {
-		mergedAttempts.set(attempt.id, {
-			...attempt,
-			clientId: current.clientId,
-			actorType: 'guest'
-		});
-	}
-
-	const mergedCourses = new Map<string, GuestCourseProgress>();
-	for (const course of current.courses) {
-		mergedCourses.set(course.courseId, {
-			...course,
-			exerciseIds: [...course.exerciseIds]
-		});
-	}
-
-	for (const course of incoming.courses ?? []) {
-		const existing = mergedCourses.get(course.courseId);
-		if (existing) {
-			existing.exerciseIds = Array.from(new Set([...existing.exerciseIds, ...course.exerciseIds]));
-			existing.lastExerciseId = course.lastExerciseId ?? existing.lastExerciseId;
-			existing.lastExerciseIndex = course.lastExerciseIndex ?? existing.lastExerciseIndex;
-			existing.updatedAt = Math.max(existing.updatedAt, course.updatedAt ?? now);
-		} else {
-			mergedCourses.set(course.courseId, {
-				...course,
-				exerciseIds: [...course.exerciseIds]
-			});
-		}
-	}
-
-	const mergedBadges = new Map<string, GuestBadgeRecord>();
-	for (const badge of current.badges ?? []) {
-		mergedBadges.set(badge.badgeKey, badge);
-	}
-	for (const badge of incoming.badges ?? []) {
-		const existing = mergedBadges.get(badge.badgeKey);
-		if (!existing || badge.awardedAt < existing.awardedAt) {
-			mergedBadges.set(badge.badgeKey, badge);
-		}
-	}
-
-	return normalizeGuestProgress(
-		{
-			version: 1,
-			clientId: current.clientId,
-			exportedAt: now,
-			courses: [...mergedCourses.values()],
-			attempts: [...mergedAttempts.values()],
-			badges: [...mergedBadges.values()]
-		},
-		now
-	);
-}

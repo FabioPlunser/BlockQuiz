@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Exercise } from '$lib/types/exercise';
 	import type { GradingResult } from '$lib/player/executor';
 	import Canvas from '$cp/Canvas.svelte';
@@ -18,9 +19,15 @@
 	// Get singleton state
 	const execution = getExecutionState();
 
-	// Initialize when exercise changes
+	// Initialize when the *identity* of the exercise (or getCode) changes.
+	// Untrack the body so deep reads inside `initialize` (walls, targets, start,
+	// grader.appleTolerance, …) don't subscribe this effect to themselves —
+	// otherwise the state writes that initialize performs would re-trigger it
+	// and we'd hit "effect_update_depth_exceeded".
 	$effect(() => {
-		execution.initialize(exercise, getCode);
+		const ex = exercise;
+		const code = getCode;
+		untrack(() => execution.initialize(ex, code));
 	});
 
 	// Reactive access to state
@@ -70,6 +77,8 @@
 					pathOverlay={exercise.type === 'turtle' ? exercise.canvas.pathOverlay : []}
 					targets={exercise.type === 'turtle' ? exercise.canvas.targets : exercise.grid.targets}
 					walls={exercise.type === 'turtle' ? exercise.canvas.walls : exercise.grid.walls}
+					start={exercise.type === 'turtle' ? exercise.canvas.start : null}
+					finish={exercise.type === 'turtle' ? exercise.canvas.finish : null}
 				/>
 			</div>
 		</div>

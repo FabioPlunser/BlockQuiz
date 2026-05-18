@@ -5,6 +5,8 @@
 	import Boundary from '$cp/Boundary.svelte';
 	import ConfirmModal from '$cp/ConfirmModal.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
+	import CMSEmptyState from './CMSEmptyState.svelte';
+	import { ListChecks } from '@lucide/svelte';
 	import { previewExerciseTransfer, type ExerciseTransfer } from '$lib/import-export/transfers';
 
 	import { exerciseTypes } from '$types/exercise';
@@ -18,6 +20,7 @@
 		restoreExercise
 	} from '$remote/exercises.remote';
 	import { getCourses } from '$remote/courses.remote';
+	import { getCurrentUser } from '$remote/auth.remote';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { PersistedState } from 'runed';
 	import { fly } from 'svelte/transition';
@@ -36,6 +39,9 @@
 		'exercisesArchivedFilter',
 		'active'
 	);
+	let mineOnly = new PersistedState<boolean>('exercisesMineOnly', false);
+	const currentUserHandle = getCurrentUser();
+	let currentUserId = $derived(currentUserHandle.current?.id ?? '');
 	let searchQuery = $state('');
 	let selectedExercise: Exercise | undefined = $state(undefined);
 	let viewMode = new PersistedState<'cards' | 'table'>('exercisesViewMode', 'cards');
@@ -60,10 +66,10 @@
 					: false
 	});
 	let exercises = $derived(getExercises(exercisesFilters));
-	let exerciseList = $derived(await exercises);
+	let exerciseList = $derived((exercises.current ?? []) as Exercise[]);
 
 	const courseOptions = getCourses({});
-	let courseList = $derived(await courseOptions);
+	let courseList = $derived(courseOptions.current ?? []);
 	let activeCourses = $derived(
 		(
 			(courseList ?? []) as Array<{
@@ -119,6 +125,22 @@
 		return false;
 	}
 
+	let activeExerciseFilterCount = $derived(
+		(filterType !== 'all' ? 1 : 0) +
+			(filterStatus !== '' ? 1 : 0) +
+			(filterArchived.current !== 'active' ? 1 : 0) +
+			(searchQuery.trim().length > 0 ? 1 : 0) +
+			(mineOnly.current ? 1 : 0)
+	);
+
+	function clearExerciseFilters() {
+		filterType = 'all';
+		filterStatus = '';
+		filterArchived.current = 'active';
+		searchQuery = '';
+		mineOnly.current = false;
+	}
+
 	let filteredExercises = $derived.by(() => {
 		let items = (exerciseList ?? []) as Exercise[];
 
@@ -126,6 +148,10 @@
 			items = items.filter((e) => e.published);
 		} else if (filterStatus === 'false') {
 			items = items.filter((e) => !e.published);
+		}
+
+		if (mineOnly.current && currentUserId) {
+			items = items.filter((e) => e.createdBy === currentUserId);
 		}
 
 		if (searchQuery.trim()) {
@@ -245,8 +271,9 @@
 		if (!exercise.id) return;
 
 		try {
-			const result = await deleteExercise(exercise.id).updates(getExercises(exercisesFilters));
+			const result = await deleteExercise(exercise.id);
 			handleServerResult(result, i18n.toast_exercise_deleted, i18n.toast_exercise_delete_failed);
+			if (result.success) await exercises.refresh();
 		} catch (error) {
 			console.error('Failed to delete exercise:', error);
 			handleServerResult(
@@ -258,32 +285,21 @@
 	}
 
 	async function handleClone(exercise: Exercise) {
-		const result = await cloneExercise({ id: exercise.id }).updates(getExercises(exercisesFilters));
+		const result = await cloneExercise({ id: exercise.id });
 		handleServerResult(result, i18n.toast_exercise_cloned, i18n.toast_exercise_clone_failed);
+		if (result.success) await exercises.refresh();
 	}
 
 	async function handleArchive(exercise: Exercise) {
-		const result = await archiveExercise({ id: exercise.id }).updates(getExercises(exercisesFilters));
+		const result = await archiveExercise({ id: exercise.id });
 		handleServerResult(result, i18n.toast_exercise_archived, i18n.toast_exercise_archive_failed);
+		if (result.success) await exercises.refresh();
 	}
 
 	async function handleRestore(exercise: Exercise) {
-		const result = await restoreExercise({ id: exercise.id }).updates(getExercises(exercisesFilters));
+		const result = await restoreExercise({ id: exercise.id });
 		handleServerResult(result, i18n.toast_exercise_restored, i18n.toast_exercise_restore_failed);
-	}
-
-	async function handleExport(exercise: Exercise) {
-		try {
-			const payload = await exportExercise({ id: exercise.id });
-			downloadJson(`${slugifyExercise(exercise)}.exercise.json`, payload);
-		} catch (error) {
-			console.error(error);
-			handleServerResult(
-				{ success: false, error: i18n.toast_exercise_export_failed },
-				'',
-				i18n.toast_exercise_export_failed
-			);
-		}
+		if (result.success) await exercises.refresh();
 	}
 
 	async function handleImport(event: Event) {
@@ -342,8 +358,9 @@
 
 	async function confirmImport(courseId: string, payload: ExerciseTransfer) {
 		try {
-			const result = await importExercise({ courseId, payload }).updates(getExercises(exercisesFilters));
+			const result = await importExercise({ courseId, payload });
 			handleServerResult(result, i18n.toast_exercise_imported, i18n.toast_exercise_import_failed);
+			if (result.success) await exercises.refresh();
 		} catch (error) {
 			console.error(error);
 			handleServerResult(
@@ -366,63 +383,71 @@
 
 <div class="p-4">
 	<Boundary>
-	{#if !newExercise && !editExercise}
-		<CMSToolbar
-			bind:viewMode={viewMode.current}
-			bind:searchQuery
-			searchPlaceholder={i18n.cms_exercises_search_placeholder}
-			createButtonLabel={i18n.cms_exercises_new_button}
-			onCreate={handleCreate}
-			filters={filterControls}
-			actions={toolbarActions}
-		/>
+		{#if !newExercise && !editExercise}
+			<CMSToolbar
+				bind:viewMode={viewMode.current}
+				bind:searchQuery
+				searchPlaceholder={i18n.cms_exercises_search_placeholder}
+				createButtonLabel={i18n.cms_exercises_new_button}
+				onCreate={handleCreate}
+				filters={filterControls}
+				collapsibleFilters={true}
+				activeFilterCount={activeExerciseFilterCount}
+				onClearFilters={clearExerciseFilters}
+			/>
 
-		{#if filteredExercises.length === 0}
-			{@const totalCount = (exerciseList ?? []).length}
-			{@const filtersHide = totalCount > 0}
-			<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
-				<h3 class="text-lg font-medium">{i18n.cms_exercises_empty_title}</h3>
+			<br />
+
+			{#if filteredExercises.length === 0}
+				{@const totalCount = (exerciseList ?? []).length}
+				{@const filtersHide = totalCount > 0}
 				{#if filtersHide}
-					<p class="mt-1 text-base-content/60">
-						{totalCount} exercise{totalCount === 1 ? '' : 's'} match the server filter but the client
-						filter hides {totalCount === 1 ? 'it' : 'them all'}. Try resetting the filters.
-					</p>
-					<button
-						class="btn mt-4 gap-2 btn-md btn-primary"
-						onclick={() => {
+					<CMSEmptyState
+						title={i18n.cms_exercises_empty_title}
+						description={i18n.cms_exercises_empty_filtered_hint ??
+							'Exercises exist but the current filter hides them. Try resetting the filters.'}
+						actionLabel={i18n.cms_clear_filters ?? 'Clear filters'}
+						onAction={() => {
 							filterType = 'all';
 							filterStatus = '';
 							filterArchived.current = 'active';
 							searchQuery = '';
 						}}
 					>
-						Reset filters
-					</button>
+						{#snippet icon()}
+							<ListChecks size="28" strokeWidth="1.5" />
+						{/snippet}
+					</CMSEmptyState>
 				{:else}
-					<p class="mt-1 text-base-content/60">{i18n.cms_exercises_empty_hint}</p>
-					<button class="btn mt-4 btn-primary" onclick={handleCreate}>
-						{i18n.cms_exercises_create_first}
-					</button>
+					<CMSEmptyState
+						title={i18n.cms_exercises_empty_title}
+						description={i18n.cms_exercises_empty_hint}
+						actionLabel={i18n.cms_exercises_create_first}
+						onAction={handleCreate}
+					>
+						{#snippet icon()}
+							<ListChecks size="28" strokeWidth="1.5" />
+						{/snippet}
+					</CMSEmptyState>
 				{/if}
-			</div>
-		{:else if viewMode.current === 'cards'}
-			<CMSCardView items={filteredExercises} card={exerciseCard} gridCols={3} />
-		{:else}
-			<CMSTableView items={filteredExercises} columns={tableColumns} actions={exerciseActions} />
+			{:else if viewMode.current === 'cards'}
+				<CMSCardView items={filteredExercises} card={exerciseCard} />
+			{:else}
+				<CMSTableView items={filteredExercises} columns={tableColumns} actions={exerciseActions} />
+			{/if}
 		{/if}
-	{/if}
 
-	{#if newExercise || editExercise}
-		<div in:fly={{ y: -100, duration: 300 }}>
-			<ExerciseEditor
-				exercise={selectedExercise}
-				remote={exercises}
-				isNew={newExercise}
-				onCancel={handleCancel}
-				onSave={handleCancel}
-			/>
-		</div>
-	{/if}
+		{#if newExercise || editExercise}
+			<div in:fly={{ y: -100, duration: 300 }}>
+				<ExerciseEditor
+					exercise={selectedExercise}
+					remote={exercises}
+					isNew={newExercise}
+					onCancel={handleCancel}
+					onSave={handleCancel}
+				/>
+			</div>
+		{/if}
 	</Boundary>
 	<ConfirmModal
 		bind:open={confirmOpen}
@@ -436,6 +461,13 @@
 
 {#snippet filterControls()}
 	<div class="flex items-center gap-2">
+		<label
+			class="flex cursor-pointer items-center gap-2 text-sm select-none"
+			title={i18n.cms_filter_mine_hint}
+		>
+			<input type="checkbox" class="checkbox checkbox-sm" bind:checked={mineOnly.current} />
+			{i18n.cms_filter_mine}
+		</label>
 		<select
 			class="select-bordered select select-sm"
 			bind:value={filterType}
@@ -463,7 +495,7 @@
 	</div>
 {/snippet}
 
-{#snippet toolbarActions()}
+<!-- {#snippet toolbarActions()}
 	<input
 		bind:this={importInput}
 		type="file"
@@ -481,10 +513,12 @@
 		<Upload class="h-4 w-4" />
 		{i18n.cms_import}
 	</button>
-{/snippet}
+{/snippet} -->
 
 {#snippet exerciseCard(exercise: Exercise)}
-	<div class="card-compact card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
+	<div
+		class="card-compact card h-full bg-base-300 shadow-xl transition-transform hover:scale-[1.02]"
+	>
 		{#if exercise.content?.image}
 			<figure class="p-4">
 				<img
@@ -494,7 +528,7 @@
 				/>
 			</figure>
 		{/if}
-		<div class="card-body">
+		<div class="card-body flex flex-col">
 			<div class="flex items-center gap-2">
 				<span class="text-2xl" title={getExerciseTypeLabel(exercise.type)}>
 					{typeIcons[exercise.type] ?? exercise.type}
@@ -504,7 +538,7 @@
 			<p class="text-sm text-base-content/70">
 				{@html sanitizeHtml(getLocalized(exercise.content?.description).slice(0, 80))}
 			</p>
-			<div class="mt-2 card-actions items-center justify-between">
+			<div class="mt-auto card-actions items-center justify-between pt-4">
 				<div class="flex items-center gap-1">
 					{#if isArchived(exercise)}
 						<span class="badge badge-sm badge-neutral">{i18n.cms_archived}</span>
@@ -521,13 +555,6 @@
 						title={i18n.cms_clone}
 					>
 						<Copy class="h-4 w-4" />
-					</button>
-					<button
-						class="btn btn-ghost btn-sm"
-						onclick={() => handleExport(exercise)}
-						title={i18n.cms_export}
-					>
-						<Download class="h-4 w-4" />
 					</button>
 					{#if isArchived(exercise)}
 						<button
@@ -575,14 +602,6 @@
 			aria-label={i18n.cms_clone}
 		>
 			<Copy class="h-3 w-3" />
-		</button>
-		<button
-			class="btn btn-ghost btn-xs"
-			onclick={() => handleExport(exercise)}
-			title={i18n.cms_export}
-			aria-label={i18n.cms_export}
-		>
-			<Download class="h-3 w-3" />
 		</button>
 		{#if isArchived(exercise)}
 			<button

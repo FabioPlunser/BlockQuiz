@@ -16,6 +16,10 @@
 	import AutoTestsPanel from '$cp/editor/AutoTestsPanel.svelte';
 	import IoTestsEditor from '$cp/editor/IoTestsEditor.svelte';
 	import ConfirmModal from '$cp/ConfirmModal.svelte';
+	import SearchableDropdown from '$cp/SearchableDropdown.svelte';
+	import { getAssignableAuthors } from '$lib/remote/users.remote';
+	import { setExerciseAuthor } from '$lib/remote/exercises.remote';
+	import { showError } from '$lib/utils/toast';
 
 	import VersionHistoryPanel from './exercise-editor/VersionHistoryPanel.svelte';
 	import PreviewSection from './exercise-editor/PreviewSection.svelte';
@@ -87,6 +91,38 @@
 		const file = (e.target as HTMLInputElement).files?.[0];
 		void editor.handleImageFile(file);
 	}
+
+	const authors = getAssignableAuthors();
+	type AssignableAuthor = { id: string; name: string | null; email: string; role: string };
+	let authorList = $derived((authors.current ?? []) as AssignableAuthor[]);
+	let authorOptions = $derived(
+		authorList.map((a) => ({ value: a.id, label: a.email ?? a.name ?? a.id }))
+	);
+	// exercises.created_by stores the user.id directly (FK).
+	let currentAuthorId = $derived(editor.exercise.id ? (editor.exercise.createdBy ?? '') : '');
+	// Staged author selection — persisted only when the user clicks Save.
+	let pendingAuthorId = $state<string>('');
+	$effect(() => {
+		pendingAuthorId = currentAuthorId;
+	});
+
+	function handleSelectAuthor(newAuthorId: string) {
+		pendingAuthorId = newAuthorId;
+	}
+
+	// Hand the editor state a hook so its existing Save flow can flush the
+	// author change in the same round-trip and stay on this page.
+	editor.persistAuthorChange = async () => {
+		if (!editor.exercise.id) return;
+		if (!pendingAuthorId || pendingAuthorId === currentAuthorId) return;
+		const result = await setExerciseAuthor({
+			exerciseId: editor.exercise.id,
+			userId: pendingAuthorId
+		});
+		if (!result.success) {
+			showError(result.error ?? i18n.toast_generic_error);
+		}
+	};
 </script>
 
 <svelte:window
@@ -106,10 +142,10 @@
 	}}
 />
 
-<div class="mx-auto max-w-7xl p-4">
-	<div class="card bg-base-200 p-4 shadow-xl">
+<div class="h-[calc(100dvh-9rem)] p-4">
+	<div class="card flex h-full flex-col bg-base-200 p-4 shadow-xl">
 		<header
-			class="flex flex-col gap-4 border-b border-base-300 pb-4 lg:flex-row lg:items-start lg:justify-between"
+			class="flex shrink-0 flex-col gap-4 border-b border-base-300 pb-4 lg:flex-row lg:items-start lg:justify-between"
 		>
 			<div class="flex items-start gap-3">
 				<button
@@ -145,46 +181,114 @@
 			</div>
 		</header>
 
-		{#if !editor.isNew && editor.exercise.id && editor.versionHistory}
-			<VersionHistoryPanel
-				versions={versionItems}
-				loading={versionData === null}
-				restoringVersionId={editor.restoringVersionId}
-				onRestoreVersion={editor.requestRestoreVersion}
-			/>
-		{/if}
-
-		<nav class="mt-4 overflow-x-auto" aria-label={i18n.cms_exercise_sections_label}>
-			<div class="tabs-boxed tabs inline-flex min-w-full gap-1 md:min-w-0">
-				{#each editor.sections as section (section.id)}
-					<button
-						class={['tab', editor.activeSection === section.id && 'tab-active']}
-						onclick={() => (editor.activeSection = section.id)}
+		<div
+			class="mt-4 grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[14rem_minmax(0,1fr)]"
+		>
+			<aside class="min-h-0 overflow-y-auto pr-1 lg:self-stretch">
+				<nav aria-label={i18n.cms_exercise_sections_label}>
+					<ol
+						class="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0"
 					>
-						<section.icon size="20" />
-						<span class="ml-2 whitespace-nowrap">{section.label}</span>
-					</button>
-				{/each}
-			</div>
-		</nav>
+						{#each editor.sections as section, i (section.id)}
+							{@const status = editor.sectionStatus(section.id)}
+							{@const isActive = editor.activeSection === section.id}
+							<li class="shrink-0 lg:shrink">
+								<button
+									type="button"
+									class={[
+										'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition',
+										isActive
+											? 'bg-primary/15 ring-1 ring-primary/30'
+											: 'hover:bg-base-300/60 text-base-content/80'
+									]}
+									onclick={() => (editor.activeSection = section.id)}
+									aria-current={isActive ? 'step' : undefined}
+								>
+									<span
+										class={[
+											'grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-semibold tabular-nums',
+											isActive && 'bg-primary text-primary-content',
+											!isActive && status === 'done' && 'bg-success/20 text-success-content',
+											!isActive && status === 'issue' && 'bg-warning text-warning-content',
+											!isActive && status === 'todo' && 'bg-base-300 text-base-content/65'
+										]}
+									>
+										{#if status === 'done'}
+											✓
+										{:else if status === 'issue'}
+											!
+										{:else}
+											{i + 1}
+										{/if}
+									</span>
+									<span class="flex min-w-0 flex-col">
+										<span class="flex items-center gap-2 truncate text-sm font-medium">
+											<section.icon size="16" />
+											{section.label}
+										</span>
+										{#if status === 'issue'}
+											<span class="text-xs text-warning">
+												{i18n.cms_section_needs_attention ?? 'needs attention'}
+											</span>
+										{/if}
+									</span>
+								</button>
+							</li>
+						{/each}
+					</ol>
+				</nav>
+			</aside>
 
-		{#if editor.validationResult && !editor.validationResult.valid}
-			<div class="mb-4 rounded-lg border border-error bg-error/10 p-4">
-				<h3 class="mb-2 font-semibold text-error">{i18n.cms_exercise_validation_title}</h3>
-				<ul class="ml-4 list-disc space-y-1 text-sm">
-					{#each editor.validationResult.issues as issue (`${issue.code}-${issue.field}`)}
-						<li
-							class:text-error={issue.severity === 'error'}
-							class:text-warning={issue.severity === 'warning'}
+			<div class="min-h-0 min-w-0 overflow-y-auto pr-2">
+				{#if editor.validationResult && !editor.validationResult.valid}
+					<div class="mb-4 overflow-hidden rounded-2xl border border-warning/40 bg-warning/10">
+						<div
+							class="flex items-center gap-3 border-b border-warning/30 bg-warning/15 px-4 py-3"
 						>
-							{issue.message}
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
+							<span
+								class="grid h-9 w-9 place-items-center rounded-full bg-warning text-warning-content"
+								aria-hidden="true"
+							>
+								!
+							</span>
+							<div class="min-w-0">
+								<div class="text-base font-semibold">
+									{i18n.cms_publish_checklist_title ?? 'Before you publish'}
+								</div>
+								<div class="text-xs text-base-content/65">
+									{i18n.cms_publish_checklist_hint ??
+										'These items still need attention before this exercise can be published.'}
+								</div>
+							</div>
+						</div>
+						<ul class="divide-y divide-warning/20">
+							{#each editor.validationResult.issues as issue (`${issue.code}-${issue.field}`)}
+								<li class="flex items-start gap-3 px-4 py-3">
+									<span
+										class={[
+											'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold',
+											issue.severity === 'error'
+												? 'bg-error/15 text-error'
+												: 'bg-warning/25 text-warning-content'
+										]}
+									>
+										{issue.severity === 'error' ? '!' : '?'}
+									</span>
+									<div class="min-w-0 flex-1 text-sm">{issue.message}</div>
+									<button
+										type="button"
+										class="btn btn-ghost btn-xs"
+										onclick={() => (editor.activeSection = editor.sectionForField(issue.field))}
+									>
+										{i18n.cms_fix_in_section ?? 'Jump'} →
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 
-		{#if editor.activeSection === 'basics'}
+				{#if editor.activeSection === 'basics'}
 			<h2 class="font-bold">{i18n.cms_exercise_section_basics}</h2>
 			<fieldset class="fieldset">
 				<legend class="fieldset-legend">{i18n.cms_image_upload}</legend>
@@ -206,6 +310,25 @@
 					label={i18n.cms_field_description}
 				/>
 			</div>
+			{#if !isNew && editor.exercise.id}
+				<div class="mt-6">
+					<label class="label-text mb-1 block text-sm font-semibold">
+						{i18n.cms_exercise_author_label}
+					</label>
+					<SearchableDropdown
+						options={authorOptions}
+						value={pendingAuthorId}
+						placeholder={i18n.cms_exercise_author_placeholder}
+						searchPlaceholder={i18n.cms_course_author_search}
+						emptyLabel={i18n.cms_course_author_empty}
+						buttonClass="select-bordered select select-sm w-full text-left"
+						onChange={handleSelectAuthor}
+					/>
+					<p class="mt-1 text-xs text-base-content/60">
+						{i18n.cms_exercise_author_hint}
+					</p>
+				</div>
+			{/if}
 			<div class="divider"></div>
 			<TypeModeSelector
 				bind:type={editor.exercise.type}
@@ -355,13 +478,15 @@
 				<CanvasToolbar
 					bind:showGrid={editor.showGrid}
 					bind:drawMode={editor.drawMode}
+					bind:hideActor={editor.hideActor}
 					pathCount={editor.pathPointCount}
 					targetCount={editor.targetCount}
 					wallCount={editor.walls.length}
 					hasStart={editor.canvasStart != null}
 					hasFinish={editor.canvasFinish != null}
 					hasSelection={editor.canvasSelected !== null}
-					onClear={editor.clearCanvas}
+					onClear={editor.clearPath}
+					onClearAll={editor.clearAll}
 					onDeleteSelected={() => canvasRef?.deleteSelected()}
 					onSelectModeChange={() => canvasRef?.clearSelection()}
 				/>
@@ -383,6 +508,7 @@
 								walls={editor.walls}
 								start={editor.canvasStart}
 								finish={editor.canvasFinish}
+								hideActor={editor.hideActor}
 								onPathChange={editor.updatePath}
 								onTargetChange={editor.updateTargets}
 								onWallsChange={editor.updateWalls}
@@ -449,6 +575,17 @@
 				onEdit={() => (editor.activeSection = 'basics')}
 			/>
 		{/if}
+
+		{#if editor.activeSection === 'versions' && !editor.isNew && editor.exercise.id && editor.versionHistory}
+			<VersionHistoryPanel
+				versions={versionItems}
+				loading={versionData === null}
+				restoringVersionId={editor.restoringVersionId}
+				onRestoreVersion={editor.requestRestoreVersion}
+			/>
+		{/if}
+			</div>
+		</div>
 	</div>
 </div>
 

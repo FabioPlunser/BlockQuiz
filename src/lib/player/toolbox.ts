@@ -22,22 +22,27 @@ export type ToolboxLabels = {
 	robot: string;
 };
 
-const BUILTIN_GROUPS: ReadonlyArray<[keyof Omit<ToolboxLabels, 'turtle' | 'robot'>, number, readonly string[]]> = [
-	['logic', 210, LOGIC_BLOCKS],
-	['loops', 120, LOOP_BLOCKS],
-	['math', 230, MATH_BLOCKS],
-	['text', 160, TEXT_BLOCKS],
-	['variables', 330, VARIABLE_BLOCKS]
+// Map each builtin category to a theme-resolved category style key. Blockly
+// looks the key up in the active theme's `categoryStyles`. Classic supplies
+// sensible defaults; the warm theme overrides them with cohesive warm tones.
+const BUILTIN_GROUPS: ReadonlyArray<
+	[keyof Omit<ToolboxLabels, 'turtle' | 'robot'>, string, readonly string[]]
+> = [
+	['logic', 'logic_category', LOGIC_BLOCKS],
+	['loops', 'loop_category', LOOP_BLOCKS],
+	['math', 'math_category', MATH_BLOCKS],
+	['text', 'text_category', TEXT_BLOCKS],
+	['variables', 'variable_category', VARIABLE_BLOCKS]
 ];
 
 function buildBuiltinCategories(exercise: Exercise, labels: ToolboxLabels): BlocklyCategoryConfig[] {
 	const categories: BlocklyCategoryConfig[] = [];
-	for (const [key, colour, ids] of BUILTIN_GROUPS) {
+	for (const [key, categorystyle, ids] of BUILTIN_GROUPS) {
 		const contents = ids
 			.filter((id) => exercise.config.toolbox.includes(id))
 			.map((id) => ({ kind: 'block' as const, type: id }));
 		if (contents.length === 0) continue;
-		categories.push({ kind: 'category', name: labels[key], colour, contents });
+		categories.push({ kind: 'category', name: labels[key], categorystyle, contents });
 	}
 	return categories;
 }
@@ -72,7 +77,12 @@ export function getToolbox(exercise: Exercise, labels: ToolboxLabels): BlocklyTo
 	const actorLabel = exercise.type === 'turtle' ? labels.turtle : labels.robot;
 	const engineBlocks =
 		engine?.blockDefs.filter((block) => exercise.config.toolbox.includes(block.id)) ?? [];
-	const engineCategory = getCategoryForBlocks(engineBlocks, exercise.type, actorLabel, 160);
+	const engineCategory = getCategoryForBlocks(
+		engineBlocks,
+		exercise.type,
+		actorLabel,
+		'engine_category'
+	);
 
 	return {
 		kind: BlocklyToolboxKind.CATEGORY,

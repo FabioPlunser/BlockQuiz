@@ -20,7 +20,7 @@
 	<div
 		in:fly={{ y: -20, duration: 250 }}
 		out:fly={{ y: -20, duration: 200 }}
-		class="fixed inset-x-0 top-4 z-[70] mx-auto max-w-md px-4"
+		class="fixed inset-x-0 top-4 z-[1000] mx-auto max-w-md px-4"
 	>
 		<div class="rounded-2xl border border-success bg-base-100 p-4 shadow-2xl">
 			<div class="text-center">

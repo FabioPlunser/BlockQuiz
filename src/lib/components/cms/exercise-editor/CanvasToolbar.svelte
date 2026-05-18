@@ -3,6 +3,7 @@
 		Apple,
 		BrickWall,
 		Brush,
+		EyeOff,
 		Flag,
 		Grid3X3,
 		MousePointerClick,
@@ -21,7 +22,9 @@
 		hasStart: boolean;
 		hasFinish: boolean;
 		hasSelection: boolean;
+		hideActor?: boolean;
 		onClear: () => void;
+		onClearAll?: () => void;
 		onDeleteSelected: () => void;
 		onSelectModeChange: () => void;
 	};
@@ -35,7 +38,9 @@
 		hasStart,
 		hasFinish,
 		hasSelection,
+		hideActor = $bindable(false),
 		onClear,
+		onClearAll,
 		onDeleteSelected,
 		onSelectModeChange
 	}: Props = $props();
@@ -55,6 +60,27 @@
 		<Grid3X3 size="16" />
 		{showGrid ? i18n.cms_canvas_hide_grid : i18n.cms_canvas_show_grid}
 	</button>
+
+	<button
+		type="button"
+		class="btn gap-1 btn-sm"
+		class:btn-primary={hideActor}
+		onclick={() => (hideActor = !hideActor)}
+	>
+		<EyeOff size="16" />
+		{hideActor
+			? (i18n.cms_canvas_show_actor ?? 'Show turtle')
+			: (i18n.cms_canvas_hide_actor ?? 'Hide turtle')}
+	</button>
+
+	<!--
+		TODO: auto-generate a teacher path from start → finish, avoiding walls.
+		Earlier prototype used findShortestPath() in $lib/canvas/pathfinding.ts
+		to dump cell-center waypoints into pathOverlay, but the result was a
+		blocky right-angled route that didn't match how teachers actually draw
+		teaching paths. Revisit with smoothing / spline interpolation, or let
+		teachers nudge the auto-generated polyline before keeping it.
+	-->
 
 	<div class="divider mx-1 divider-horizontal"></div>
 
@@ -139,10 +165,27 @@
 
 	<div class="flex-1"></div>
 
-	<button type="button" class="btn gap-1 btn-ghost btn-sm" onclick={onClear}>
+	<button
+		type="button"
+		class="btn gap-1 btn-ghost btn-sm"
+		onclick={onClear}
+		title={i18n.cms_canvas_clear_path_hint ?? 'Removes only the dashed teacher path; walls, apples, start and finish stay.'}
+	>
 		<Trash size="16" />
-		{i18n.cms_canvas_clear}
+		{i18n.cms_canvas_clear_path ?? 'Clear path'}
 	</button>
+	{#if onClearAll}
+		<button
+			type="button"
+			class="btn gap-1 btn-ghost btn-sm text-error"
+			onclick={() => onClearAll?.()}
+			title={i18n.cms_canvas_clear_all_hint ??
+				'Removes the path, walls, apples, start and finish. The exercise stays.'}
+		>
+			<Trash size="16" />
+			{i18n.cms_canvas_clear_all ?? 'Clear all'}
+		</button>
+	{/if}
 </div>
 
 {#if drawMode}

@@ -191,7 +191,6 @@ export interface ExerciseCompatConfig {
 
 export interface ExerciseBase {
 	id: string;
-	courseId: string;
 	type: ExerciseType;
 	content: ExerciseContent;
 	toolbox: string[];
@@ -232,12 +231,12 @@ export interface RobotExercise extends ExerciseBase {
 export type Exercise = IoExercise | TurtleExercise | RobotExercise;
 export interface ExerciseFormData {
 	id?: string;
-	courseId: string;
 	type: ExerciseType;
 	content: ExerciseContent;
 	config: ExerciseCompatConfig;
 	published: boolean;
 	order: number;
+	createdBy?: string;
 }
 
 export type ExerciseListItem = ExerciseFormData & { id: string };
@@ -921,16 +920,6 @@ export function validateExercise(exercise: Exercise): PublishValidationResult {
 			createValidationIssue('tests.missing', 'tests', 'At least one test case is required.')
 		);
 	}
-	if (tests.length > 0 && !tests.some((test) => !test.visible)) {
-		issues.push(
-			createValidationIssue(
-				'tests.hiddenMissing',
-				'tests',
-				'At least one hidden test case is required.'
-			)
-		);
-	}
-
 	if (exercise.type === 'io') {
 		if (exercise.io.mode !== 'stdin-stdout') {
 			issues.push(
@@ -990,7 +979,6 @@ export function validateExercise(exercise: Exercise): PublishValidationResult {
 
 type ExerciseInput = Record<string, unknown> & {
 	id?: string;
-	courseId?: string;
 	type?: ExerciseType;
 	content?: unknown;
 	config?: unknown;
@@ -1031,7 +1019,6 @@ export function canonicalizeExercise(input: ExerciseInput): Exercise {
 
 	const base = {
 		id: normalizeString(input.id, crypto.randomUUID()),
-		courseId: normalizeString(input.courseId),
 		type,
 		content: normalizeExerciseContent(input.content, input.image),
 		toolbox,
@@ -1168,13 +1155,12 @@ export function stripExerciseForLearners(exerciseInput: Exercise): Exercise {
 	});
 }
 
-export function createDefaultExercise(type: ExerciseType = 'turtle', courseId = ''): Exercise {
+export function createDefaultExercise(type: ExerciseType = 'turtle'): Exercise {
 	const now = Date.now();
 
 	if (type === 'io') {
 		return canonicalizeExercise({
 			id: crypto.randomUUID(),
-			courseId,
 			type,
 			content: clone(DEFAULT_EXERCISE_CONTENT),
 			toolbox: [],
@@ -1204,7 +1190,6 @@ export function createDefaultExercise(type: ExerciseType = 'turtle', courseId = 
 	if (type === 'robot') {
 		return canonicalizeExercise({
 			id: crypto.randomUUID(),
-			courseId,
 			type,
 			content: clone(DEFAULT_EXERCISE_CONTENT),
 			toolbox: [],
@@ -1234,7 +1219,6 @@ export function createDefaultExercise(type: ExerciseType = 'turtle', courseId = 
 
 	return canonicalizeExercise({
 		id: crypto.randomUUID(),
-		courseId,
 		type: 'turtle',
 		content: clone(DEFAULT_EXERCISE_CONTENT),
 		toolbox: [],
@@ -1262,11 +1246,10 @@ export function createDefaultExercise(type: ExerciseType = 'turtle', courseId = 
 	});
 }
 
-export function createDefaultExerciseFormData(courseId = ''): ExerciseFormData {
-	const exercise = createDefaultExercise('turtle', courseId);
+export function createDefaultExerciseFormData(): ExerciseFormData {
+	const exercise = createDefaultExercise('turtle');
 	return {
 		id: exercise.id,
-		courseId: exercise.courseId,
 		type: exercise.type,
 		content: exercise.content,
 		config: exercise.config,

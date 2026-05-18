@@ -5,16 +5,54 @@
 	import { fireSuccessConfetti } from '$lib/utils/celebrate';
 	import ExercisePlayer from './ExercisePlayer.svelte';
 	import BadgeUnlock from './BadgeUnlock.svelte';
-	import { CoursePlayerState, setCoursePlayer } from './CoursePlayerState.svelte';
+	import {
+		CoursePlayerState,
+		setCoursePlayer,
+		type PersistAttemptFn
+	} from './CoursePlayerState.svelte';
+	import type { Exercise } from '$lib/types/exercise';
 	import Loading from '$cp/Loading.svelte';
 
 	type Props = {
 		courseId: string;
 		onBack: () => void;
+		/** Switches between authed (default) and guest data paths. */
+		mode?: 'student' | 'guest';
+		/** Guest-only: preloaded course summary (the authed query is not callable). */
+		guestCourse?: unknown;
+		/** Guest-only: how to fetch the course's exercises (e.g. getPublicCourseExercises). */
+		loadExercises?: (courseId: string) => Promise<Exercise[]>;
+		/** Guest-only: how to persist an attempt (e.g. into localStorage). */
+		persistAttempt?: PersistAttemptFn;
+		/** Optional initial progress / snapshots (guest path uses these to restore state). */
+		initialProgress?: Record<string, { passed: boolean; bestScore: number; attemptCount: number }>;
+		initialSnapshots?: Record<string, { workspaceXml?: string; resultJson?: string }>;
+		initialExerciseIndex?: number;
+		onExerciseChange?: (payload: { exerciseId?: string; exerciseIndex: number }) => void;
 	};
-	let { courseId, onBack }: Props = $props();
+	let {
+		courseId,
+		onBack,
+		mode = 'student',
+		guestCourse,
+		loadExercises,
+		persistAttempt,
+		initialProgress,
+		initialSnapshots,
+		initialExerciseIndex,
+		onExerciseChange
+	}: Props = $props();
 
-	const player = new CoursePlayerState(untrack(() => courseId));
+	const player = new CoursePlayerState(untrack(() => courseId), {
+		mode: untrack(() => mode),
+		guestCourse: untrack(() => guestCourse) as never,
+		loadExercises: untrack(() => loadExercises),
+		persistAttempt: untrack(() => persistAttempt),
+		initialProgress: untrack(() => initialProgress),
+		initialSnapshots: untrack(() => initialSnapshots),
+		initialExerciseIndex: untrack(() => initialExerciseIndex),
+		onExerciseChange: untrack(() => onExerciseChange)
+	});
 	setCoursePlayer(player);
 
 	onMount(() => {
@@ -188,7 +226,7 @@
 	<BadgeUnlock badges={player.pendingBadges} onDismiss={() => player.dismissBadges()} />
 
 	{#if player.showCompletionModal}
-		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+		<div class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4">
 			<div class="max-w-md rounded-xl bg-base-100 p-8 text-center shadow-2xl">
 				<div class="flex justify-center">
 					<div class="flex h-20 w-20 items-center justify-center rounded-full bg-success/20">

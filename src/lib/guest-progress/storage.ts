@@ -1,7 +1,6 @@
 import { browser } from '$app/environment';
 import {
 	createEmptyGuestProgress,
-	mergeGuestProgressData,
 	normalizeGuestProgress,
 	sanitizeGuestProgress
 } from '$lib/guest-progress/merge';
@@ -139,16 +138,6 @@ export function recordGuestAttempt(draft: GuestAttemptDraft): GuestProgressExpor
 	return persist(progress);
 }
 
-export function mergeGuestProgress(incoming: GuestProgressExport): GuestProgressExport {
-	const current = readGuestProgress();
-	return persist(mergeGuestProgressData(current, incoming));
-}
-
-export function importGuestProgressJson(json: string): GuestProgressExport {
-	const parsed = sanitizeGuestProgress(JSON.parse(json), createId);
-	return mergeGuestProgress(parsed);
-}
-
 export function clearGuestProgress(): GuestProgressExport {
 	const existing = readGuestProgress();
 	return persist(createEmptyProgress(existing.clientId));
@@ -175,15 +164,6 @@ export function getGuestLatestAttemptsByExercise(
 	}
 
 	return snapshots;
-}
-
-export function exportGuestProgress(): string {
-	return JSON.stringify(readGuestProgress(), null, 2);
-}
-
-export function hasGuestProgress(): boolean {
-	const progress = readGuestProgress();
-	return progress.attempts.length > 0 || progress.courses.length > 0;
 }
 
 function countHintEvents(value: string | undefined): number {
