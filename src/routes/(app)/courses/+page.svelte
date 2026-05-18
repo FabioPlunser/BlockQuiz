@@ -1,27 +1,14 @@
 <script lang="ts">
-	// import { browser } from '$app/environment';
 	import type { Course, UserCourse } from '$types/course';
-	import type { AttemptSubmission } from '$lib/types/attempt';
-	import type { Exercise } from '$lib/types/exercise';
 	import Boundary from '$cp/Boundary.svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import CoursePlayer from '$lib/components/player/CoursePlayer.svelte';
-	import { hasGuestProgress, readGuestProgress } from '$lib/guest-progress/storage';
-	import { PersistedState, watch } from 'runed';
-	import { onMount } from 'svelte';
-	import {
-		getUserCourses,
-		getCourseExercises,
-		getCourseProgress,
-		importGuestAttempts,
-		submitAttempt
-	} from '$lib/remote/courses.remote';
+	import { PersistedState } from 'runed';
+	import { getUserCourses } from '$lib/remote/courses.remote';
 	import { getLocalized } from '$lib/i18n/index.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
-	import { SvelteMap } from 'svelte/reactivity';
-	import { BookOpen, Play, CircleCheckBig, Upload } from '@lucide/svelte';
-	import toast from '$lib/toaster';
+	import { BookOpen, Play, CircleCheckBig } from '@lucide/svelte';
 
 	// --------------------------------------------------------------------
 	// State
@@ -32,11 +19,8 @@
 	let courseList = $derived(await getUserCourses({}));
 	$inspect(courseList);
 
-	// // Modal state
 	let selectedCourse = $state<Course | null>(null);
 	let isLoadingExercises = $state(false);
-	let hasImportableGuestState = $state(false);
-	let isImportingGuestProgress = $state(false);
 
 	// --------------------------------------------------------------------
 	// Filtered items
@@ -119,32 +103,6 @@
 				<p class="text-base-content/60">{i18n.courses_my_subtitle}</p>
 			</div>
 
-			<!--{#if hasImportableGuestState}
-				<div
-					class="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sky-900 lg:flex-row lg:items-center lg:justify-between"
-				>
-					<div>
-						<div class="font-medium">{i18n.courses_guest_progress}</div>
-						<p class="text-sm text-sky-800/80">
-							{i18n.courses_guest_import_hint}
-						</p>
-					</div>
-					<button
-						class="btn gap-2 btn-primary"
-						onclick={handleImportGuestProgress}
-						disabled={isImportingGuestProgress}
-					>
-						{#if isImportingGuestProgress}
-							<span class="loading loading-xs loading-spinner"></span>
-						{:else}
-							<Upload class="h-4 w-4" />
-						{/if}
-						{i18n.courses_import_guest}
-					</button>
-				</div>
-			{/if}
--->
-
 			<CMSToolbar
 				bind:viewMode={viewMode.current}
 				bind:searchQuery
@@ -152,8 +110,6 @@
 				showViewToggle={true}
 				showSearch={true}
 			/>
-
-			<br />
 
 			{#if filteredCourses.length === 0}
 				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
@@ -168,7 +124,7 @@
 					</p>
 				</div>
 			{:else if viewMode.current === 'cards'}
-				<CMSCardView items={filteredCourses} card={courseCard} gridCols={3} />
+				<CMSCardView items={filteredCourses} card={courseCard} />
 			{:else}
 				<CMSTableView items={filteredCourses} columns={tableColumns} actions={courseActions} />
 			{/if}

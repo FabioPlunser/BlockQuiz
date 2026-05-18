@@ -5,6 +5,8 @@
 	import ConfirmModal from '$cp/ConfirmModal.svelte';
 	import CourseEditor from './CourseEditor.svelte';
 	import CourseAnalytics from './CourseAnalytics.svelte';
+	import CMSEmptyState from './CMSEmptyState.svelte';
+	import { BookOpen } from '@lucide/svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import { previewCourseTransfer, type CourseTransfer } from '$lib/import-export/transfers';
@@ -19,6 +21,7 @@
 		importCourse,
 		restoreCourse
 	} from '$lib/remote/courses.remote';
+	import { getCurrentUser } from '$lib/remote/auth.remote';
 	import { fly } from 'svelte/transition';
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
@@ -45,6 +48,9 @@
 		'coursesArchivedFilter',
 		'active'
 	);
+	let mineOnly = new PersistedState<boolean>('coursesMineOnly', false);
+	const currentUserHandle = getCurrentUser();
+	let currentUserEmail = $derived(currentUserHandle.current?.email ?? '');
 	let viewMode = new PersistedState<'cards' | 'table'>('coursesViewMode', 'cards');
 	let importInput: HTMLInputElement | undefined = $state(undefined);
 	type PendingConfirmation = {
@@ -69,7 +75,7 @@
 	]);
 
 	const courses = getCourses({});
-	let courseList = $derived(await courses);
+	let courseList = $derived((courses.current ?? []) as Course[]);
 
 	function isArchived(course: Course) {
 		return course.archivedAt != null;
@@ -97,6 +103,18 @@
 	// --------------------------------------------------------------------
 	// Filtered items
 	// --------------------------------------------------------------------
+	let activeCourseFilterCount = $derived(
+		(archivedFilter.current !== 'active' ? 1 : 0) +
+			(searchQuery.trim().length > 0 ? 1 : 0) +
+			(mineOnly.current ? 1 : 0)
+	);
+
+	function clearCourseFilters() {
+		archivedFilter.current = 'active';
+		searchQuery = '';
+		mineOnly.current = false;
+	}
+
 	let filteredCourses = $derived.by(() => {
 		let allCourses = (courseList ?? []) as Course[];
 
@@ -104,6 +122,10 @@
 			allCourses = allCourses.filter((course) => !isArchived(course));
 		} else if (archivedFilter.current === 'archived') {
 			allCourses = allCourses.filter((course) => isArchived(course));
+		}
+
+		if (mineOnly.current && currentUserEmail) {
+			allCourses = allCourses.filter((course) => course.createdBy === currentUserEmail);
 		}
 
 		if (!searchQuery.trim()) return allCourses;
@@ -230,8 +252,9 @@
 
 	async function handleDelete(course: Course) {
 		try {
-			let result = await deleteCourse(course.id).updates(courses);
+			const result = await deleteCourse(course.id);
 			handleServerResult(result, i18n.toast_course_deleted, i18n.toast_course_delete_failed);
+			if (result.success) await courses.refresh();
 		} catch (error) {
 			console.error(error);
 			handleServerResult(
@@ -243,32 +266,21 @@
 	}
 
 	async function handleClone(course: Course) {
-		const result = await cloneCourse({ id: course.id }).updates(courses);
+		const result = await cloneCourse({ id: course.id });
 		handleServerResult(result, i18n.toast_course_cloned, i18n.toast_course_clone_failed);
+		if (result.success) await courses.refresh();
 	}
 
 	async function handleArchive(course: Course) {
-		const result = await archiveCourse({ id: course.id }).updates(courses);
+		const result = await archiveCourse({ id: course.id });
 		handleServerResult(result, i18n.toast_course_archived, i18n.toast_course_archive_failed);
+		if (result.success) await courses.refresh();
 	}
 
 	async function handleRestore(course: Course) {
-		const result = await restoreCourse({ id: course.id }).updates(courses);
+		const result = await restoreCourse({ id: course.id });
 		handleServerResult(result, i18n.toast_course_restored, i18n.toast_course_restore_failed);
-	}
-
-	async function handleExport(course: Course) {
-		try {
-			const payload = await exportCourse({ id: course.id });
-			downloadJson(`${slugifyCourse(course)}.course.json`, payload);
-		} catch (error) {
-			console.error(error);
-			handleServerResult(
-				{ success: false, error: i18n.toast_course_export_failed },
-				'',
-				i18n.toast_course_export_failed
-			);
-		}
+		if (result.success) await courses.refresh();
 	}
 
 	async function handleImport(event: Event) {
@@ -302,20 +314,6 @@
 		}
 	}
 
-	async function confirmImport(payload: CourseTransfer) {
-		try {
-			const result = await importCourse({ payload }).updates(courses);
-			handleServerResult(result, i18n.toast_course_imported, i18n.toast_course_import_failed);
-		} catch (error) {
-			console.error(error);
-			handleServerResult(
-				{ success: false, error: i18n.toast_course_import_failed },
-				'',
-				i18n.toast_course_import_failed
-			);
-		}
-	}
-
 	function handleEdit(course: Course) {
 		editCourse = true;
 		selectedCourse = course;
@@ -331,6 +329,13 @@
 </script>
 
 {#snippet courseFilters()}
+	<label
+		class="flex cursor-pointer items-center gap-2 text-sm select-none"
+		title={i18n.cms_filter_mine_hint}
+	>
+		<input type="checkbox" class="checkbox checkbox-sm" bind:checked={mineOnly.current} />
+		{i18n.cms_filter_mine}
+	</label>
 	<select class="select-bordered select select-sm" bind:value={archivedFilter.current}>
 		<option value="active">{i18n.cms_filter_active}</option>
 		<option value="archived">{i18n.cms_filter_archived}</option>
@@ -338,22 +343,8 @@
 	</select>
 {/snippet}
 
-{#snippet courseToolbarActions()}
-	<input
-		bind:this={importInput}
-		type="file"
-		class="hidden"
-		accept="application/json"
-		onchange={handleImport}
-	/>
-	<button class="btn btn-outline btn-sm" onclick={() => importInput?.click()}>
-		<Upload class="h-4 w-4" />
-		{i18n.cms_import}
-	</button>
-{/snippet}
-
 {#snippet courseCard(course: Course)}
-	<div class="card bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
+	<div class="card h-full bg-base-300 shadow-xl transition-transform hover:scale-[1.02]">
 		{#if course.content?.image}
 			<figure>
 				<img
@@ -363,7 +354,7 @@
 				/>
 			</figure>
 		{/if}
-		<div class="card-body">
+		<div class="card-body flex flex-col">
 			<h2 class="card-title">{getLocalized(course.content?.title)}</h2>
 			<p class="text-sm text-base-content/70">
 				{@html sanitizeHtml(getLocalized(course.content?.description).slice(0, 100))}
@@ -389,7 +380,7 @@
 					</span>
 				{/if}
 			</div>
-			<div class="mt-4 card-actions flex-wrap justify-end">
+			<div class="mt-auto card-actions flex-wrap justify-end pt-4">
 				<button
 					class="btn btn-ghost btn-sm"
 					onclick={() => handleViewAnalytics(course)}
@@ -404,13 +395,7 @@
 				>
 					<Copy class="h-4 w-4" />
 				</button>
-				<button
-					class="btn btn-ghost btn-sm"
-					onclick={() => handleExport(course)}
-					title={i18n.cms_export}
-				>
-					<Download class="h-4 w-4" />
-				</button>
+
 				{#if isArchived(course)}
 					<button
 						class="btn btn-ghost btn-sm"
@@ -465,14 +450,7 @@
 		>
 			<Copy class="h-3 w-3" />
 		</button>
-		<button
-			class="btn btn-ghost btn-xs"
-			onclick={() => handleExport(course)}
-			title={i18n.cms_export}
-			aria-label={i18n.cms_export}
-		>
-			<Download class="h-3 w-3" />
-		</button>
+
 		{#if isArchived(course)}
 			<button
 				class="btn btn-ghost btn-xs"
@@ -523,40 +501,48 @@
 				createButtonLabel={i18n.cms_courses_add_button}
 				onCreate={handleCreate}
 				filters={courseFilters}
-				actions={courseToolbarActions}
 				showColumnPicker={true}
 				columns={tableColumns}
 				bind:visibleColumns={visibleColumns.current}
+				collapsibleFilters={true}
+				activeFilterCount={activeCourseFilterCount}
+				onClearFilters={clearCourseFilters}
 			/>
+
+			<br />
 
 			{#if filteredCourses.length === 0}
 				{@const totalCount = (courseList ?? []).length}
 				{@const filtersHide = totalCount > 0}
-				<div class="rounded-lg border-2 border-dashed border-base-300 p-12 text-center">
-					<h3 class="text-lg font-medium">{i18n.cms_courses_empty_title}</h3>
-					{#if filtersHide}
-						<p class="mt-1 text-base-content/60">
-							{totalCount} course{totalCount === 1 ? '' : 's'} exist but the current filter hides
-							{totalCount === 1 ? 'it' : 'them all'}. Try resetting the filters.
-						</p>
-						<button
-							class="btn mt-4 gap-2 btn-md btn-primary"
-							onclick={() => {
-								archivedFilter.current = 'active';
-								searchQuery = '';
-							}}
-						>
-							Reset filters
-						</button>
-					{:else}
-						<p class="mt-1 text-base-content/60">{i18n.cms_courses_empty_hint}</p>
-						<button class="btn mt-4 btn-primary" onclick={handleCreate}>
-							{i18n.cms_courses_create_first}
-						</button>
-					{/if}
-				</div>
+				{#if filtersHide}
+					<CMSEmptyState
+						title={i18n.cms_courses_empty_title}
+						description={i18n.cms_courses_empty_filtered_hint ??
+							'Courses exist but the current filter hides them. Try resetting the filters.'}
+						actionLabel={i18n.cms_clear_filters ?? 'Clear filters'}
+						onAction={() => {
+							archivedFilter.current = 'active';
+							searchQuery = '';
+						}}
+					>
+						{#snippet icon()}
+							<BookOpen size="28" strokeWidth="1.5" />
+						{/snippet}
+					</CMSEmptyState>
+				{:else}
+					<CMSEmptyState
+						title={i18n.cms_courses_empty_title}
+						description={i18n.cms_courses_empty_hint}
+						actionLabel={i18n.cms_courses_create_first}
+						onAction={handleCreate}
+					>
+						{#snippet icon()}
+							<BookOpen size="28" strokeWidth="1.5" />
+						{/snippet}
+					</CMSEmptyState>
+				{/if}
 			{:else if viewMode.current === 'cards'}
-				<CMSCardView items={filteredCourses} card={courseCard} gridCols={3} />
+				<CMSCardView items={filteredCourses} card={courseCard} />
 			{:else}
 				<CMSTableView items={filteredCourses} columns={displayColumns} actions={courseActions} />
 			{/if}

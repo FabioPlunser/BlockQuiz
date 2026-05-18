@@ -1,13 +1,9 @@
 <script lang="ts">
-	import {
-		getCourseAnalytics,
-		exportCourseAttempts,
-		exportCourseResearch
-	} from '$remote/courses.remote';
+	import { getCourseAnalytics, exportCourseAttempts } from '$remote/courses.remote';
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { MoveLeft, Download, BarChart3 } from '@lucide/svelte';
 	import Boundary from '$cp/Boundary.svelte';
-	import { showInfo } from '$lib/utils/toast';
+	import { showError, showInfo } from '$lib/utils/toast';
 
 	type Props = {
 		courseId: string;
@@ -18,7 +14,7 @@
 	let { courseId, courseTitle, onBack }: Props = $props();
 
 	let analytics = $derived(getCourseAnalytics({ courseId }));
-	let analyticsData = $derived(await analytics);
+	let analyticsData = $derived(analytics.current ?? null);
 	let exporting = $state(false);
 
 	function getLabel(key: string, fallback: string) {
@@ -31,8 +27,15 @@
 		const a = document.createElement('a');
 		a.href = url;
 		a.download = filename;
+		a.style.display = 'none';
+		// Some browsers (notably Firefox) ignore clicks on detached anchors and
+		// cancel downloads if the object URL is revoked synchronously after click.
+		document.body.appendChild(a);
 		a.click();
-		URL.revokeObjectURL(url);
+		setTimeout(() => {
+			a.remove();
+			URL.revokeObjectURL(url);
+		}, 0);
 	}
 
 	function getExerciseTypeLabel(type: string) {
@@ -40,6 +43,13 @@
 		if (type === 'robot') return i18n.cms_type_robot;
 		if (type === 'turtle') return i18n.cms_type_turtle;
 		return type;
+	}
+
+	function getExerciseTypeIcon(type: string) {
+		if (type === 'io') return '🖥️';
+		if (type === 'turtle') return '🐢';
+		if (type === 'robot') return '🤖';
+		return '❓';
 	}
 
 	function formatDuration(ms: number): string {
@@ -112,6 +122,9 @@
 			];
 
 			downloadFile(csvRows.join('\n'), `${courseId}-attempts.csv`, 'text/csv;charset=utf-8;');
+		} catch (e) {
+			console.error('Export CSV failed', e);
+			showError(getLabel('analytics_export_failed', 'Export failed. Please try again.'));
 		} finally {
 			exporting = false;
 		}
@@ -127,25 +140,9 @@
 			}
 
 			downloadFile(JSON.stringify(data, null, 2), `${courseId}-attempts.json`, 'application/json');
-		} finally {
-			exporting = false;
-		}
-	}
-
-	async function handleExportResearchJson() {
-		exporting = true;
-		try {
-			const data = await exportCourseResearch({ courseId });
-			if (!data?.rows?.length) {
-				showInfo(i18n.analytics_no_attempts);
-				return;
-			}
-
-			downloadFile(
-				JSON.stringify(data, null, 2),
-				`${courseId}-research-attempts.json`,
-				'application/json'
-			);
+		} catch (e) {
+			console.error('Export JSON failed', e);
+			showError(getLabel('analytics_export_failed', 'Export failed. Please try again.'));
 		} finally {
 			exporting = false;
 		}
@@ -174,13 +171,6 @@
 				? getLabel('analytics_exporting', 'Exporting...')
 				: getLabel('analytics_export_json', 'Export JSON')}
 		</button>
-		<button class="btn btn-outline btn-sm" onclick={handleExportResearchJson} disabled={exporting}>
-			<Download size="16" />
-			{exporting
-				? getLabel('analytics_exporting', 'Exporting...')
-				: (i18n.analytics_export_research_json ??
-					getLabel('analytics_export_research_json', 'Research JSON'))}
-		</button>
 	</div>
 
 	<Boundary>
@@ -188,45 +178,45 @@
 		{#if data}
 			<!-- Summary Cards -->
 			<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_exercises}</div>
 					<div class="stat-value text-2xl">{data.exerciseCount}</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_attempts}</div>
 					<div class="stat-value text-2xl">{data.totals.attempts}</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_students}</div>
 					<div class="stat-value text-2xl">{data.totals.students}</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_avg_score}</div>
 					<div class="stat-value text-2xl">{data.totals.avgScore}%</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">
 						{getLabel('analytics_summary_avg_blocks', 'Avg. blocks')}
 					</div>
 					<div class="stat-value text-2xl">{data.totals.avgWorkspaceBlockCount ?? 0}</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">
 						{getLabel('analytics_summary_avg_code_length', 'Avg. code length')}
 					</div>
 					<div class="stat-value text-2xl">{data.totals.avgGeneratedCodeLength ?? 0}</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_avg_duration}</div>
 					<div class="stat-value text-2xl">{formatDuration(data.totals.avgDurationMs ?? 0)}</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_avg_hints}</div>
 					<div class="stat-value text-2xl">
 						{avgHintsPerAttempt(data.totals.hintUsageCount ?? 0, data.totals.attempts ?? 0)}
 					</div>
 				</div>
-				<div class="stat rounded-lg bg-base-200">
+				<div class="stat border-none rounded-lg bg-base-300">
 					<div class="stat-title">{i18n.analytics_summary_locale_mix}</div>
 					<div class="stat-value text-2xl">{formatLocaleMix(data.totals.localeCounts)}</div>
 				</div>
@@ -238,17 +228,23 @@
 					<table class="table">
 						<thead>
 							<tr>
-								<th>{i18n.analytics_table_exercise}</th>
-								<th>{i18n.analytics_table_type}</th>
-								<th>{i18n.analytics_table_attempts}</th>
-								<th>{i18n.analytics_table_students}</th>
-								<th>{i18n.analytics_table_pass_rate}</th>
-								<th>{i18n.analytics_table_avg_score}</th>
-								<th>{getLabel('analytics_table_avg_blocks', 'Avg. blocks')}</th>
-								<th>{getLabel('analytics_table_avg_code_length', 'Avg. code')}</th>
-								<th>{i18n.analytics_table_avg_duration}</th>
-								<th>{i18n.analytics_table_avg_hints}</th>
-								<th>{i18n.analytics_table_locale}</th>
+								<th title={i18n.analytics_tooltip_exercise}>{i18n.analytics_table_exercise}</th>
+								<th title={i18n.analytics_tooltip_type}>{i18n.analytics_table_type}</th>
+								<th title={i18n.analytics_tooltip_attempts}>{i18n.analytics_table_attempts}</th>
+								<th title={i18n.analytics_tooltip_students}>{i18n.analytics_table_students}</th>
+								<th title={i18n.analytics_tooltip_pass_rate}>{i18n.analytics_table_pass_rate}</th>
+								<th title={i18n.analytics_tooltip_avg_score}>{i18n.analytics_table_avg_score}</th>
+								<th title={i18n.analytics_tooltip_avg_blocks}>
+									{getLabel('analytics_table_avg_blocks', 'Avg. blocks')}
+								</th>
+								<th title={i18n.analytics_tooltip_avg_code}>
+									{getLabel('analytics_table_avg_code_length', 'Avg. code')}
+								</th>
+								<th title={i18n.analytics_tooltip_avg_duration}>
+									{i18n.analytics_table_avg_duration}
+								</th>
+								<th title={i18n.analytics_tooltip_avg_hints}>{i18n.analytics_table_avg_hints}</th>
+								<th title={i18n.analytics_tooltip_locale}>{i18n.analytics_table_locale}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -256,8 +252,13 @@
 								<tr>
 									<td class="font-medium">{getLocalized(ex.title)}</td>
 									<td>
-										<span class="badge badge-outline badge-sm">{getExerciseTypeLabel(ex.type)}</span
+										<span
+											class="text-lg"
+											title={getExerciseTypeLabel(ex.type)}
+											aria-label={getExerciseTypeLabel(ex.type)}
 										>
+											{getExerciseTypeIcon(ex.type)}
+										</span>
 									</td>
 									<td>{ex.attempts}</td>
 									<td>{ex.students}</td>

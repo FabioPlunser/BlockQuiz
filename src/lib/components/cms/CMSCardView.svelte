@@ -5,23 +5,15 @@
 	type Props<T> = {
 		items: T[];
 		card: Snippet<[T, number]>;
-		gridCols?: 1 | 2 | 3 | 4;
 		class?: string;
 	};
 
-	let { items, card, gridCols = 3, class: className = '' }: Props<T> = $props();
-
-	const gridClasses = {
-		1: 'grid-cols-1',
-		2: 'grid-cols-2',
-		3: 'grid-cols-3',
-		4: 'grid-cols-4'
-	};
+	let { items, card, class: className = '' }: Props<T> = $props();
 </script>
 
-<div class="grid gap-4 {gridClasses[gridCols]} {className}">
+<div class="flex flex-col items-stretch gap-4 sm:grid sm:grid-cols-2 md:grid-cols-3 {className}">
 	{#each items as item, i (item.id)}
-		<div in:fly={{ y: -200, duration: 300, delay: i * 50 }}>
+		<div class="h-full" in:fly={{ y: -200, duration: 300, delay: i * 50 }}>
 			{@render card(item, i)}
 		</div>
 	{/each}

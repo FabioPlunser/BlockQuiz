@@ -1,15 +1,27 @@
 <script lang="ts">
-	import { getUsers, createUser, updateUser, resetPassword } from '$remote/users.remote';
+	import {
+		getUsers,
+		createUser,
+		updateUser,
+		resetPassword,
+		deleteUser
+	} from '$remote/users.remote';
+	import { setUserClasses, getAssignableClasses } from '$remote/classes.remote';
 	import { Debounced, PersistedState } from 'runed';
 	import { ROLES, Role } from '$lib/roles';
 	import Loading from '$cp/Loading.svelte';
 	import Modal from '$cp/Modal.svelte';
-	import type { User } from '$db/types';
+	import ClassesPanel from '$cp/cms/ClassesPanel.svelte';
+	import SearchableDropdown from '$cp/SearchableDropdown.svelte';
+	import type { User, UserWithClasses } from '$db/types';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { handleServerResult } from '$lib/utils/toast';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
-	import { Search, UserPlus } from '@lucide/svelte';
+	import { Search, UserPlus, Trash2 } from '@lucide/svelte';
+	import { showError, showSuccess } from '$lib/utils/toast';
+
+	let activeTab = new PersistedState<'users' | 'classes'>('userView', 'users');
 
 	//-----------------------------------------------------------------------------
 	// Types
@@ -30,7 +42,6 @@
 
 	function getRoleLabel(role: string) {
 		if (role === Role.ADMIN) return i18n.role_admin;
-		if (role === Role.AUTHOR) return i18n.role_author;
 		if (role === Role.TEACHER) return i18n.role_teacher;
 		return i18n.role_student;
 	}
@@ -43,17 +54,22 @@
 	let resetPasswordModal = $state(false);
 	let createUserModal = $state(false);
 	let search = $state('');
-	let selectedUser = $state<User | undefined>(undefined);
+	let selectedUser = $state<UserWithClasses | undefined>(undefined);
 	let locale = $derived(i18n.locale === 'de' ? 'de-DE' : 'en-US');
 
 	// Column visibility
 	let visibleColumns = new PersistedState<string[]>('usersVisibleColumns', [
 		'email',
 		'role',
+		'classes',
 		'status',
 		'userId',
 		'createdAt'
 	]);
+
+	// Reactive class options for the per-row dropdown. Use a stable handle
+	// (not a $derived call) so each cell reads the same .current value.
+	const classesQuery = getAssignableClasses();
 
 	//-----------------------------------------------------------------------------
 	// Debounced search
@@ -76,35 +92,10 @@
 		filters.active = value === 'all' ? undefined : value === 'active';
 	}
 
-	// async function updateFieldKey(
-	// 	event: KeyboardEvent & { currentTarget: HTMLInputElement },
-	// 	id: string,
-	// 	field: string
-	// ) {
-	// 	if (!event || event?.key !== 'Enter') {
-	// 		return;
-	// 	}
-	// 	updateField(id, field, event.currentTarget.value as string);
-	// }
-
-	// async function updateField(
-	// 	user: User,
-	// 	field: string,
-	// 	value: HTMLInputElement['value'] | HTMLInputElement['checked']
-	// ) {
-	// 	try {
-	// 		const result = await updateUser({ ...user, [field]: value }).updates(users);
-	// 		handleServerResult(result, 'User updated successfully', 'Failed to update user');
-	// 	} catch (err) {
-	// 		console.error('Update failed', err);
-	// 		handleServerResult({ success: false, error: 'Update failed' }, '', 'Failed to update user');
-	// 	}
-	// }
-
 	//-----------------------------------------------------------------------------
 	// Table columns
 	//-----------------------------------------------------------------------------
-	let tableColumns = $derived<Column<User>[]>([
+	let tableColumns = $derived<Column<UserWithClasses>[]>([
 		{
 			key: 'email',
 			label: i18n.users_table_email,
@@ -118,6 +109,12 @@
 			sortable: true,
 			class: 'w-1/6',
 			cellSnippet: 'role'
+		},
+		{
+			key: 'classes',
+			label: i18n.users_table_classes,
+			class: 'w-2/6',
+			cellSnippet: 'classes'
 		},
 		{
 			key: 'status',
@@ -140,9 +137,49 @@
 			cellSnippet: 'createdAt'
 		}
 	]);
-	async function update(user: User) {
-		const result = await updateUser({ ...user }).updates(users);
+	async function update(user: UserWithClasses) {
+		const result = await updateUser({ ...user }).updates(getUsers(filters));
+		console.log('Update result', result);
 		handleServerResult(result, i18n.toast_user_updated, i18n.toast_user_update_failed);
+	}
+	$inspect(users);
+
+	async function handleSetUserClasses(target: UserWithClasses, nextClassIds: string[]) {
+		// Strip IdP-owned classes and the user's existing SSO memberships from the
+		// payload — the server enforces the same rule but this avoids confusing
+		// "rejected" round-trips.
+		const idpOwned = new Set(
+			(classesQuery.current ?? []).filter((c) => c.ssoProviderId).map((c) => c.id)
+		);
+		const manualOnly = nextClassIds.filter(
+			(id) => !target.ssoClassIds.includes(id) && !idpOwned.has(id)
+		);
+		const result = await setUserClasses({ userId: target.id, classIds: manualOnly });
+		if (result.success) {
+			if (result.added > 0 || result.removed > 0) {
+				showSuccess(i18n.users_classes_updated);
+			}
+			await getUsers(filters).refresh();
+		} else {
+			showError(i18n.toast_generic_error);
+		}
+	}
+
+	async function handleDelete(target: UserWithClasses) {
+		const message = i18n.users_delete_confirm.replace('{email}', target.email);
+		if (!confirm(message)) return;
+		try {
+			const result = await deleteUser({ id: target.id }).updates(getUsers(filters));
+			if (result.success) {
+				showSuccess(i18n.users_delete_success);
+			} else {
+				showError(result.error ?? i18n.users_delete_failed);
+			}
+			users.refresh();
+		} catch (err) {
+			console.error('Delete failed', err);
+			showError(i18n.users_delete_failed);
+		}
 	}
 </script>
 
@@ -151,7 +188,7 @@
 </svelte:head>
 
 <!-- Cell snippets for editable fields -->
-{#snippet emailCell(user: User)}
+{#snippet emailCell(user: UserWithClasses)}
 	<input
 		type="text"
 		class="input input-sm w-full font-medium"
@@ -167,7 +204,7 @@
 	/>
 {/snippet}
 
-{#snippet roleCell(user: User)}
+{#snippet roleCell(user: UserWithClasses)}
 	<select
 		class="select w-full select-sm"
 		bind:value={user.role}
@@ -181,7 +218,7 @@
 	</select>
 {/snippet}
 
-{#snippet statusCell(user: User)}
+{#snippet statusCell(user: UserWithClasses)}
 	<label class="flex items-center gap-3">
 		<input
 			type="checkbox"
@@ -199,17 +236,17 @@
 	</label>
 {/snippet}
 
-{#snippet userIdCell(user: User)}
+{#snippet userIdCell(user: UserWithClasses)}
 	<span class="font-mono text-xs text-base-content/70">{user.id}</span>
 {/snippet}
 
-{#snippet createdAtCell(user: User)}
+{#snippet createdAtCell(user: UserWithClasses)}
 	<span class="font-mono text-xs text-base-content/70">
 		{new Date(user.createdAt).toLocaleDateString(locale)}
 	</span>
 {/snippet}
 
-{#snippet userActions(user: User)}
+{#snippet userActions(user: UserWithClasses)}
 	<button
 		class="btn btn-sm btn-primary"
 		onclick={() => {
@@ -219,95 +256,146 @@
 	>
 		{i18n.users_reset_password}
 	</button>
+	<button
+		class="btn btn-sm btn-error"
+		title={i18n.users_delete_action}
+		aria-label={i18n.users_delete_action}
+		onclick={() => handleDelete(user)}
+	>
+		<Trash2 class="h-4 w-4" />
+	</button>
+{/snippet}
+
+{#snippet classesCell(user: UserWithClasses)}
+	{@const classList = classesQuery.current ?? []}
+	{@const options = classList.map((c) => ({ value: c.id, label: c.name }))}
+	{@const idpClassIds = classList.filter((c) => c.ssoProviderId).map((c) => c.id)}
+	{@const ssoBadges = Object.fromEntries(
+		idpClassIds.map((id) => [id, i18n.class_dropdown_idp_suffix])
+	)}
+	<SearchableDropdown
+		{options}
+		multiSelect
+		values={user.classIds}
+		disabledValues={idpClassIds}
+		optionBadges={ssoBadges}
+		placeholder={i18n.class_dropdown_placeholder}
+		searchPlaceholder={i18n.classes_search_placeholder}
+		emptyLabel={i18n.class_dropdown_empty}
+		doneLabel={i18n.class_dropdown_done}
+		multiSelectedTemplate={i18n.class_dropdown_n_selected}
+		buttonClass="select-bordered select select-sm w-full text-left"
+		onChangeMulti={(next) => handleSetUserClasses(user, next)}
+	/>
 {/snippet}
 
 <div class="mx-auto flex w-full flex-col gap-6 p-4">
-	<!-- Filters Section -->
-	<section class="rounded-box bg-base-200/60 p-4 shadow-md">
-		<div class="flex items-center justify-between gap-4">
-			<div class="flex items-center gap-4">
-				<!-- Search -->
-				<div class="form-control grow sm:max-w-xs">
-					<label class="input-bordered input flex items-center gap-2">
-						<input
-							id="search"
-							type="text"
-							class="grow"
-							placeholder={i18n.users_name_or_email}
-							bind:value={search}
-						/>
-						<Search class="h-4 w-4 opacity-60" />
-					</label>
+	<div class="tabs-box tabs self-start">
+		<button
+			class="tab"
+			class:tab-active={activeTab.current === 'users'}
+			onclick={() => (activeTab.current = 'users')}
+		>
+			{i18n.users_tab_users}
+		</button>
+		<button
+			class="tab"
+			class:tab-active={activeTab.current === 'classes'}
+			onclick={() => (activeTab.current = 'classes')}
+		>
+			{i18n.users_tab_classes}
+		</button>
+	</div>
+
+	{#if activeTab.current === 'classes'}
+		<ClassesPanel />
+	{:else}
+		<!-- Filters Section -->
+		<section class="card border border-base-300 bg-base-100 p-4 shadow-sm">
+			<div class="mb-8 flex items-center justify-between gap-4">
+				<div class="flex items-center gap-4">
+					<!-- Search -->
+					<div class="form-control grow sm:max-w-xs">
+						<label class="input-bordered input flex items-center gap-2">
+							<input
+								id="search"
+								type="text"
+								class="grow"
+								placeholder={i18n.users_name_or_email}
+								bind:value={search}
+							/>
+							<Search class="h-4 w-4 opacity-60" />
+						</label>
+					</div>
+
+					<!-- Role Filter -->
+					<div class="form-control sm:max-w-xs">
+						<select id="role" class="select-bordered select" bind:value={filters.role}>
+							<option value={undefined}>{i18n.users_all_roles}</option>
+							{#each ROLES as role (role)}
+								<option value={role}>{getRoleLabel(role)}</option>
+							{/each}
+						</select>
+					</div>
+
+					<!-- Status Filter -->
+					<div class="form-control sm:max-w-xs">
+						<select
+							id="status"
+							class="select-bordered select"
+							value={statusFilter}
+							onchange={(event) => handleStatusChange(event.currentTarget.value as StatusFilter)}
+						>
+							<option value="all">{i18n.users_all_status}</option>
+							<option value="active">{i18n.users_status_active}</option>
+							<option value="inactive">{i18n.users_status_inactive}</option>
+						</select>
+					</div>
+
+					<!-- Column Picker -->
+					<ColumnPicker columns={tableColumns} bind:visibleColumns={visibleColumns.current} />
 				</div>
 
-				<!-- Role Filter -->
-				<div class="form-control sm:max-w-xs">
-					<select id="role" class="select-bordered select" bind:value={filters.role}>
-						<option value={undefined}>{i18n.users_all_roles}</option>
-						{#each ROLES as role (role)}
-							<option value={role}>{getRoleLabel(role)}</option>
-						{/each}
-					</select>
-				</div>
-
-				<!-- Status Filter -->
-				<div class="form-control sm:max-w-xs">
-					<select
-						id="status"
-						class="select-bordered select"
-						value={statusFilter}
-						onchange={(event) => handleStatusChange(event.currentTarget.value as StatusFilter)}
-					>
-						<option value="all">{i18n.users_all_status}</option>
-						<option value="active">{i18n.users_status_active}</option>
-						<option value="inactive">{i18n.users_status_inactive}</option>
-					</select>
-				</div>
-
-				<!-- Column Picker -->
-				<ColumnPicker columns={tableColumns} bind:visibleColumns={visibleColumns.current} />
+				<!-- Add User -->
+				<button class="btn btn-sm btn-primary" onclick={() => (createUserModal = true)}>
+					<UserPlus class="h-4 w-4" />
+					{i18n.users_add_button}
+				</button>
 			</div>
 
-			<!-- Add User -->
-			<button class="btn btn-sm btn-primary" onclick={() => (createUserModal = true)}>
-				<UserPlus class="h-4 w-4" />
-				{i18n.users_add_button}
-			</button>
-		</div>
-	</section>
+			<!-- Users Table -->
+			<svelte:boundary>
+				{#snippet failed(error, reset)}
+					<div class="alert alert-error">
+						<span class="text-red-500">{JSON.stringify(error)}</span>
+						<button class="btn btn-sm" onclick={reset}>{i18n.try_again}</button>
+					</div>
+				{/snippet}
+				{#snippet pending()}
+					<Loading />
+				{/snippet}
 
-	<!-- Users Table -->
-	<svelte:boundary>
-		{#snippet failed(error, reset)}
-			<div class="alert alert-error">
-				<span class="text-red-500">{JSON.stringify(error)}</span>
-				<button class="btn btn-sm" onclick={reset}>{i18n.try_again}</button>
-			</div>
-		{/snippet}
-		{#snippet pending()}
-			<Loading />
-		{/snippet}
-
-		{@const usersList = await getUsers(filters)}
-		<section class="rounded-box border border-base-200 bg-base-200 shadow-md">
-			<DataTable
-				items={usersList}
-				columns={tableColumns}
-				bind:visibleColumns={visibleColumns.current}
-				showSearch={false}
-				showPagination={false}
-				emptyMessage={i18n.users_empty}
-				rowActions={userActions}
-				cellSnippets={{
-					email: emailCell,
-					role: roleCell,
-					status: statusCell,
-					userId: userIdCell,
-					createdAt: createdAtCell
-				}}
-			/>
+				{@const usersList = await getUsers(filters)}
+				<DataTable
+					items={usersList}
+					columns={tableColumns}
+					bind:visibleColumns={visibleColumns.current}
+					showSearch={false}
+					showPagination={false}
+					emptyMessage={i18n.users_empty}
+					rowActions={userActions}
+					cellSnippets={{
+						email: emailCell,
+						role: roleCell,
+						classes: classesCell,
+						status: statusCell,
+						userId: userIdCell,
+						createdAt: createdAtCell
+					}}
+				/>
+			</svelte:boundary>
 		</section>
-	</svelte:boundary>
+	{/if}
 </div>
 
 <!-- Reset Password Modal -->

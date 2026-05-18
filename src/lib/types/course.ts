@@ -28,11 +28,12 @@ export interface UserCourse extends Course {
 
 /**
  * Course as returned to staff (teacher/admin) by getCourses / getCourse —
- * includes the assigned exercise and user relations.
+ * includes the assigned exercise, user, and class relations.
  */
 export interface CourseWithRelations extends Course {
 	exerciseIds: string[];
 	userIds: string[];
+	classIds: string[];
 }
 
 export interface CourseFormData {
@@ -40,6 +41,7 @@ export interface CourseFormData {
 	published: boolean;
 	exerciseIds: string[];
 	userIds: string[];
+	classIds: string[];
 }
 
 export function createDefaultCourseFormData(): CourseFormData {
@@ -57,6 +59,7 @@ export function createDefaultCourseFormData(): CourseFormData {
 		},
 		published: false,
 		exerciseIds: [],
-		userIds: []
+		userIds: [],
+		classIds: []
 	};
 }
