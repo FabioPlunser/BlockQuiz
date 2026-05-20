@@ -17,18 +17,20 @@ export class Canvas2D implements IPositionEngine {
 	/** Unique identifier for this engine type (used for block prefixing) */
 	readonly engineId: string = 'canvas2d';
 
-	// Core Canvas2D blocks shared across position-based engines
+	// Core Canvas2D blocks shared across position-based engines.
+	// `message` and `tooltip` are i18n keys resolved at block-register time —
+	// see `BlocklyFactory.initBlocks` and `src/lib/blockly/i18n.ts`.
 	protected _blockDefs: BlockDef[] = [
 		{
 			id: 'move',
-			message: 'move %1 steps',
+			message: 'block_turtle_move',
 			args: [{ type: 'number', name: 'DISTANCE', default: 1 }],
 			color: 160,
 			method: 'move'
 		},
 		{
 			id: 'turn',
-			message: 'turn %1 degrees',
+			message: 'block_turtle_turn',
 			args: [{ type: 'number', name: 'DEGREES', default: 90 }],
 			color: 160,
 			method: 'turn'

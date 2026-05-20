@@ -2,6 +2,7 @@ import { Canvas2D } from './Canvas2D.svelte';
 import type { BlockDef } from '$lib/blockly/types';
 import type { PathSegment, Point, TargetPoint } from '$lib/canvas/types';
 import { initBlocks } from '$lib/blockly/BlocklyFactory';
+import { localized } from '$lib/blockly/i18n';
 import { traceCollision } from '$lib/canvas/collision';
 
 export class Turtle extends Canvas2D {
@@ -31,38 +32,41 @@ export class Turtle extends Canvas2D {
 	}
 
 	// Turtle-specific blocks that extend the shared Canvas2D blocks.
-	static readonly TURTLE_BLOCKS: BlockDef[] = [
-		{
-			id: 'pen',
-			// More kid-friendly label; dropdown text is "draw" / "don't draw"
-			message: 'pen is %1',
-			args: [
-				{
-					type: 'dropdown',
-					name: 'STATE',
-					options: [
-						['draw', 'down'],
-						["don't draw", 'up']
-					]
-				}
-			],
-			color: 160,
-			method: 'setPen'
-		},
-		{
-			id: 'color',
-			// Kid-friendly label for line color
-			message: 'line color %1',
-			args: [{ type: 'color', name: 'COLOR', default: '#ff0000' }],
-			color: 160,
-			// Method name must match what the Blockly generator calls: api.color(...)
-			method: 'color'
-		}
-	];
+	// `message` is an i18n key resolved by `BlocklyFactory.initBlocks`. Dropdown
+	// option labels are resolved here at access time so they pick up the current
+	// locale every time `blockDefs` is read.
+	static turtleBlocks(): BlockDef[] {
+		return [
+			{
+				id: 'pen',
+				message: 'block_turtle_pen',
+				args: [
+					{
+						type: 'dropdown',
+						name: 'STATE',
+						options: [
+							[localized('block_turtle_pen_down'), 'down'],
+							[localized('block_turtle_pen_up'), 'up']
+						]
+					}
+				],
+				color: 160,
+				method: 'setPen'
+			},
+			{
+				id: 'color',
+				message: 'block_turtle_color',
+				args: [{ type: 'color', name: 'COLOR', default: '#ff0000' }],
+				color: 160,
+				// Method name must match what the Blockly generator calls: api.color(...)
+				method: 'color'
+			}
+		];
+	}
 
 	// Merge shared Canvas2D blocks with Turtle-specific ones.
 	override get blockDefs(): BlockDef[] {
-		return [...super.blockDefs, ...Turtle.TURTLE_BLOCKS];
+		return [...super.blockDefs, ...Turtle.turtleBlocks()];
 	}
 
 	constructor(width: number, height: number) {

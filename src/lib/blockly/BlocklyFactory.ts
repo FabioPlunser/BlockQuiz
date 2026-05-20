@@ -7,21 +7,28 @@ import {
 	type BlocklyCategoryConfig,
 	BlocklyToolboxKind
 } from './types';
+import { localized } from './i18n';
 
 export function initBlocks(blocks: BlockDef[], prefix: string) {
 	for (const block of blocks) {
 		const blocklyId = `${prefix}_${block.id}`;
+		// `block.message` / `block.tooltip` are i18n keys — resolve them at
+		// registration time. Workspaces are remounted on locale change (see
+		// `i18n.locale` in the `{#key}` of BlocklyWorkspace call sites), which
+		// re-invokes initBlocks via fresh engine construction.
+		const message = localized(block.message, block.message);
+		const tooltip = block.tooltip ? localized(block.tooltip, block.tooltip) : undefined;
 		Blockly.Blocks[blocklyId] = {
 			init: function () {
-				if (block.args && block.message.length >= 0) {
+				if (block.args && message.length >= 0) {
 					for (const arg of block.args) {
 						if (arg.type === 'dropdown') {
 							this.appendDummyInput()
-								.appendField(block.message.replace('%1', ''))
+								.appendField(message.replace('%1', ''))
 								.appendField(new Blockly.FieldDropdown(arg.options || []), arg.name);
 						} else {
 							const input = this.appendValueInput(arg.name).appendField(
-								block.message.replace('%1', '')
+								message.replace('%1', '')
 							);
 
 							// Map our arg.type to Blockly connection checks
@@ -35,12 +42,12 @@ export function initBlocks(blocks: BlockDef[], prefix: string) {
 						}
 					}
 				} else {
-					this.appendDummyInput().appendField(block.message);
+					this.appendDummyInput().appendField(message);
 				}
 				this.setPreviousStatement(true);
 				this.setNextStatement(true);
 				this.setColour(block.color);
-				if (block.tooltip) this.setTooltip(block.tooltip);
+				if (tooltip) this.setTooltip(tooltip);
 			}
 		};
 

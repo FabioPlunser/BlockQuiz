@@ -22,33 +22,34 @@ export class Robot extends Canvas2D {
 	override readonly engineId = 'robot';
 	private readonly initialState: PositionState;
 
+	// `message` and `tooltip` are i18n keys resolved by `BlocklyFactory.initBlocks`.
 	static readonly ROBOT_BLOCKS: BlockDef[] = [
 		{
 			id: 'step',
-			message: 'move forward',
+			message: 'block_robot_step',
 			color: 160,
-			tooltip: 'Move the robot forward by one cell.',
+			tooltip: 'block_robot_step_tooltip',
 			method: 'step'
 		},
 		{
 			id: 'turn_left',
-			message: 'turn left',
+			message: 'block_robot_turn_left',
 			color: 160,
-			tooltip: 'Turn the robot 90 degrees to the left.',
+			tooltip: 'block_robot_turn_left_tooltip',
 			method: 'turn_left'
 		},
 		{
 			id: 'turn_right',
-			message: 'turn right',
+			message: 'block_robot_turn_right',
 			color: 160,
-			tooltip: 'Turn the robot 90 degrees to the right.',
+			tooltip: 'block_robot_turn_right_tooltip',
 			method: 'turn_right'
 		},
 		{
 			id: 'collect',
-			message: 'collect item',
+			message: 'block_robot_collect',
 			color: 210,
-			tooltip: 'Collect an item on the current grid cell.',
+			tooltip: 'block_robot_collect_tooltip',
 			method: 'collect'
 		}
 	];

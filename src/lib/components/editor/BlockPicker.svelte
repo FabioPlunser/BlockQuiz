@@ -4,6 +4,7 @@
 	import { Robot } from '$lib/canvas/Robot.svelte';
 	import type { ExerciseType } from '$lib/types/exercise';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import { localized, BUILTIN_BLOCK_LABEL_KEYS } from '$lib/blockly/i18n';
 
 	let {
 		selectedBlocks = $bindable([]),
@@ -41,6 +42,8 @@
 	let search = $state('');
 
 	function formatBuiltinBlockName(id: string): string {
+		const key = BUILTIN_BLOCK_LABEL_KEYS[id];
+		if (key) return localized(key, key);
 		return id
 			.replace(/_/g, ' ')
 			.replace(/controls /i, '')
@@ -51,7 +54,9 @@
 			.replace(/\b\w/g, (letter) => letter.toUpperCase());
 	}
 
-	function formatEngineBlockName(label: string, fallbackId: string): string {
+	function formatEngineBlockName(messageKey: string, fallbackId: string): string {
+		// `BlockDef.message` is an i18n key; resolve it to the current locale.
+		const label = localized(messageKey, messageKey);
 		const cleaned = label.replace(/%\d+/g, '').replace(/\s+/g, ' ').trim();
 		return cleaned
 			? cleaned.replace(/\b\w/g, (letter) => letter.toUpperCase())

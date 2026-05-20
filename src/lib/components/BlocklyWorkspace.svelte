@@ -1,10 +1,32 @@
 <script lang="ts">
 	import * as Blockly from 'blockly/core';
 	import 'blockly/blocks';
+	// Locale message bundles for built-in Blockly blocks. The active one is
+	// applied below via `applyBlocklyLocale`. Without one of these, built-in
+	// blocks render the raw msg key (e.g. "%{BKY_CONTROLS_IF_MSG_IF}").
+	import * as En from 'blockly/msg/en';
+	import * as De from 'blockly/msg/de';
 	import { onDestroy, onMount } from 'svelte';
 	import { javascriptGenerator as jG } from 'blockly/javascript';
 	import type { BlocklyToolboxConfig, BlocklyConfig } from '$lib/blockly/types';
 	import { getDefaultConfig } from '$lib/blockly/BlocklyFactory';
+	import { syncCustomBlocklyMsg } from '$lib/blockly/i18n';
+	import { pickBlocklyTheme } from '$lib/blockly/warmTheme';
+	import { theme as appTheme } from '$lib/theme.svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
+
+	const BLOCKLY_MSG: Record<string, unknown> = { en: En, de: De };
+
+	function applyBlocklyLocale(locale: string) {
+		Blockly.setLocale((BLOCKLY_MSG[locale] ?? En) as Record<string, string>);
+		// Friendlier labels for the prompt block — "input" reads more naturally to
+		// learners than Blockly's default "prompt for … with message …".
+		Blockly.Msg['TEXT_PROMPT_TYPE_NUMBER'] = locale === 'de' ? 'Zahl eingeben' : 'input number';
+		Blockly.Msg['TEXT_PROMPT_TYPE_TEXT'] = locale === 'de' ? 'Text eingeben' : 'input text';
+		syncCustomBlocklyMsg();
+	}
+
+	applyBlocklyLocale(i18n.locale);
 
 	const uid = $props.id();
 
@@ -25,6 +47,7 @@
 	let workspace: Blockly.WorkspaceSvg | null = null;
 	let scrollbarObserver: MutationObserver | null = null;
 	let resizeObserver: ResizeObserver | null = null;
+	let injectError = $state<string | null>(null);
 
 	function updateAccessibility() {
 		const injectionDiv = blocklyDiv.querySelector('.injectionDiv');
@@ -45,6 +68,7 @@
 			workspace = Blockly.inject(blocklyDiv, {
 				toolbox: toolboxConfig,
 				media: '/blockly-media/',
+				theme: pickBlocklyTheme(appTheme.current),
 				...config
 			});
 			updateAccessibility();
@@ -101,6 +125,7 @@
 				resizeObserver.observe(blocklyDiv);
 			}
 		} catch (e) {
+			injectError = e instanceof Error ? e.message : String(e);
 			console.error('Blockly inject failed:', e);
 		}
 
@@ -126,6 +151,23 @@
 		}
 	});
 
+	// Re-skin the live workspace whenever the app theme toggles. Blockly's
+	// setTheme triggers an internal re-render without re-injecting blocks, so
+	// the user's in-progress workspace contents are preserved.
+	$effect(() => {
+		const next = pickBlocklyTheme(appTheme.current);
+		if (workspace && workspace.getTheme() !== next) {
+			workspace.setTheme(next);
+		}
+	});
+
+	// Re-apply the Blockly locale when the app locale changes. New workspaces
+	// pick up translated labels; existing ones are remounted by their parents
+	// via `{#key i18n.locale}` so their blocks re-register with the new strings.
+	$effect(() => {
+		applyBlocklyLocale(i18n.locale);
+	});
+
 	function getCode(): string {
 		if (!workspace) return '';
 		return jG.workspaceToCode(workspace);
@@ -148,6 +190,11 @@
 	<p id={`${uid}-instructions`} class="sr-only">
 		Use the toolbox to choose blocks, then build your program in the workspace.
 	</p>
+	{#if injectError}
+		<div class="alert mb-2 alert-error" role="alert">
+			<span>Blockly failed to load: {injectError}</span>
+		</div>
+	{/if}
 	<div
 		bind:this={blocklyDiv}
 		class="blockly-shell w-full overflow-hidden rounded-xl border border-base-300 bg-base-100"

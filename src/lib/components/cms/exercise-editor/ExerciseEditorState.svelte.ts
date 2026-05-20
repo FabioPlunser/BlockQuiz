@@ -23,6 +23,7 @@ import {
 import {
 	createExercise,
 	getExercise,
+	getExercises,
 	getExerciseVersions,
 	restoreExerciseVersion,
 	updateExercise
@@ -45,7 +46,6 @@ export type ExerciseVersionItem = {
 
 type Options = {
 	exercise?: ExerciseFormData;
-	remote?: any;
 	onSave?: () => void;
 	isNew?: boolean;
 };
@@ -59,7 +59,6 @@ type Options = {
 export class ExerciseEditorState {
 	exercise: ExerciseFormData = createDefaultExerciseFormData();
 	isNew = true;
-	private remote: any = null;
 	private onSave?: () => void;
 	// Optional hook installed by the .svelte component; invoked after a
 	// successful update so things like the author dropdown can flush their
@@ -113,7 +112,7 @@ export class ExerciseEditorState {
 	pathPointCount = $derived(this.pathOverlay.length);
 	selectedBlockCount = $derived(this.exercise.config.toolbox.length);
 	starterWorkspaceKey = $derived(
-		`starter-${this.toolboxVersion}-${this.starterWorkspaceVersion}`
+		`starter-${this.toolboxVersion}-${this.starterWorkspaceVersion}-${i18n.locale}`
 	);
 
 	sections = $derived(
@@ -204,7 +203,6 @@ export class ExerciseEditorState {
 	constructor(options: Options = {}) {
 		this.exercise = options.exercise ?? createDefaultExerciseFormData();
 		this.isNew = options.isNew ?? true;
-		this.remote = options.remote;
 		this.onSave = options.onSave;
 		this.previewExercise = this.buildPreviewExercise();
 		this.imagePreview = this.exercise.content.image ?? '';
@@ -317,31 +315,37 @@ export class ExerciseEditorState {
 	}
 
 	private buildBuiltinCategories(): BlocklyCategoryConfig[] {
-		const make = (name: string, colour: number, ids: string[]): BlocklyCategoryConfig => ({
+		const make = (
+			name: string,
+			categorystyle: string,
+			ids: string[]
+		): BlocklyCategoryConfig => ({
 			kind: 'category',
 			name,
-			colour,
+			categorystyle,
 			contents: ids
 				.filter((id) => this.exercise.config.toolbox.includes(id))
 				.map((id) => ({ kind: 'block', type: id }))
 		});
 
 		const out: BlocklyCategoryConfig[] = [];
-		for (const [label, colour, ids] of [
-			[i18n.toolbox_logic, 210, LOGIC_BLOCKS],
-			[i18n.toolbox_loops, 120, LOOP_BLOCKS],
-			[i18n.toolbox_math, 230, MATH_BLOCKS],
-			[i18n.toolbox_text, 160, TEXT_BLOCKS]
+		for (const [label, categorystyle, ids] of [
+			[i18n.toolbox_logic, 'logic_category', LOGIC_BLOCKS],
+			[i18n.toolbox_loops, 'loop_category', LOOP_BLOCKS],
+			[i18n.toolbox_math, 'math_category', MATH_BLOCKS],
+			[i18n.toolbox_text, 'text_category', TEXT_BLOCKS]
 		] as const) {
-			const category = make(label, colour, ids as unknown as string[]);
+			const category = make(label, categorystyle, ids as unknown as string[]);
 			if (category.contents.length) out.push(category);
 		}
 		return out;
 	}
 
 	getToolbox(): BlocklyToolboxConfig {
+		const builtins = this.buildBuiltinCategories();
 		if (this.exercise.type === 'io') {
-			return { kind: BlocklyToolboxKind.CATEGORY, contents: this.buildBuiltinCategories() };
+			if (!builtins.length) return { kind: BlocklyToolboxKind.FLYOUT, contents: [] };
+			return { kind: BlocklyToolboxKind.CATEGORY, contents: builtins };
 		}
 		const engine = this.getEngine();
 		const engineBlocks =
@@ -350,12 +354,15 @@ export class ExerciseEditorState {
 			engineBlocks,
 			this.exercise.type,
 			this.exercise.type === 'turtle' ? i18n.toolbox_turtle : i18n.toolbox_robot,
-			160
+			'engine_category'
 		);
-		return {
-			kind: BlocklyToolboxKind.CATEGORY,
-			contents: [engineCategory, ...this.buildBuiltinCategories()].filter(Boolean)
-		};
+		// Blockly fails to inject a categoryToolbox where every category has empty
+		// contents (the default state for a freshly created exercise). Collapse to
+		// a flyout so the workspace still renders; the watch on config.toolbox
+		// bumps toolboxVersion and remounts as soon as the author picks a block.
+		const categories = [engineCategory, ...builtins].filter((c) => c.contents.length);
+		if (!categories.length) return { kind: BlocklyToolboxKind.FLYOUT, contents: [] };
+		return { kind: BlocklyToolboxKind.CATEGORY, contents: categories };
 	}
 
 	bumpToolboxVersion() {
@@ -447,10 +454,9 @@ export class ExerciseEditorState {
 					content: this.exercise.content,
 					config: this.exercise.config,
 					published: this.exercise.published
-				});
+				}).updates(getExercises);
 				handleServerResult(result, i18n.toast_exercise_created, i18n.toast_exercise_create_failed);
 				if (result.success) {
-					await this.remote?.refresh?.();
 					this.onSave?.();
 				}
 				return;
@@ -471,7 +477,7 @@ export class ExerciseEditorState {
 				content: this.exercise.content,
 				config: this.exercise.config,
 				published: this.exercise.published
-			});
+			}).updates(getExercises);
 			handleServerResult(result, i18n.toast_exercise_updated, i18n.toast_exercise_update_failed);
 			if (result.success) {
 				if (this.persistAuthorChange) {
@@ -481,7 +487,6 @@ export class ExerciseEditorState {
 						console.error('persistAuthorChange failed', err);
 					}
 				}
-				await this.remote?.refresh?.();
 				// Stay on the detail page — the user clicks back to leave.
 			}
 		} catch (error) {
@@ -520,14 +525,13 @@ export class ExerciseEditorState {
 			const result = await restoreExerciseVersion({
 				exerciseId: this.exercise.id,
 				versionId
-			});
+			}).updates(getExercises);
 			handleServerResult(
 				result,
 				i18n.toast_exercise_version_restored,
 				i18n.toast_exercise_version_restore_failed
 			);
 			if (result.success) {
-				await this.remote?.refresh?.();
 				await this.versionHistory?.refresh?.();
 				await this.refreshEditorExercise();
 			}
