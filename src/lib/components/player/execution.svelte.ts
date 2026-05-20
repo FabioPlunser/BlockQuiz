@@ -179,7 +179,6 @@ class ExecutionState {
 		}
 
 		this._isRunning = true;
-		this._result = null;
 		this._executionError = false;
 
 		try {

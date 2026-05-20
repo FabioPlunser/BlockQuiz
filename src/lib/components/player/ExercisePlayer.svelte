@@ -159,7 +159,7 @@
 			</div>
 
 			<div class="flex min-h-[28rem] flex-1 flex-col">
-				{#key exercise.i}
+				{#key `${exercise.id}-${i18n.locale}`}
 					<BlocklyWorkspace
 						bind:this={blocklyRef}
 						{toolboxConfig}

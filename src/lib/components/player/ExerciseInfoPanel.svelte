@@ -77,7 +77,6 @@
 			});
 		}
 	}
-	$inspect(hintClockInterval);
 
 	function clearHintTimers() {
 		hintTimers.forEach((timer) => clearTimeout(timer));
@@ -98,7 +97,6 @@
 		if (hasTimedHints) {
 			hintClockInterval = setInterval(() => {
 				hintClock = Date.now();
-				console.log('clock tick:', hintClock);
 			}, 1000);
 		}
 

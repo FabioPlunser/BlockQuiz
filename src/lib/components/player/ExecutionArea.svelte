@@ -3,9 +3,10 @@
 	import type { Exercise } from '$lib/types/exercise';
 	import type { GradingResult } from '$lib/player/executor';
 	import Canvas from '$cp/Canvas.svelte';
-	import { Play, RotateCcw, Send } from '@lucide/svelte';
+	import { CheckCircle, Play, RotateCcw, Send, XCircle } from '@lucide/svelte';
 	import { getExecutionState } from './execution.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import { normalizeIoText } from '$lib/graders';
 	import Replay from './Replay.svelte';
 
 	type Props = {
@@ -45,6 +46,31 @@
 	let exampleInputLabel = $derived(i18n.player_io_example_input_label);
 	let exampleOutputLabel = $derived(i18n.player_io_example_output_label);
 	let emptyOutputMessage = $derived(i18n.player_io_empty_output);
+	let emptyAfterRunMessage = $derived(i18n.player_io_empty_output_after_run);
+	let runningMessage = $derived(i18n.player_io_running);
+
+	let outputState = $derived<'running' | 'idle' | 'empty' | 'value'>(
+		isRunning ? 'running' : !trace ? 'idle' : (trace.stdout ?? '').length === 0 ? 'empty' : 'value'
+	);
+
+	let ioNormalization = $derived(exercise.type === 'io' ? exercise.io.normalization : null);
+	let expectedExampleOutput = $derived(
+		exercise.type === 'io' ? (exercise.io.visibleExampleOutput ?? '') : ''
+	);
+	let outputMatchesExample = $derived(
+		!!trace &&
+			!isRunning &&
+			ioNormalization !== null &&
+			expectedExampleOutput.length > 0 &&
+			normalizeIoText(trace.stdout ?? '', ioNormalization) ===
+				normalizeIoText(expectedExampleOutput, ioNormalization)
+	);
+	let showMatchIndicator = $derived(
+		exercise.type === 'io' &&
+			!isRunning &&
+			!!trace &&
+			expectedExampleOutput.length > 0
+	);
 
 	function handleRun() {
 		execution.handleRun();
@@ -107,9 +133,43 @@
 			{/if}
 
 			<div class="rounded-xl bg-base-200 p-3">
-				<pre class="min-h-32 text-sm whitespace-pre-wrap" aria-live="polite">{trace?.stdout ||
-						emptyOutputMessage}</pre>
+				{#if outputState === 'running'}
+					<div
+						class="flex min-h-32 items-center gap-2 text-sm text-base-content/60"
+						aria-live="polite"
+					>
+						<span class="loading loading-xs loading-spinner"></span>
+						<span>{runningMessage}</span>
+					</div>
+				{:else if outputState === 'idle'}
+					<pre
+						class="min-h-32 text-sm whitespace-pre-wrap text-base-content/50"
+						aria-live="polite">{emptyOutputMessage}</pre>
+				{:else if outputState === 'empty'}
+					<pre
+						class="min-h-32 text-sm whitespace-pre-wrap text-base-content/70 italic"
+						aria-live="polite">{emptyAfterRunMessage}</pre>
+				{:else}
+					<pre class="min-h-32 text-sm whitespace-pre-wrap" aria-live="polite">{trace?.stdout}</pre>
+				{/if}
 			</div>
+
+			{#if showMatchIndicator}
+				<div
+					class="mt-2 flex items-center gap-2 text-sm"
+					class:text-success={outputMatchesExample}
+					class:text-warning={!outputMatchesExample}
+					aria-live="polite"
+				>
+					{#if outputMatchesExample}
+						<CheckCircle class="h-4 w-4" />
+						<span>{i18n.player_io_try_matches}</span>
+					{:else}
+						<XCircle class="h-4 w-4" />
+						<span>{i18n.player_io_try_mismatch}</span>
+					{/if}
+				</div>
+			{/if}
 
 			{#if trace?.stderr}
 				<div class="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3">
