@@ -1,7 +1,9 @@
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
+import { sql } from 'drizzle-orm';
 import {
 	account,
+	attempts,
 	classUsers,
 	classes,
 	courseClasses,
@@ -25,7 +27,17 @@ const sqlitePath = process.env.DATABASE_URL.replace(/^file:/, '');
 const client = new Database(sqlitePath);
 client.exec('PRAGMA foreign_keys = ON');
 const db = drizzle(client, {
-	schema: { account, classUsers, classes, courseClasses, courseExercises, courses, exercises, user }
+	schema: {
+		account,
+		attempts,
+		classUsers,
+		classes,
+		courseClasses,
+		courseExercises,
+		courses,
+		exercises,
+		user
+	}
 });
 
 const now = Date.now();
@@ -89,7 +101,26 @@ if (shouldReset) {
 }
 
 // =============================================================================
-// Users — 2 admins, 10 teachers, 240 students
+// Idempotency guard
+// =============================================================================
+// User IDs are fresh UUIDs each run, so re-running without --reset would fail
+// on the email UNIQUE constraint (silently — onConflictDoNothing) and then on
+// FK constraints (loudly — the new UUIDs aren't actually in the user table).
+// docker-compose runs this on every startup, so detect "already seeded" and
+// short-circuit.
+
+const seededAlready =
+	(client.query(`SELECT 1 FROM user WHERE email = 'admin1@blockquiz.test' LIMIT 1`).get() as
+		| { 1: number }
+		| undefined) != null;
+
+if (seededAlready) {
+	console.log('Database already seeded — skipping. Use --reset to wipe and reseed.');
+	process.exit(0);
+}
+
+// =============================================================================
+// Users — 3 admins, 10 teachers, 240 students
 // =============================================================================
 
 type SeedUser = {
@@ -101,7 +132,8 @@ type SeedUser = {
 
 const admins: SeedUser[] = [
 	{ id: crypto.randomUUID(), name: 'Admin One', email: 'admin1@blockquiz.test', role: 'admin' },
-	{ id: crypto.randomUUID(), name: 'Admin Two', email: 'admin2@blockquiz.test', role: 'admin' }
+	{ id: crypto.randomUUID(), name: 'Admin Two', email: 'admin2@blockquiz.test', role: 'admin' },
+	{ id: crypto.randomUUID(), name: 'Fabio Plunser', email: 'f.plunser@outlook.com', role: 'admin' }
 ];
 
 const teacherFirstNames = [
@@ -286,8 +318,8 @@ const exerciseSeeds: ExerciseSeed[] = [
 		content: {
 			title: { de: 'Gerade oder Ungerade', en: 'Even or Odd' },
 			description: {
-				de: 'Lies eine Zahl ein und gib "even" aus wenn sie gerade ist, sonst "odd".',
-				en: 'Read a number and print "even" if it is even, otherwise print "odd".'
+				de: 'Der Computer gibt deinem Programm jedes Mal eine andere Zahl als Eingabe. Lies sie zuerst mit dem "input number"-Block (unter Text), prüfe dann, ob sie gerade ist, und gib "even" aus — sonst "odd".',
+				en: 'The computer sends your program a different number each time as input. First read it with the "input number" block (under Text), then check whether it is even and print "even" — otherwise print "odd".'
 			},
 			image: ''
 		},
@@ -310,16 +342,16 @@ const exerciseSeeds: ExerciseSeed[] = [
 				{
 					id: crypto.randomUUID(),
 					text: {
-						de: 'Prüfe den Rest bei Division durch 2.',
-						en: 'Check the remainder when dividing by 2.'
+						de: 'Nutze den "input number"-Block (unter Text), um die Zahl einzulesen.',
+						en: 'Use the "input number" block (under Text) to read the number.'
 					},
 					trigger: 'click'
 				},
 				{
 					id: crypto.randomUUID(),
 					text: {
-						de: 'Nutze den "ist gerade" Block aus der Mathematik-Kategorie.',
-						en: 'Use the "is even" block from the Math category.'
+						de: 'Nutze den "ist gerade"-Block (Mathematik) mit deiner Variable, um zwischen even und odd zu entscheiden.',
+						en: 'Use the "is even" block (Math) with your variable to choose between even and odd.'
 					},
 					trigger: 'time',
 					delaySeconds: 60
@@ -1147,6 +1179,7 @@ type SeedCourse = {
 	descEn: string;
 	exerciseTags: string[];
 	published: boolean;
+	demo?: boolean;
 	// 'all' = assign to every class (so every student has access); number = pick that many at random.
 	classAssignment: number | 'all';
 };
@@ -1159,7 +1192,11 @@ const seedCourses: SeedCourse[] = [
 		descEn: 'Try BlockQuiz! Three short exercises to get started – no login required.',
 		exerciseTags: ['io-double-it', 'turtle-line', 'robot-navigate'],
 		published: true,
-		classAssignment: 0
+		demo: true,
+		// Demo course is available to BOTH guests (via the public /demo page) AND
+		// every logged-in student (via class enrolment). The course card surfaces
+		// the "Demo" badge so it's clear which one it is.
+		classAssignment: 'all'
 	},
 	{
 		titleDe: 'Einführung Programmieren',
@@ -1225,6 +1262,13 @@ const seedCourses: SeedCourse[] = [
 	}
 ];
 
+type SeededCourse = {
+	courseId: string;
+	exerciseIds: string[];
+	classIds: string[];
+};
+const seededCourses: SeededCourse[] = [];
+
 for (const c of seedCourses) {
 	const courseId = crypto.randomUUID();
 	const author = pick(teachers);
@@ -1238,19 +1282,23 @@ for (const c of seedCourses) {
 				image: ''
 			},
 			published: c.published,
+			demo: c.demo ?? false,
 			createdAt: now,
 			updatedAt: new Date(now),
 			createdBy: author.id
 		})
 		.onConflictDoNothing();
 
+	const courseExerciseIds: string[] = [];
 	for (const [order, tag] of c.exerciseTags.entries()) {
+		const exerciseId = exId(tag);
+		courseExerciseIds.push(exerciseId);
 		await db
 			.insert(courseExercises)
 			.values({
 				id: crypto.randomUUID(),
 				courseId,
-				exerciseId: exId(tag),
+				exerciseId,
 				order,
 				createdAt: now,
 				updatedAt: now
@@ -1281,6 +1329,117 @@ for (const c of seedCourses) {
 				.onConflictDoNothing();
 		}
 	}
+
+	seededCourses.push({
+		courseId,
+		exerciseIds: courseExerciseIds,
+		classIds: assignedClasses.map((c) => c.id)
+	});
+}
+
+// =============================================================================
+// Attempts — sprinkle realistic data so analytics pages have something to show.
+//
+// Only runs when the attempts table is empty (so re-runs from docker-compose
+// don't keep growing the table). Numbers per student per accessible exercise:
+//   60% chance of at least one attempt; of those, 75% eventually pass; 25%
+//   leave the student "stuck" with only failing attempts. Within an exercise,
+//   a stuck student tries 1–3 times; a passing student usually solves it on
+//   try 1–3 and may revisit a few more times.
+// =============================================================================
+
+const studentByClass = new Map<string, string[]>();
+for (const cls of allClasses) studentByClass.set(cls.id, []);
+studentIdx = 0;
+for (const cls of allClasses) {
+	const bucket = studentByClass.get(cls.id)!;
+	for (let i = 0; i < 20; i++) bucket.push(students[studentIdx++].id);
+}
+
+const [attemptCountRow] = await db
+	.select({ n: sql<number>`count(*)`.as('n') })
+	.from(attempts);
+const existingAttempts = Number(attemptCountRow?.n ?? 0);
+
+let attemptInsertCount = 0;
+if (existingAttempts === 0) {
+	const HINT_TEMPLATE = (n: number) =>
+		JSON.stringify(
+			Array.from({ length: n }, (_, i) => ({
+				hintId: `hint-${i}`,
+				revealedAt: now - (n - i) * 60_000,
+				trigger: i % 2 === 0 ? 'click' : 'time'
+			}))
+		);
+
+	for (const sc of seededCourses) {
+		// Resolve which students reach this course (via class memberships).
+		const enrolled = new Set<string>();
+		for (const classId of sc.classIds) {
+			for (const studentId of studentByClass.get(classId) ?? []) enrolled.add(studentId);
+		}
+		if (enrolled.size === 0) continue;
+
+		for (const exerciseId of sc.exerciseIds) {
+			for (const studentId of enrolled) {
+				// 60% of students attempt this exercise at all.
+				if (rng() > 0.6) continue;
+
+				const willEventuallyPass = rng() < 0.75;
+				const failingTries = willEventuallyPass
+					? Math.floor(rng() * 3) // 0..2 failing tries before the pass
+					: 1 + Math.floor(rng() * 3); // 1..3 failing tries, never pass
+				const passingTries = willEventuallyPass ? 1 : 0;
+				const reviewTries = willEventuallyPass && rng() < 0.3 ? 1 + Math.floor(rng() * 2) : 0;
+				const totalTries = failingTries + passingTries + reviewTries;
+
+				const locale: 'de' | 'en' = rng() < 0.7 ? 'de' : 'en';
+				const baseStart = now - Math.floor(rng() * 30) * 86_400_000; // within last 30 days
+
+				for (let t = 0; t < totalTries; t++) {
+					const isPassing = t === failingTries + reviewTries - 1 ? false : t >= failingTries;
+					const passed = isPassing || (t >= failingTries && reviewTries === 0);
+					const score = passed
+						? 70 + Math.floor(rng() * 31) // 70–100
+						: Math.floor(rng() * 60); // 0–59
+					const startedAt = baseStart + t * (5 + Math.floor(rng() * 25)) * 60_000;
+					const duration = (10 + Math.floor(rng() * 600)) * 1_000;
+					const endedAt = startedAt + duration;
+					const hintCount = passed ? Math.floor(rng() * 2) : Math.floor(rng() * 3);
+
+					await db
+						.insert(attempts)
+						.values({
+							id: crypto.randomUUID(),
+							exerciseId,
+							userId: studentId,
+							clientId: null,
+							actorType: 'user',
+							workspaceXml: EMPTY_STARTER_XML,
+							generatedCode: '// seeded attempt',
+							resultJson: JSON.stringify({
+								passed,
+								score,
+								tests: [{ id: 'seed', passed, message: null }]
+							}),
+							locale,
+							startedAt,
+							endedAt,
+							score,
+							passed,
+							hintEventsJson: HINT_TEMPLATE(hintCount),
+							analyticsJson: JSON.stringify({
+								durationMs: duration,
+								blockCount: 5 + Math.floor(rng() * 25)
+							}),
+							createdAt: endedAt
+						})
+						.onConflictDoNothing();
+					attemptInsertCount++;
+				}
+			}
+		}
+	}
 }
 
 // =============================================================================
@@ -1293,5 +1452,6 @@ console.log(
 		`  ${teachers.length} teachers (login: seed-teacher@example.com / ${SEED_PASSWORD})\n` +
 		`  ${students.length} students across ${allClasses.length} classes (20 each, 4 years × 3 tracks)\n` +
 		`  ${exerciseSeeds.length} exercises (4 IO, 4 turtle, 2 robot) authored by random teachers\n` +
-		`  ${seedCourses.length} courses (random teacher author; Intro reaches every class, themed courses get 2–3 random classes, demo is public-only)`
+		`  ${seedCourses.length} courses (random teacher author; Intro + Demo reach every class, themed courses get 2–3 random classes)\n` +
+		`  ${attemptInsertCount} seeded attempts${existingAttempts > 0 ? ` (skipped — attempts table already had ${existingAttempts} rows)` : ''}`
 );

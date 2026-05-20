@@ -29,6 +29,13 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/scripts ./scripts
 
+# Source + svelte-kit synced tsconfig are needed at runtime so scripts/seed.ts
+# can resolve $lib path aliases when importing from src/.
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/svelte.config.js ./svelte.config.js
+COPY --from=builder /app/.svelte-kit ./.svelte-kit
+
 # Copy drizzle migrations for database setup
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/drizzle.config.ts ./

@@ -8,11 +8,11 @@ import { getRequestLocale } from '$lib/server/locale';
 const SECURITY_HEADERS = {
 	'Content-Security-Policy': [
 		"default-src 'self'",
-		"script-src 'self' 'unsafe-inline'",
+		"script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
 		"style-src 'self' 'unsafe-inline'",
 		"img-src 'self' data: blob: https:",
 		"font-src 'self' data:",
-		"connect-src 'self'",
+		"connect-src 'self' https://cloudflareinsights.com",
 		"frame-src 'self'",
 		"child-src 'self'",
 		"object-src 'none'",
@@ -42,32 +42,35 @@ function withDocumentLocale(resolve: Parameters<Handle>[0]['resolve'], locale: s
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const session = await auth.api.getSession({
-		headers: event.request.headers
-	});
-
-	// If there is an active session, attach it to locals.
-	if (session && session.user.active !== false) {
-		event.locals.session = session.session;
-		event.locals.user = session.user;
-	}
-
-	if (event.locals.user && event.url.pathname === '/login') {
-		redirect(303, '/');
-	}
-
-	if (!event.locals.user && !isPublicRoute(event.url.pathname)) {
-		redirect(303, '/login');
-	}
-
-	const response = await svelteKitHandler({
-		event,
-		resolve: withDocumentLocale(resolve, getRequestLocale(event)),
+	return svelteKitHandler({
 		auth,
-		building
+		event,
+		building,
+		resolve: async (innerEvent) => {
+			const session = await auth.api.getSession({
+				headers: innerEvent.request.headers
+			});
+
+			if (session && session.user.active !== false) {
+				innerEvent.locals.session = session.session;
+				innerEvent.locals.user = session.user;
+			}
+
+			if (innerEvent.locals.user && innerEvent.url.pathname === '/login') {
+				redirect(303, '/');
+			}
+
+			if (!innerEvent.locals.user && !isPublicRoute(innerEvent.url.pathname)) {
+				redirect(303, '/login');
+			}
+
+			const localized = withDocumentLocale(resolve, getRequestLocale(innerEvent));
+			const response = await localized(innerEvent);
+
+			for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
+				response.headers.set(header, value);
+			}
+			return response;
+		}
 	});
-	for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
-		response.headers.set(header, value);
-	}
-	return response;
 };

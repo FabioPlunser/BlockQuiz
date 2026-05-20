@@ -62,8 +62,11 @@ services:
     environment:
       - NODE_ENV=development
       - DATABASE_URL=file:./data/dev.db
-    # Install dependencies and run dev server with Bun runtime
-    command: sh -c "bun install && bun --bun run db:push && bun --bun run dev --host 0.0.0.0"
+      # All seeded accounts (10 teachers, 2 admins, 240 students) share this password.
+      - SEED_TEACHER_PASSWORD=BlockQuiz123!
+    # Install deps, push schema, seed (idempotent — no-op once seeded), then dev.
+    # To wipe + reseed: `docker compose -f docker-compose.dev.yml run --rm app bun --bun run db:seed -- --reset`.
+    command: sh -c "bun install && bun --bun run db:push && bun --bun run db:seed && bun --bun run dev --host 0.0.0.0"
     # Keep container running for HMR
     stdin_open: true
     tty: true
