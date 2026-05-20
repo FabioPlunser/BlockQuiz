@@ -12,7 +12,7 @@ import {
 	formatCoursePublishValidationError,
 	validateCoursePublishReadiness
 } from '$lib/courses/validation';
-import { contentSchema } from '$lib/import-export/transfers';
+import type { CourseContent } from '$lib/types/course';
 import {
 	canonicalizeExercise,
 	stripExerciseForLearners,
@@ -176,7 +176,7 @@ export async function loadCoursePublishExercises(exerciseIds: string[]) {
  * fails, or `null` when the course is ready to publish.
  */
 export async function validatePublishedCourseInput(
-	content: z.infer<typeof contentSchema>,
+	content: CourseContent,
 	exerciseIds: string[]
 ) {
 	const validation = validateCoursePublishReadiness({

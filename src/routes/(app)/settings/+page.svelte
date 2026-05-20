@@ -64,10 +64,9 @@
 
 	async function handleDeleteProvider(p: ProviderRow) {
 		if (!confirm(i18n.settings_sso_delete_confirm.replace('{id}', p.providerId))) return;
-		const result = await deleteSsoProvider({ providerId: p.providerId });
+		const result = await deleteSsoProvider({ providerId: p.providerId }).updates(getSsoProviders);
 		if (result?.success) {
 			showSuccess(i18n.settings_sso_deleted);
-			await getSsoProviders().refresh();
 		} else {
 			showError(result?.error ?? i18n.toast_generic_error);
 		}
@@ -194,11 +193,10 @@
 				<form
 					{...saveAuthSettings.enhance(async ({ submit }) => {
 						try {
-							await submit();
+							await submit().updates(getAuthSettings);
 							const issues = saveAuthSettings.fields.allIssues();
 							if (!issues || issues.length === 0) {
 								showSuccess(i18n.settings_auth_saved);
-								await getAuthSettings().refresh();
 							} else {
 								showError(issues[0].message);
 							}
@@ -258,11 +256,10 @@
 				<form
 					{...saveEmailSettings.enhance(async ({ submit }) => {
 						try {
-							await submit();
+							await submit().updates(getEmailSettings);
 							const issues = saveEmailSettings.fields.allIssues();
 							if (!issues || issues.length === 0) {
 								showSuccess(i18n.settings_email_saved);
-								await getEmailSettings().refresh();
 							} else {
 								showError(issues[0].message);
 							}
@@ -519,11 +516,10 @@
 				<form
 					{...saveRoleMap.enhance(async ({ submit }) => {
 						try {
-							await submit();
+							await submit().updates(getRoleMap);
 							const issues = saveRoleMap.fields.allIssues();
 							if (!issues || issues.length === 0) {
 								showSuccess(i18n.settings_role_saved);
-								await getRoleMap().refresh();
 							} else {
 								showError(issues[0].message);
 							}
@@ -577,9 +573,9 @@
 	remoteFunction={saveSsoProvider}
 	bind:open={providerModalOpen}
 	successMessage={i18n.settings_sso_saved}
+	updates={[getSsoProviders]}
 	onClose={() => {
 		editingProvider = null;
-		getSsoProviders().refresh();
 	}}
 >
 	{@const activeProviderId = editingProvider?.providerId ?? newProviderId}

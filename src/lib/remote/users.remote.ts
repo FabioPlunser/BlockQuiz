@@ -163,6 +163,7 @@ export const createUser = form(createUserSchema, async (data) => {
 			}
 		});
 
+		await requested(getUsers, 10).refreshAll();
 		return { success: true as const, id: userId };
 	} catch (e) {
 		console.error('Error creating user:', e);
@@ -193,9 +194,7 @@ export const updateUser = command(updateUserSchema, async (data) => {
 			details: { userId: id, email, role, active }
 		});
 
-		for await (const { query } of requested(getUsers, 1)) {
-			void query.refresh();
-		}
+		await requested(getUsers, 10).refreshAll();
 		return { success: true as const, id };
 	} catch (e) {
 		if (isRedirect(e)) {
@@ -257,9 +256,7 @@ export const deleteUser = command(z.object({ id: z.string() }), async ({ id }) =
 			details: { userId: id, email: target.email, role: target.role, mode: 'soft' }
 		});
 
-		for await (const { query } of requested(getUsers, 1)) {
-			void query.refresh();
-		}
+		await requested(getUsers, 10).refreshAll();
 		return { success: true as const, id };
 	} catch (e) {
 		console.error('Error deactivating user:', e);

@@ -10,6 +10,7 @@
 		onClose = () => {},
 		title = '',
 		successMessage = '',
+		updates = [],
 		children,
 		controls
 	}: {
@@ -18,6 +19,7 @@
 		onClose?: () => void;
 		title?: string;
 		successMessage?: string;
+		updates?: unknown[];
 		children?: Snippet;
 		controls?: Snippet;
 	} = $props();
@@ -47,7 +49,8 @@
 	<form
 		{...remoteFunction.enhance(async ({ submit }) => {
 			try {
-				await submit();
+				const flight = submit();
+				await (updates.length ? (flight as any).updates(...updates) : flight);
 				const issues = remoteFunction.fields.allIssues();
 				if (!issues || issues.length === 0) {
 					showSuccess(effectiveSuccessMessage);

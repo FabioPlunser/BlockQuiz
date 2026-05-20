@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { error } from '@sveltejs/kit';
-import { query, command } from '$app/server';
+import { query, command, requested } from '$app/server';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db/client';
 import { courses, user } from '$lib/server/db/schema';
 import { writeAuditLog } from '$lib/server/audit';
-import { createCourseTransfer } from '$lib/import-export/transfers';
 import {
 	currentUser,
 	isTeacherOrAdmin,
@@ -16,7 +15,6 @@ import {
 	listAssignedCoursesForUser,
 	loadCourseAnalytics,
 	loadCourseAttemptsExport,
-	loadCourseExercisesForExport,
 	loadCourseExercisesForMember,
 	loadCourseProgress,
 	loadCourseResearchExport,
@@ -32,7 +30,6 @@ import {
 	cloneCourseImpl,
 	createCourseImpl,
 	deleteCourseImpl,
-	importCourseImpl,
 	restoreCourseImpl,
 	submitAttemptImpl,
 	updateCourseImpl
@@ -41,7 +38,6 @@ import {
 	courseArchiveSchema,
 	courseCloneSchema,
 	createCourseSchema,
-	importCourseSchema,
 	submitAttemptSchema,
 	updateCourseSchema
 } from '$lib/server/courses/schemas';
@@ -161,17 +157,6 @@ export const exportCourseResearch = query(
 	}
 );
 
-export const exportCourse = query(z.object({ id: z.string() }), async ({ id }) => {
-	requireTeacherOrAdmin();
-	const course = await loadCourseRow(id);
-	if (!course) error(404, 'Course not found');
-	const exerciseRows = await loadCourseExercisesForExport(id);
-	return createCourseTransfer(
-		{ id: course.id, content: course.content, published: course.published },
-		exerciseRows
-	);
-});
-
 // =============================================================================
 // Commands — thin wrappers around src/lib/server/courses/mutations.ts
 // =============================================================================
@@ -183,37 +168,44 @@ export const submitAttempt = command(submitAttemptSchema, async (data) => {
 
 export const createCourse = command(createCourseSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-	return createCourseImpl(user, data);
+	const result = await createCourseImpl(user, data);
+	await requested(getCourses, 10).refreshAll();
+	return result;
 });
 
 export const updateCourse = command(updateCourseSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-	return updateCourseImpl(user, data);
+	const result = await updateCourseImpl(user, data);
+	await requested(getCourses, 10).refreshAll();
+	return result;
 });
 
 export const deleteCourse = command(z.string(), async (id) => {
 	const user = requireTeacherOrAdmin();
-	return deleteCourseImpl(user, id);
+	const result = await deleteCourseImpl(user, id);
+	await requested(getCourses, 10).refreshAll();
+	return result;
 });
 
 export const cloneCourse = command(courseCloneSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-	return cloneCourseImpl(user, data);
+	const result = await cloneCourseImpl(user, data);
+	await requested(getCourses, 10).refreshAll();
+	return result;
 });
 
 export const archiveCourse = command(courseArchiveSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-	return archiveCourseImpl(user, data);
+	const result = await archiveCourseImpl(user, data);
+	await requested(getCourses, 10).refreshAll();
+	return result;
 });
 
 export const restoreCourse = command(courseArchiveSchema, async (data) => {
 	const user = requireTeacherOrAdmin();
-	return restoreCourseImpl(user, data);
-});
-
-export const importCourse = command(importCourseSchema, async (data) => {
-	const user = requireTeacherOrAdmin();
-	return importCourseImpl(user, data);
+	const result = await restoreCourseImpl(user, data);
+	await requested(getCourses, 10).refreshAll();
+	return result;
 });
 
 // Reassign a course's author. Stores the target user's email in createdBy to

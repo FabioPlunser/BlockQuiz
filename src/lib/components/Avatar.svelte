@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { i18n } from '$lib/i18n/index.svelte';
-	import { logoutUser } from '$remote/auth.remote';
+	import { getCurrentUser, logoutUser } from '$remote/auth.remote';
 	import { User } from '@lucide/svelte';
 	import { theme } from '$lib/theme.svelte';
 </script>
 
-<div class="dropdown dropdown-center">
+<div class="dropdown-hover dropdown dropdown-center">
 	<button
 		tabindex="0"
 		class="btn btn-circle fill-white text-lg btn-ghost"
@@ -20,7 +20,17 @@
 			: ''} p-2 shadow-md"
 	>
 		<li>
-			<form {...logoutUser}>
+			<form
+				{...logoutUser.enhance(async ({ submit }) => {
+					try {
+						await submit();
+					} finally {
+						await getCurrentUser()
+							.refresh()
+							.catch(() => {});
+					}
+				})}
+			>
 				<button class="cursor-pointer">{i18n.account_logout}</button>
 			</form>
 		</li>

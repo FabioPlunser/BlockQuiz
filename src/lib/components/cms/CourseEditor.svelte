@@ -18,7 +18,12 @@
 	import { getExercises } from '$lib/remote/exercises.remote';
 	import { getAssignableStudents, getAssignableAuthors } from '$lib/remote/users.remote';
 	import { getAssignableClasses } from '$lib/remote/classes.remote';
-	import { createCourse, updateCourse, setCourseAuthor } from '$lib/remote/courses.remote';
+	import {
+		createCourse,
+		getCourses,
+		updateCourse,
+		setCourseAuthor
+	} from '$lib/remote/courses.remote';
 	import SearchableDropdown from '$cp/SearchableDropdown.svelte';
 	import { createDefaultCourseFormData } from '$types/course';
 	import {
@@ -34,13 +39,12 @@
 	// ---------------------------------------------------
 	type Props = {
 		course?: Course;
-		remote?: any;
 		onSave?: () => void;
 		onCancel: () => void;
 		isNew?: boolean;
 	};
 
-	let { course, remote, onSave, onCancel, isNew = true }: Props = $props();
+	let { course, onSave, onCancel, isNew = true }: Props = $props();
 
 	// ---------------------------------------------------
 	// State
@@ -48,12 +52,14 @@
 	// Local editable form state intentionally diverges from the incoming prop while the user edits.
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let formData = $state<CourseFormData>(createDefaultCourseFormData());
-	$inspect(formData);
+	// every reactive change. For courses with long rich-text descriptions this
+	// melted the browser. Re-add only locally while debugging.
 	$effect(() => {
 		formData = course
 			? {
 					content: course.content,
 					published: course.published,
+					demo: course.demo ?? false,
 					exerciseIds: course.exerciseIds ?? [],
 					userIds: course.userIds ?? [],
 					classIds: course.classIds ?? []
@@ -385,14 +391,14 @@
 				const result = await createCourse({
 					content: formData.content,
 					published: formData.published,
+					demo: formData.published && formData.demo,
 					exerciseIds: formData.exerciseIds,
 					userIds: formData.userIds,
 					classIds: formData.classIds
-				});
+				}).updates(getCourses);
 
 				handleServerResult(result, i18n.toast_course_created, i18n.toast_course_create_failed);
 				if (result.success) {
-					await remote?.refresh?.();
 					onSave?.();
 				}
 			} else {
@@ -400,10 +406,11 @@
 					id: course!.id,
 					content: formData.content,
 					published: formData.published,
+					demo: formData.published && formData.demo,
 					exerciseIds: formData.exerciseIds,
 					userIds: formData.userIds,
 					classIds: formData.classIds
-				});
+				}).updates(getCourses);
 
 				handleServerResult(result, i18n.toast_course_updated, i18n.toast_course_update_failed);
 				if (result.success) {
@@ -417,7 +424,6 @@
 							showError(authorResult.error ?? i18n.toast_generic_error);
 						}
 					}
-					await remote?.refresh?.();
 					// Stay on the detail page — the user clicks back to leave.
 				}
 			}
@@ -464,7 +470,7 @@
 					<h1 class="text-2xl font-bold">
 						{isNew ? i18n.cms_course_create_title : i18n.cms_course_edit_title}
 					</h1>
-					<div class="absolute right-4 flex flex-wrap gap-4">
+					<div class="absolute right-4 flex flex-wrap items-center gap-4">
 						<label class="label cursor-pointer gap-2">
 							<input
 								type="checkbox"
@@ -472,6 +478,19 @@
 								bind:checked={formData.published}
 							/>
 							<span class="label-text">{i18n.published}</span>
+						</label>
+						<label
+							class="label cursor-pointer gap-2"
+							title={i18n.course_demo_only_hint}
+							class:opacity-50={!formData.published}
+						>
+							<input
+								type="checkbox"
+								class="toggle toggle-secondary"
+								bind:checked={formData.demo}
+								disabled={!formData.published}
+							/>
+							<span class="label-text">{i18n.course_demo_only}</span>
 						</label>
 						<button class="btn btn-primary" onclick={handleSave}>{i18n.save}</button>
 					</div>
@@ -706,7 +725,6 @@
 		<div in:fly={{ y: -100, duration: 300 }} class="top-0 z-10">
 			<ExerciseEditor
 				exercise={exerciseToFormData(editSelectedExercise)}
-				remote={exercises}
 				isNew={false}
 				onCancel={handleExerciseCancel}
 				onSave={handleExerciseCancel}

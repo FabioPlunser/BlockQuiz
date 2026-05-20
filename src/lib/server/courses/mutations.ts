@@ -19,10 +19,7 @@ import {
 	SubmittedResultValidationError,
 	validateSubmittedVisibleResultShape
 } from '$lib/attempts/submission';
-import {
-	canonicalizeExercise,
-	dehydrateExercise
-} from '$lib/types/exercise';
+import { canonicalizeExercise } from '$lib/types/exercise';
 import {
 	countHintEvents,
 	sanitizeAnalyticsJson,
@@ -33,7 +30,6 @@ import type {
 	courseArchiveSchema,
 	courseCloneSchema,
 	createCourseSchema,
-	importCourseSchema,
 	submitAttemptSchema,
 	updateCourseSchema
 } from './schemas';
@@ -43,7 +39,6 @@ type CreateCourseInput = z.infer<typeof createCourseSchema>;
 type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 type CourseCloneInput = z.infer<typeof courseCloneSchema>;
 type CourseArchiveInput = z.infer<typeof courseArchiveSchema>;
-type ImportCourseInput = z.infer<typeof importCourseSchema>;
 
 /** Result envelope shared by every command — discriminated by `success`. */
 type CommandResult<T = {}> =
@@ -196,8 +191,9 @@ export async function createCourseImpl(
 	user: AuthedUser,
 	data: CreateCourseInput
 ): Promise<CommandResult<{ id: string }>> {
-	const { content, published, exerciseIds, userIds, classIds } = data;
+	const { content, published, demo, exerciseIds, userIds, classIds } = data;
 	const targetPublished = published ?? false;
+	const targetDemo = targetPublished && (demo ?? false);
 
 	if (targetPublished) {
 		const validationError = await validatePublishedCourseInput(content, exerciseIds);
@@ -212,6 +208,7 @@ export async function createCourseImpl(
 			id,
 			content,
 			published: targetPublished,
+			demo: targetDemo,
 			archivedAt: null,
 			archivedBy: null,
 			createdAt: now,
@@ -252,7 +249,7 @@ export async function createCourseImpl(
 			actorUserId: user.id,
 			action: 'course.create',
 			category: 'admin',
-			details: { courseId: id, published: targetPublished, classIds }
+			details: { courseId: id, published: targetPublished, demo: targetDemo, classIds }
 		});
 
 		return { success: true, id };
@@ -269,8 +266,9 @@ export async function updateCourseImpl(
 	user: AuthedUser,
 	data: UpdateCourseInput
 ): Promise<CommandResult<{ id: string }>> {
-	const { id, content, published, exerciseIds, userIds, classIds } = data;
+	const { id, content, published, demo, exerciseIds, userIds, classIds } = data;
 	const targetPublished = published ?? false;
+	const targetDemo = targetPublished && (demo ?? false);
 	const now = Date.now();
 
 	const [existing] = await db.select().from(courses).where(eq(courses.id, id)).limit(1);
@@ -280,7 +278,6 @@ export async function updateCourseImpl(
 		const validationError = await validatePublishedCourseInput(content, exerciseIds);
 		if (validationError) return { success: false, error: validationError };
 	}
-	console.log('updateCourseImpl', { id, content, published: targetPublished, exerciseIds, userIds, classIds });
 
 	try {
 		await db
@@ -288,6 +285,7 @@ export async function updateCourseImpl(
 			.set({
 				content,
 				published: targetPublished,
+				demo: targetDemo,
 				archivedAt: existing.archivedAt,
 				archivedBy: existing.archivedBy,
 				updatedAt: new Date(now)
@@ -327,7 +325,7 @@ export async function updateCourseImpl(
 			actorUserId: user.id,
 			action: 'course.update',
 			category: 'admin',
-			details: { courseId: id, published: targetPublished, classIds }
+			details: { courseId: id, published: targetPublished, demo: targetDemo, classIds }
 		});
 
 		return { success: true, id };
@@ -448,6 +446,7 @@ export async function archiveCourseImpl(
 		.update(courses)
 		.set({
 			published: false,
+			demo: false,
 			archivedAt: Date.now(),
 			archivedBy: user.id,
 			updatedAt: new Date()
@@ -482,80 +481,3 @@ export async function restoreCourseImpl(
 	return { success: true };
 }
 
-export async function importCourseImpl(
-	user: AuthedUser,
-	{ payload }: ImportCourseInput
-): Promise<CommandResult<{ id: string }>> {
-	const now = Date.now();
-
-	try {
-		const courseId = crypto.randomUUID();
-		await db.insert(courses).values({
-			id: courseId,
-			content: payload.course.content,
-			published: false,
-			archivedAt: null,
-			archivedBy: null,
-			createdAt: now,
-			updatedAt: new Date(now),
-			createdBy: user.email ?? ''
-		});
-
-		for (const [index, exercisePayload] of payload.exercises.entries()) {
-			const exerciseId = crypto.randomUUID();
-			const persisted = dehydrateExercise({
-				id: exerciseId,
-				type: exercisePayload.type,
-				content: exercisePayload.content,
-				config: exercisePayload.config,
-				published: false,
-				order: exercisePayload.order,
-				createdBy: user.id,
-				createdAt: now,
-				updatedAt: now,
-				archivedAt: null,
-				archivedBy: null
-			});
-
-			await db.insert(exercises).values({
-				id: persisted.exercise.id,
-				type: persisted.exercise.type,
-				image: persisted.exercise.content.image ?? '',
-				content: persisted.content,
-				config: persisted.config,
-				validationJson: persisted.validation,
-				published: false,
-				archivedAt: null,
-				archivedBy: null,
-				order: persisted.exercise.order,
-				createdBy: persisted.exercise.createdBy,
-				createdAt: persisted.exercise.createdAt,
-				updatedAt: persisted.exercise.updatedAt
-			});
-
-			await db.insert(courseExercises).values({
-				id: crypto.randomUUID(),
-				courseId,
-				exerciseId,
-				order: index,
-				createdAt: now,
-				updatedAt: now
-			});
-		}
-
-		await writeAuditLog({
-			actorUserId: user.id,
-			action: 'course.import',
-			category: 'admin',
-			details: { courseId, exerciseCount: payload.exercises.length }
-		});
-
-		return { success: true, id: courseId };
-	} catch (e) {
-		console.error('Error importing course:', e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : 'Failed to import course'
-		};
-	}
-}

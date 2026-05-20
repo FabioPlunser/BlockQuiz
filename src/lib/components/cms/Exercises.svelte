@@ -7,16 +7,13 @@
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import CMSEmptyState from './CMSEmptyState.svelte';
 	import { ListChecks } from '@lucide/svelte';
-	import { previewExerciseTransfer, type ExerciseTransfer } from '$lib/import-export/transfers';
 
 	import { exerciseTypes } from '$types/exercise';
 	import {
 		archiveExercise,
 		cloneExercise,
 		deleteExercise,
-		exportExercise,
 		getExercises,
-		importExercise,
 		restoreExercise
 	} from '$remote/exercises.remote';
 	import { getCourses } from '$remote/courses.remote';
@@ -25,8 +22,8 @@
 	import { PersistedState } from 'runed';
 	import { fly } from 'svelte/transition';
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
-	import { handleServerResult, showError } from '$lib/utils/toast';
-	import { Archive, Copy, Download, RotateCcw, Upload } from '@lucide/svelte';
+	import { handleServerResult } from '$lib/utils/toast';
+	import { Archive, Copy, RotateCcw } from '@lucide/svelte';
 
 	// -------------------------------------------------------------------
 	// State
@@ -45,8 +42,6 @@
 	let searchQuery = $state('');
 	let selectedExercise: Exercise | undefined = $state(undefined);
 	let viewMode = new PersistedState<'cards' | 'table'>('exercisesViewMode', 'cards');
-	let importInput: HTMLInputElement | undefined = $state(undefined);
-	let importCourseId = $state('');
 	type PendingConfirmation = {
 		message: string;
 		confirmLabel: string;
@@ -82,25 +77,6 @@
 
 	function isArchived(exercise: Exercise) {
 		return exercise.archivedAt != null;
-	}
-
-	function slugifyExercise(exercise: Exercise) {
-		return (
-			getLocalized(exercise.content?.title)
-				.toLowerCase()
-				.replace(/[^a-z0-9]+/g, '-')
-				.replace(/^-+|-+$/g, '') || exercise.id
-		);
-	}
-
-	function downloadJson(filename: string, payload: unknown) {
-		const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = filename;
-		link.click();
-		URL.revokeObjectURL(url);
 	}
 
 	// -------------------------------------------------------------------
@@ -271,9 +247,8 @@
 		if (!exercise.id) return;
 
 		try {
-			const result = await deleteExercise(exercise.id);
+			const result = await deleteExercise(exercise.id).updates(getExercises);
 			handleServerResult(result, i18n.toast_exercise_deleted, i18n.toast_exercise_delete_failed);
-			if (result.success) await exercises.refresh();
 		} catch (error) {
 			console.error('Failed to delete exercise:', error);
 			handleServerResult(
@@ -285,90 +260,18 @@
 	}
 
 	async function handleClone(exercise: Exercise) {
-		const result = await cloneExercise({ id: exercise.id });
+		const result = await cloneExercise({ id: exercise.id }).updates(getExercises);
 		handleServerResult(result, i18n.toast_exercise_cloned, i18n.toast_exercise_clone_failed);
-		if (result.success) await exercises.refresh();
 	}
 
 	async function handleArchive(exercise: Exercise) {
-		const result = await archiveExercise({ id: exercise.id });
+		const result = await archiveExercise({ id: exercise.id }).updates(getExercises);
 		handleServerResult(result, i18n.toast_exercise_archived, i18n.toast_exercise_archive_failed);
-		if (result.success) await exercises.refresh();
 	}
 
 	async function handleRestore(exercise: Exercise) {
-		const result = await restoreExercise({ id: exercise.id });
+		const result = await restoreExercise({ id: exercise.id }).updates(getExercises);
 		handleServerResult(result, i18n.toast_exercise_restored, i18n.toast_exercise_restore_failed);
-		if (result.success) await exercises.refresh();
-	}
-
-	async function handleImport(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		const targetCourseId = importCourseId || activeCourses[0]?.id;
-		const targetCourse = activeCourses.find((course) => course.id === targetCourseId);
-		if (!file) return;
-
-		if (!targetCourseId) {
-			handleServerResult(
-				{
-					success: false,
-					error: i18n.toast_exercise_import_missing_course
-				},
-				'',
-				i18n.toast_exercise_import_missing_course
-			);
-			input.value = '';
-			return;
-		}
-
-		try {
-			const payload = JSON.parse(await file.text());
-			const preview = previewExerciseTransfer(payload);
-			if (!preview.valid) {
-				showError(preview.error);
-				return;
-			}
-			if (preview.kind !== 'exercise') {
-				showError(i18n.toast_exercise_import_failed);
-				return;
-			}
-
-			const targetCourseTitle = targetCourse
-				? getLocalized(targetCourse.content.title)
-				: targetCourseId;
-
-			requestConfirmation(
-				`${i18n.import_preview_exercise}: ${preview.title}\n${i18n.import_preview_type}: ${getExerciseTypeLabel(preview.exerciseType)}\n${i18n.import_preview_target_course}: ${targetCourseTitle}\n${i18n.import_preview_draft_notice}`,
-				() => void confirmImport(targetCourseId, payload),
-				i18n.cms_import,
-				'btn-primary'
-			);
-		} catch (error) {
-			console.error(error);
-			handleServerResult(
-				{ success: false, error: i18n.toast_exercise_import_failed },
-				'',
-				i18n.toast_exercise_import_failed
-			);
-		} finally {
-			input.value = '';
-		}
-	}
-
-	async function confirmImport(courseId: string, payload: ExerciseTransfer) {
-		try {
-			const result = await importExercise({ courseId, payload });
-			handleServerResult(result, i18n.toast_exercise_imported, i18n.toast_exercise_import_failed);
-			if (result.success) await exercises.refresh();
-		} catch (error) {
-			console.error(error);
-			handleServerResult(
-				{ success: false, error: i18n.toast_exercise_import_failed },
-				'',
-				i18n.toast_exercise_import_failed
-			);
-		}
 	}
 
 	function handleEdit(exercise: Exercise) {
@@ -441,7 +344,6 @@
 			<div in:fly={{ y: -100, duration: 300 }}>
 				<ExerciseEditor
 					exercise={selectedExercise}
-					remote={exercises}
 					isNew={newExercise}
 					onCancel={handleCancel}
 					onSave={handleCancel}
@@ -494,26 +396,6 @@
 		</select>
 	</div>
 {/snippet}
-
-<!-- {#snippet toolbarActions()}
-	<input
-		bind:this={importInput}
-		type="file"
-		class="hidden"
-		accept="application/json"
-		onchange={handleImport}
-	/>
-	<select class="select-bordered select select-sm" bind:value={importCourseId}>
-		<option value="">{i18n.cms_exercise_import_target}</option>
-		{#each activeCourses as course (course.id)}
-			<option value={course.id}>{getLocalized(course.content.title)}</option>
-		{/each}
-	</select>
-	<button class="btn btn-outline btn-sm" onclick={() => importInput?.click()}>
-		<Upload class="h-4 w-4" />
-		{i18n.cms_import}
-	</button>
-{/snippet} -->
 
 {#snippet exerciseCard(exercise: Exercise)}
 	<div

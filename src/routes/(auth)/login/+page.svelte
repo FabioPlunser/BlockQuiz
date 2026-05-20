@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import { login } from '$remote/auth.remote';
+	import { login, getCurrentUser } from '$remote/auth.remote';
 	import { resolve } from '$app/paths';
 	import ForgotPassword from '$cp/login/ForgotPassword.svelte';
 	import { fly } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { showSuccess, showError } from '$lib/utils/toast';
 	import { authClient } from '$lib/client/auth';
 	import { getPublicSsoProviders, getPublicAuthSettings } from '$remote/settings.remote';
@@ -126,13 +125,16 @@
 							class="mt-6 space-y-5"
 							{...login.enhance(async ({ submit }) => {
 								try {
-									await submit();
+									// `.updates(getCurrentUser)` is the SvelteKit remote-functions live-update
+									// pattern — the server form already issues `redirect(303, '/courses')`,
+									// so the redirect handles navigation and the update refreshes the
+									// current-user query for Header/Avatar/Navigation.
+									await submit().updates(getCurrentUser);
 									const loginIssues = login.fields.allIssues() ?? [];
 									if (loginIssues.length > 0) {
 										showError(loginIssues[0].message);
 									} else {
 										showSuccess(i18n.toast_login_success);
-										goto(resolve('/courses'));
 									}
 								} catch (e) {
 									console.error(e);

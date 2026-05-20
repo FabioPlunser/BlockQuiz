@@ -1,4 +1,4 @@
-import { query, form, command } from '$app/server';
+import { query, form, command, requested } from '$app/server';
 import { db } from '$db/client';
 import { ssoProvider } from '$db/schema';
 import { eq } from 'drizzle-orm';
@@ -91,6 +91,7 @@ export const saveEmailSettings = form(saveEmailSchema, async (data) => {
 			},
 			actor.id
 		);
+		await requested(getEmailSettings, 1).refreshAll();
 		return { success: true as const };
 	} catch (e) {
 		console.error('saveEmailSettings failed', e);
@@ -149,6 +150,8 @@ export const saveAuthSettings = form(passwordLoginModeSchema, async (data) => {
 	const actor = requireAuth(Role.ADMIN);
 	try {
 		await savePasswordLoginMode(data.mode, actor.id);
+		await requested(getAuthSettings, 1).refreshAll();
+		await requested(getPublicAuthSettings, 1).refreshAll();
 		return { success: true as const };
 	} catch (e) {
 		return {
@@ -233,6 +236,8 @@ export const saveSsoProvider = form(saveSsoProviderSchema, async (data) => {
 				category: 'admin',
 				details: { providerId, domain: data.domain, type: data.type }
 			});
+			await requested(getSsoProviders, 1).refreshAll();
+			await requested(getPublicSsoProviders, 1).refreshAll();
 			return { success: true as const, providerId };
 		} else {
 			await db
@@ -250,6 +255,8 @@ export const saveSsoProvider = form(saveSsoProviderSchema, async (data) => {
 				category: 'admin',
 				details: { providerId: data.providerId, domain: data.domain, type: data.type }
 			});
+			await requested(getSsoProviders, 1).refreshAll();
+			await requested(getPublicSsoProviders, 1).refreshAll();
 			return { success: true as const, providerId: data.providerId };
 		}
 	} catch (e) {
@@ -271,6 +278,8 @@ export const deleteSsoProvider = command(deleteSsoProviderSchema, async (data) =
 			category: 'admin',
 			details: { providerId: data.providerId }
 		});
+		await requested(getSsoProviders, 1).refreshAll();
+		await requested(getPublicSsoProviders, 1).refreshAll();
 		return { success: true as const };
 	} catch (e) {
 		return {
@@ -295,6 +304,7 @@ export const saveRoleMap = form(saveRoleMapSchema, async (data) => {
 			},
 			actor.id
 		);
+		await requested(getRoleMap, 1).refreshAll();
 		return { success: true as const };
 	} catch (e) {
 		return {

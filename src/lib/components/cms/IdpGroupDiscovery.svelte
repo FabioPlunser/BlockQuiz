@@ -25,14 +25,11 @@
 			ssoProviderId: row.ssoProviderId,
 			externalKey: row.externalKey,
 			name: promoteName.trim()
-		});
+		}).updates(getIdpGroupSuggestions, getClasses);
 		if (result.success) {
 			showSuccess(i18n.discovery_promoted);
 			promotingId = null;
 			promoteName = '';
-			await getIdpGroupSuggestions().refresh();
-			// Refresh whatever class list is mounted alongside.
-			void getClasses({ source: 'all' }).refresh();
 			onPromoted();
 		} else {
 			showError(result.error ?? i18n.toast_generic_error);

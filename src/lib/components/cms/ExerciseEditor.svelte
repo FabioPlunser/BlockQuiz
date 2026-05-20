@@ -32,15 +32,14 @@
 
 	type Props = {
 		exercise?: ExerciseFormData;
-		remote?: any;
 		onSave?: () => void;
 		onCancel: () => void;
 		isNew?: boolean;
 	};
 
-	let { exercise = $bindable(), remote, onSave, onCancel, isNew = true }: Props = $props();
+	let { exercise = $bindable(), onSave, onCancel, isNew = true }: Props = $props();
 
-	const editor = untrack(() => new ExerciseEditorState({ exercise, remote, onSave, isNew }));
+	const editor = untrack(() => new ExerciseEditorState({ exercise, onSave, isNew }));
 	setExerciseEditor(editor);
 
 	let blocklyRef = $state<BlocklyWorkspace | undefined>(undefined);

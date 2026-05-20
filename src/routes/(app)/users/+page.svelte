@@ -154,12 +154,13 @@
 		const manualOnly = nextClassIds.filter(
 			(id) => !target.ssoClassIds.includes(id) && !idpOwned.has(id)
 		);
-		const result = await setUserClasses({ userId: target.id, classIds: manualOnly });
+		const result = await setUserClasses({ userId: target.id, classIds: manualOnly }).updates(
+			getUsers
+		);
 		if (result.success) {
 			if (result.added > 0 || result.removed > 0) {
 				showSuccess(i18n.users_classes_updated);
 			}
-			await getUsers(filters).refresh();
 		} else {
 			showError(i18n.toast_generic_error);
 		}
@@ -169,13 +170,12 @@
 		const message = i18n.users_delete_confirm.replace('{email}', target.email);
 		if (!confirm(message)) return;
 		try {
-			const result = await deleteUser({ id: target.id }).updates(getUsers(filters));
+			const result = await deleteUser({ id: target.id }).updates(getUsers);
 			if (result.success) {
 				showSuccess(i18n.users_delete_success);
 			} else {
 				showError(result.error ?? i18n.users_delete_failed);
 			}
-			users.refresh();
 		} catch (err) {
 			console.error('Delete failed', err);
 			showError(i18n.users_delete_failed);
@@ -422,7 +422,7 @@
 </Modal>
 
 <!-- Create User Modal -->
-<Modal remoteFunction={createUser} bind:open={createUserModal}>
+<Modal remoteFunction={createUser} bind:open={createUserModal} updates={[getUsers]}>
 	<div class="grid items-center gap-4 md:grid-cols-2">
 		<label class="form-control">
 			<span class="label-text text-sm font-semibold">{i18n.form_email_label}</span>

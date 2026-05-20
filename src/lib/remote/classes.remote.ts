@@ -213,6 +213,7 @@ export const saveClass = form(saveClassSchema, async (data) => {
 				category: 'admin',
 				details: { classId: data.id, name, ssoProviderId, externalKey }
 			});
+			await requested(getClasses, 10).refreshAll();
 			return { success: true as const, id: data.id };
 		}
 
@@ -234,6 +235,7 @@ export const saveClass = form(saveClassSchema, async (data) => {
 			category: 'admin',
 			details: { classId: id, name, ssoProviderId, externalKey }
 		});
+		await requested(getClasses, 10).refreshAll();
 		return { success: true as const, id };
 	} catch (e) {
 		console.error('saveClass failed', e);
@@ -256,6 +258,7 @@ export const deleteClass = command(deleteClassSchema, async ({ id }) => {
 			category: 'admin',
 			details: { classId: id, name: target.name }
 		});
+		await requested(getClasses, 10).refreshAll();
 		return { success: true as const };
 	} catch (e) {
 		return {
@@ -275,6 +278,7 @@ export const archiveClass = command(archiveClassSchema, async ({ id }) => {
 		category: 'admin',
 		details: { classId: id }
 	});
+	await requested(getClasses, 10).refreshAll();
 	return { success: true as const };
 });
 
@@ -288,6 +292,7 @@ export const restoreClass = command(archiveClassSchema, async ({ id }) => {
 		category: 'admin',
 		details: { classId: id }
 	});
+	await requested(getClasses, 10).refreshAll();
 	return { success: true as const };
 });
 
@@ -302,6 +307,8 @@ export const addClassMembers = command(classMembersSchema, async ({ classId, use
 			details: { classId, addedCount: added, requestedUserIds: userIds }
 		});
 	}
+	await requested(getClasses, 10).refreshAll();
+	await requested(getClass, 10).refreshAll();
 	return { success: true as const, added };
 });
 
@@ -318,6 +325,8 @@ export const removeClassMembers = command(
 				details: { classId, userIds, force: Boolean(force), removed }
 			});
 		}
+		await requested(getClasses, 10).refreshAll();
+		await requested(getClass, 10).refreshAll();
 		return { success: true as const, removed };
 	}
 );
@@ -335,6 +344,7 @@ export const setUserClasses = command(setUserClassesSchema, async ({ userId, cla
 			details: { userId, classIds, ...result }
 		});
 	}
+	await requested(getClasses, 10).refreshAll();
 	return { success: true as const, ...result };
 });
 
@@ -357,6 +367,8 @@ export const setClassMembers = command(setClassMembersSchema, async ({ classId, 
 			details: { classId, userIds, added: result.added, removed: result.removed }
 		});
 	}
+	await requested(getClasses, 10).refreshAll();
+	await requested(getClass, 10).refreshAll();
 	return { success: true as const, added: result.added, removed: result.removed };
 });
 
@@ -388,6 +400,8 @@ export const promoteIdpGroup = command(promoteIdpGroupSchema, async (data) => {
 		category: 'admin',
 		details: { classId: id, name: data.name, source: 'promoted', externalKey: data.externalKey }
 	});
+	await requested(getClasses, 10).refreshAll();
+	await requested(getIdpGroupSuggestions, 1).refreshAll();
 	return { success: true as const, id };
 });
 

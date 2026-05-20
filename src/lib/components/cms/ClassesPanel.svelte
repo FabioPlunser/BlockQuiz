@@ -99,10 +99,9 @@
 	async function handleDelete(row: ClassRow) {
 		const message = i18n.class_delete_confirm.replace('{name}', row.name);
 		if (!confirm(message)) return;
-		const result = await deleteClass({ id: row.id });
+		const result = await deleteClass({ id: row.id }).updates(getClasses);
 		if (result.success) {
 			showSuccess(i18n.class_deleted);
-			await getClasses(filters).refresh();
 		} else {
 			showError(result.error ?? i18n.toast_generic_error);
 		}
@@ -110,15 +109,16 @@
 
 	async function handleArchive(row: ClassRow) {
 		const action = row.archivedAt ? restoreClass : archiveClass;
-		const result = await action({ id: row.id });
+		const result = await action({ id: row.id }).updates(getClasses);
 		if (result.success) {
 			showSuccess(row.archivedAt ? i18n.class_restored : i18n.class_archived);
-			await getClasses(filters).refresh();
 		}
 	}
 
 	async function handleSetMembers(row: ClassRow, nextUserIds: string[]) {
-		const result = await setClassMembers({ classId: row.id, userIds: nextUserIds });
+		const result = await setClassMembers({ classId: row.id, userIds: nextUserIds }).updates(
+			getClasses
+		);
 		if (!result.success) {
 			showError(result.error ?? i18n.toast_generic_error);
 			return;
@@ -128,7 +128,6 @@
 				result.added > 0 ? i18n.class_member_added : i18n.class_member_removed
 			);
 		}
-		await getClasses(filters).refresh();
 	}
 
 	const columns: Column<ClassRow>[] = $derived([

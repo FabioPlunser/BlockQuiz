@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Modal from '$cp/Modal.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import { saveClass } from '$remote/classes.remote';
+	import { saveClass, getClasses } from '$remote/classes.remote';
 
 	type EditingClass = {
 		id: string;
@@ -45,6 +45,7 @@
 	bind:open
 	title={editing ? i18n.class_edit_title : i18n.class_create_title}
 	successMessage={i18n.class_saved}
+	updates={[getClasses]}
 	{onClose}
 >
 	<input {...saveClass.fields.id.as('text')} type="hidden" />

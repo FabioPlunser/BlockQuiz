@@ -19,15 +19,12 @@
 		{ code: 'de', label: i18n.language_german }
 	] as const);
 
-	let user = $state<any>(null);
+	const userQuery = getCurrentUser();
+	const user = $derived(userQuery.current);
 
-	onMount(async () => {
+	onMount(() => {
 		theme.sync();
-		try {
-			user = await getCurrentUser();
-		} catch {
-			user = null;
-		}
+		userQuery.refresh().catch(() => {});
 	});
 
 	const changeLanguage = async (code: string) => {
@@ -57,7 +54,7 @@
 		{/if}
 
 		<div class="flex items-center gap-3">
-			<div class="dropdown dropdown-end">
+			<div class="dropdown-hover dropdown dropdown-end">
 				<button
 					tabindex="0"
 					class="btn btn-circle text-lg btn-ghost btn-sm"
@@ -90,7 +87,7 @@
 				</ul>
 			</div>
 
-			<div class="dropdown dropdown-center">
+			<div class="dropdown-hover dropdown dropdown-center">
 				<button
 					tabindex="0"
 					class="btn btn-circle text-lg btn-ghost btn-sm"

@@ -1,9 +1,20 @@
 import { z } from 'zod';
-import { contentSchema, courseTransferSchema } from '$lib/import-export/transfers';
+
+const localizedStringSchema = z.object({
+	de: z.string(),
+	en: z.string()
+});
+
+const contentSchema = z.object({
+	title: localizedStringSchema,
+	description: localizedStringSchema,
+	image: z.string().optional().default('')
+});
 
 export const createCourseSchema = z.object({
 	content: contentSchema,
 	published: z.boolean().optional().default(false),
+	demo: z.boolean().optional().default(false),
 	exerciseIds: z.array(z.string()).optional().default([]),
 	userIds: z.array(z.string()).optional().default([]),
 	classIds: z.array(z.string()).optional().default([])
@@ -12,7 +23,6 @@ export const createCourseSchema = z.object({
 export const updateCourseSchema = createCourseSchema.extend({ id: z.string() });
 export const courseCloneSchema = z.object({ id: z.string() });
 export const courseArchiveSchema = z.object({ id: z.string() });
-export const importCourseSchema = z.object({ payload: courseTransferSchema });
 
 export const hintRevealEventSchema = z.object({
 	hintId: z.string(),

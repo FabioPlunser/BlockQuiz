@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { error } from '@sveltejs/kit';
-import { command, query } from '$app/server';
+import { command, query, requested } from '$app/server';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '$lib/server/db/client';
 import {
@@ -10,7 +10,6 @@ import {
 	exerciseVersions,
 	user
 } from '$lib/server/db/schema';
-import { createExerciseTransfer, exerciseTransferSchema } from '$lib/import-export/transfers';
 import {
 	canonicalizeExercise,
 	dehydrateExercise,
@@ -61,12 +60,6 @@ const cloneExerciseSchema = z.object({
 
 const exerciseArchiveSchema = z.object({
 	id: z.string()
-});
-
-const importExerciseSchema = z.object({
-	// Optional: bridge the imported exercise into this course.
-	courseId: z.string().optional(),
-	payload: exerciseTransferSchema
 });
 
 const restoreExerciseVersionSchema = z.object({
@@ -402,6 +395,7 @@ export const createExercise = command(createExerciseSchema, async (data) => {
 				published: data.published ?? false
 			}
 		});
+		await requested(getExercises, 10).refreshAll();
 
 		return { success: true as const, id };
 	} catch (cause) {
@@ -447,6 +441,7 @@ export const updateExercise = command(updateExerciseSchema, async (data) => {
 				published: data.published ?? existing.published
 			}
 		});
+		await requested(getExercises, 10).refreshAll();
 
 		return { success: true as const, id: data.id };
 	} catch (cause) {
@@ -505,6 +500,7 @@ export const cloneExercise = command(cloneExerciseSchema, async ({ id, courseId 
 				courseIds: memberships
 			}
 		});
+		await requested(getExercises, 10).refreshAll();
 
 		return { success: true as const, id: clone.id };
 	} catch (cause) {
@@ -537,6 +533,7 @@ export const archiveExercise = command(exerciseArchiveSchema, async ({ id }) => 
 			action: 'exercise.archive',
 			details: { exerciseId: id }
 		});
+		await requested(getExercises, 10).refreshAll();
 
 		return { success: true as const };
 	} catch (cause) {
@@ -568,6 +565,7 @@ export const restoreExercise = command(exerciseArchiveSchema, async ({ id }) => 
 			action: 'exercise.restore',
 			details: { exerciseId: id }
 		});
+		await requested(getExercises, 10).refreshAll();
 
 		return { success: true as const };
 	} catch (cause) {
@@ -575,59 +573,6 @@ export const restoreExercise = command(exerciseArchiveSchema, async ({ id }) => 
 		return {
 			success: false as const,
 			error: cause instanceof Error ? cause.message : 'Failed to restore exercise'
-		};
-	}
-});
-
-export const exportExercise = query(z.object({ id: z.string() }), async ({ id }) => {
-	requireTeacherOrAdmin();
-	const exercise = hydrateExerciseRow(await ensureExerciseExists(id));
-
-	return createExerciseTransfer(exercise);
-});
-
-export const importExercise = command(importExerciseSchema, async ({ courseId, payload }) => {
-	const user = requireTeacherOrAdmin();
-
-	try {
-		if (courseId) {
-			await ensureCourseExists(courseId);
-		}
-		const imported = await insertExerciseFromInput(
-			{
-				id: crypto.randomUUID(),
-				type: payload.exercise.type,
-				content: payload.exercise.content,
-				config: payload.exercise.config,
-				published: false,
-				order: payload.exercise.order,
-				createdBy: user.id,
-				createdAt: Date.now(),
-				updatedAt: Date.now(),
-				archivedAt: null,
-				archivedBy: null
-			},
-			{ versionAuthor: user.id, versionMessage: 'Imported exercise' }
-		);
-		if (courseId) {
-			await attachExerciseToCourse(imported.id, courseId);
-		}
-		await writeAuditLog({
-			actorUserId: user.id,
-			action: 'exercise.import',
-			details: {
-				exerciseId: imported.id,
-				courseId: courseId ?? null,
-				type: payload.exercise.type
-			}
-		});
-
-		return { success: true as const, id: imported.id };
-	} catch (cause) {
-		console.error('Error importing exercise:', cause);
-		return {
-			success: false as const,
-			error: cause instanceof Error ? cause.message : 'Failed to import exercise'
 		};
 	}
 });
@@ -715,6 +660,7 @@ export const restoreExerciseVersion = command(
 				},
 				{ versionAuthor: user.id, versionMessage: `Restored version ${versionId}` }
 			);
+			await requested(getExercises, 10).refreshAll();
 
 			return { success: true as const, id: exerciseId };
 		} catch (cause) {
@@ -774,6 +720,7 @@ export const deleteExercise = command(z.string(), async (id) => {
 		await ensureExerciseExists(id);
 		await db.delete(exercises).where(eq(exercises.id, id));
 		await db.delete(courseExercises).where(eq(courseExercises.exerciseId, id));
+		await requested(getExercises, 10).refreshAll();
 
 		return { success: true as const };
 	} catch (cause) {

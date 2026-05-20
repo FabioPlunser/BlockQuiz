@@ -53,7 +53,9 @@
 
 	async function persistMemberSet(nextValues: string[]) {
 		if (!classId) return;
-		const result = await setClassMembers({ classId, userIds: nextValues });
+		const result = await setClassMembers({ classId, userIds: nextValues }).updates(
+			getClass({ id: classId })
+		);
 		if (!result.success) {
 			showError(result.error ?? i18n.toast_generic_error);
 			return;
@@ -61,7 +63,6 @@
 		if (result.added > 0 || result.removed > 0) {
 			showSuccess(result.added > 0 ? i18n.class_member_added : i18n.class_member_removed);
 		}
-		await getClass({ id: classId }).refresh();
 	}
 
 	async function handleRemove(member: { id: string; email: string; source: 'sso' | 'manual' }) {
@@ -73,10 +74,9 @@
 			classId,
 			userIds: [member.id],
 			force
-		});
+		}).updates(getClass({ id: classId }));
 		if (result.success) {
 			showSuccess(i18n.class_member_removed);
-			await getClass({ id: classId }).refresh();
 		} else {
 			showError(i18n.toast_generic_error);
 		}

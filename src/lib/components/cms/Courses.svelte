@@ -9,33 +9,21 @@
 	import { BookOpen } from '@lucide/svelte';
 	import { CMSToolbar, CMSCardView, CMSTableView } from '$lib/components/cms';
 	import type { Column } from '$lib/components/DataTable.svelte';
-	import { previewCourseTransfer, type CourseTransfer } from '$lib/import-export/transfers';
 
 	import { PersistedState } from 'runed';
 	import {
 		archiveCourse,
 		cloneCourse,
 		deleteCourse,
-		exportCourse,
 		getCourses,
-		importCourse,
 		restoreCourse
 	} from '$lib/remote/courses.remote';
 	import { getCurrentUser } from '$lib/remote/auth.remote';
 	import { fly } from 'svelte/transition';
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
-	import { handleServerResult, showError } from '$lib/utils/toast';
-	import {
-		Archive,
-		BarChart3,
-		Copy,
-		Download,
-		Pencil,
-		RotateCcw,
-		Trash2,
-		Upload
-	} from '@lucide/svelte';
+	import { handleServerResult } from '$lib/utils/toast';
+	import { Archive, BarChart3, Copy, Pencil, RotateCcw, Trash2 } from '@lucide/svelte';
 
 	// --------------------------------------------------------------------
 	// State
@@ -43,7 +31,6 @@
 	let newCourse = $state(false);
 	let editCourse = $state(false);
 	let selectedCourse: Course | undefined = $state(undefined);
-	$inspect('selectedCourse', selectedCourse);
 	let searchQuery = $state('');
 	let archivedFilter = new PersistedState<'active' | 'archived' | 'all'>(
 		'coursesArchivedFilter',
@@ -53,7 +40,6 @@
 	const currentUserHandle = getCurrentUser();
 	let currentUserEmail = $derived(currentUserHandle.current?.email ?? '');
 	let viewMode = new PersistedState<'cards' | 'table'>('coursesViewMode', 'cards');
-	let importInput: HTMLInputElement | undefined = $state(undefined);
 	type PendingConfirmation = {
 		message: string;
 		confirmLabel: string;
@@ -80,25 +66,6 @@
 
 	function isArchived(course: Course) {
 		return course.archivedAt != null;
-	}
-
-	function slugifyCourse(course: Course) {
-		return (
-			getLocalized(course.content?.title)
-				.toLowerCase()
-				.replace(/[^a-z0-9]+/g, '-')
-				.replace(/^-+|-+$/g, '') || course.id
-		);
-	}
-
-	function downloadJson(filename: string, payload: unknown) {
-		const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = filename;
-		link.click();
-		URL.revokeObjectURL(url);
 	}
 
 	// --------------------------------------------------------------------
@@ -253,9 +220,8 @@
 
 	async function handleDelete(course: Course) {
 		try {
-			const result = await deleteCourse(course.id);
+			const result = await deleteCourse(course.id).updates(getCourses);
 			handleServerResult(result, i18n.toast_course_deleted, i18n.toast_course_delete_failed);
-			if (result.success) await courses.refresh();
 		} catch (error) {
 			console.error(error);
 			handleServerResult(
@@ -267,52 +233,18 @@
 	}
 
 	async function handleClone(course: Course) {
-		const result = await cloneCourse({ id: course.id });
+		const result = await cloneCourse({ id: course.id }).updates(getCourses);
 		handleServerResult(result, i18n.toast_course_cloned, i18n.toast_course_clone_failed);
-		if (result.success) await courses.refresh();
 	}
 
 	async function handleArchive(course: Course) {
-		const result = await archiveCourse({ id: course.id });
+		const result = await archiveCourse({ id: course.id }).updates(getCourses);
 		handleServerResult(result, i18n.toast_course_archived, i18n.toast_course_archive_failed);
-		if (result.success) await courses.refresh();
 	}
 
 	async function handleRestore(course: Course) {
-		const result = await restoreCourse({ id: course.id });
+		const result = await restoreCourse({ id: course.id }).updates(getCourses);
 		handleServerResult(result, i18n.toast_course_restored, i18n.toast_course_restore_failed);
-		if (result.success) await courses.refresh();
-	}
-
-	async function handleImport(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-
-		try {
-			const payload = JSON.parse(await file.text());
-			const preview = previewCourseTransfer(payload);
-			if (!preview.valid) {
-				showError(preview.error);
-				return;
-			}
-
-			requestConfirmation(
-				`${i18n.import_preview_course}: ${preview.title}\n${i18n.import_preview_exercise_count}: ${preview.exerciseCount}\n${i18n.import_preview_draft_notice}`,
-				() => void confirmImport(payload),
-				i18n.cms_import,
-				'btn-primary'
-			);
-		} catch (error) {
-			console.error(error);
-			handleServerResult(
-				{ success: false, error: i18n.toast_course_import_failed },
-				'',
-				i18n.toast_course_import_failed
-			);
-		} finally {
-			input.value = '';
-		}
 	}
 
 	function handleEdit(course: Course) {
@@ -367,6 +299,11 @@
 					<span class="badge badge-sm badge-success">{i18n.published}</span>
 				{:else}
 					<span class="badge badge-sm badge-warning">{i18n.draft}</span>
+				{/if}
+				{#if course.demo}
+					<span class="badge badge-sm badge-info" title={i18n.course_demo_badge_hint}>
+						{i18n.course_demo_badge}
+					</span>
 				{/if}
 				{#if course.exerciseIds?.length}
 					<span class="badge badge-sm badge-secondary">
@@ -554,7 +491,6 @@
 			<div in:fly={{ y: -100, duration: 300 }}>
 				<CourseEditor
 					course={selectedCourse}
-					remote={courses}
 					isNew={newCourse}
 					onCancel={handleCancel}
 					onSave={handleCancel}

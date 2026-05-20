@@ -17,7 +17,6 @@
 	let viewMode = new PersistedState<'cards' | 'table'>('studentCoursesViewMode', 'cards');
 
 	let courseList = $derived(await getUserCourses({}));
-	$inspect(courseList);
 
 	let selectedCourse = $state<Course | null>(null);
 	let isLoadingExercises = $state(false);
@@ -163,6 +162,11 @@
 					{course.numExercises}
 					{i18n.courses_exercises_label}
 				</span>
+				{#if course.demo}
+					<span class="badge badge-sm badge-info" title={i18n.course_demo_badge_hint}>
+						{i18n.course_demo_badge}
+					</span>
+				{/if}
 				{#if course.progress === 100}
 					<span class="badge gap-1 badge-sm badge-success">
 						<CircleCheckBig class="h-3 w-3" />

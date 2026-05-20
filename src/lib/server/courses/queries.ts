@@ -32,12 +32,13 @@ export async function loadStaffCourses() {
 	return mapCoursesWithRelations(await db.select().from(courses), { includeUsers: true });
 }
 
-/** Anonymous: only published, non-archived courses; staff-irrelevant fields trimmed. */
+/** Anonymous: only published demo-flagged courses with at least one published exercise. */
 export async function loadPublicCourses() {
 	const publicCourses = (await db.select().from(courses)).filter(
-		(course) => course.published && course.archivedAt == null
+		(course) => course.published && course.demo && course.archivedAt == null
 	);
-	return mapCoursesWithRelations(publicCourses, { publishedExercisesOnly: true });
+	const mapped = await mapCoursesWithRelations(publicCourses, { publishedExercisesOnly: true });
+	return mapped.filter((c) => (c.exerciseIds?.length ?? 0) > 0);
 }
 
 /** A single course row (no relations) or null if not found. */
@@ -83,6 +84,7 @@ export async function listAssignedCoursesForUser(userId: string) {
 			courseId: courses.id,
 			content: courses.content,
 			published: courses.published,
+			demo: courses.demo,
 			createdAt: courses.createdAt,
 			updatedAt: courses.updatedAt,
 			archivedAt: courses.archivedAt,
@@ -142,6 +144,7 @@ export async function listAssignedCoursesForUser(userId: string) {
 			createdAt: course.createdAt,
 			updatedAt: course.updatedAt,
 			published: course.published,
+			demo: course.demo,
 			numExercises,
 			completedCount,
 			progress: numExercises > 0 ? (completedCount / numExercises) * 100 : 0
@@ -345,39 +348,3 @@ export async function loadCourseResearchExport(courseId: string) {
 	});
 }
 
-/** Hydrated exercises for the export-bundle helper. */
-export async function loadCourseExercisesForExport(courseId: string) {
-	const relations = await db
-		.select()
-		.from(courseExercises)
-		.where(eq(courseExercises.courseId, courseId))
-		.orderBy(courseExercises.order);
-
-	const rows = await Promise.all(
-		relations.map(async (relation) => {
-			const [exercise] = await db
-				.select()
-				.from(exercises)
-				.where(eq(exercises.id, relation.exerciseId))
-				.limit(1);
-			if (!exercise) return null;
-			const hydrated = canonicalizeExercise({
-				...exercise,
-				content: exercise.content,
-				config: exercise.config,
-				validationJson: exercise.validationJson,
-				image: exercise.image
-			});
-			return {
-				id: hydrated.id,
-				type: hydrated.type,
-				content: hydrated.content,
-				config: hydrated.config,
-				published: hydrated.published,
-				order: relation.order
-			};
-		})
-	);
-
-	return rows.filter((r): r is NonNullable<typeof r> => Boolean(r));
-}
