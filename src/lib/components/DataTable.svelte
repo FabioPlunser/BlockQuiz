@@ -9,6 +9,9 @@
 		sortable?: boolean;
 		searchable?: boolean;
 		hidden?: boolean;
+		resizable?: boolean;
+		minWidth?: number;
+		defaultWidth?: number;
 		cellSnippet?: Snippet<[T, Column<T>]> | string; // Can be snippet or string key
 	};
 </script>
@@ -51,6 +54,9 @@
 		onPageChange?: (page: number) => void;
 		serverSidePagination?: boolean;
 		cellSnippets?: Record<string, Snippet<[T, Column<T>]>>; // Dictionary of snippets
+		colWidths?: Record<string, number>;
+		onColumnResize?: (key: string, width: number) => void;
+		onRowClick?: (item: T) => void;
 	};
 
 	let {
@@ -74,8 +80,69 @@
 		onSort,
 		onPageChange,
 		serverSidePagination = false,
-		cellSnippets = {}
+		cellSnippets = {},
+		colWidths = $bindable<Record<string, number>>({}),
+		onColumnResize,
+		onRowClick
 	}: Props<T> = $props();
+
+	const DEFAULT_MIN_WIDTH = 60;
+
+	type ResizeState = {
+		key: string;
+		startX: number;
+		startWidth: number;
+		minWidth: number;
+		thEl: HTMLTableCellElement;
+	};
+
+	let resizeState: ResizeState | null = null;
+
+	function startResize(event: PointerEvent, column: Column<T>) {
+		const target = event.currentTarget as HTMLElement;
+		const thEl = target.closest('th') as HTMLTableCellElement | null;
+		if (!thEl) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const startWidth = colWidths[column.key] ?? thEl.getBoundingClientRect().width;
+		resizeState = {
+			key: column.key,
+			startX: event.clientX,
+			startWidth,
+			minWidth: column.minWidth ?? DEFAULT_MIN_WIDTH,
+			thEl
+		};
+		document.body.style.cursor = 'col-resize';
+		document.body.style.userSelect = 'none';
+		window.addEventListener('pointermove', onResizeMove);
+		window.addEventListener('pointerup', onResizeEnd, { once: true });
+	}
+
+	function onResizeMove(event: PointerEvent) {
+		if (!resizeState) return;
+		const delta = event.clientX - resizeState.startX;
+		const next = Math.max(resizeState.minWidth, Math.round(resizeState.startWidth + delta));
+		colWidths = { ...colWidths, [resizeState.key]: next };
+	}
+
+	function onResizeEnd() {
+		if (!resizeState) return;
+		const finished = resizeState;
+		resizeState = null;
+		document.body.style.cursor = '';
+		document.body.style.userSelect = '';
+		window.removeEventListener('pointermove', onResizeMove);
+		onColumnResize?.(finished.key, colWidths[finished.key] ?? finished.startWidth);
+	}
+
+	function columnStyle(column: Column<T>): string {
+		const width = colWidths[column.key] ?? column.defaultWidth;
+		return width ? `width: ${width}px; min-width: ${width}px;` : '';
+	}
+
+	let useFixedLayout = $derived(
+		columns.some((c) => c.resizable) || Object.keys(colWidths).length > 0
+	);
 
 	let resolvedSearchPlaceholder = $derived(searchPlaceholder ?? i18n.datatable_search_placeholder);
 	let resolvedEmptyMessage = $derived(emptyMessage ?? i18n.datatable_no_items);
@@ -265,28 +332,41 @@
 
 	<!-- Table -->
 	<div class="overflow-x-auto rounded-lg border border-base-300 {tableClass}">
-		<table class="table table-zebra">
+		<table class="table table-zebra" class:table-fixed={useFixedLayout}>
 			<thead class="bg-base-200">
 				<tr>
 					{#each displayColumns as column (column.key)}
 						<th
 							class="{column.class ?? ''} {column.sortable
 								? 'cursor-pointer select-none hover:bg-base-300'
-								: ''}"
+								: ''} relative"
+							style={columnStyle(column)}
 							onclick={() => handleSort(column)}
 						>
-							<div class="flex items-center gap-1">
-								<span>{column.label}</span>
+							<div class="flex items-center gap-1 truncate pr-2">
+								<span class="truncate">{column.label}</span>
 								{#if column.sortable}
 									{#if sortKey === column.key && sortDirection === 'asc'}
-										<ChevronUp class="h-4 w-4" />
+										<ChevronUp class="h-4 w-4 shrink-0" />
 									{:else if sortKey === column.key && sortDirection === 'desc'}
-										<ChevronDown class="h-4 w-4" />
+										<ChevronDown class="h-4 w-4 shrink-0" />
 									{:else}
-										<ChevronsUpDown class="h-4 w-4 opacity-40" />
+										<ChevronsUpDown class="h-4 w-4 shrink-0 opacity-40" />
 									{/if}
 								{/if}
 							</div>
+							{#if column.resizable}
+								<!-- svelte-ignore a11y_click_events_have_key_events -->
+								<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+								<span
+									class="resize-handle"
+									role="separator"
+									aria-orientation="vertical"
+									aria-label={i18n.datatable_resize_column ?? 'Resize column'}
+									onpointerdown={(e) => startResize(e, column)}
+									onclick={(e) => e.stopPropagation()}
+								></span>
+							{/if}
 						</th>
 					{/each}
 					{#if rowActions}
@@ -298,10 +378,14 @@
 			</thead>
 			<tbody>
 				{#each paginatedItems as item (item.id)}
-					<tr class="hover">
+					<tr
+						class="hover"
+						class:cursor-pointer={!!onRowClick}
+						onclick={onRowClick ? () => onRowClick?.(item) : undefined}
+					>
 						{#each displayColumns as column (column.key)}
 							{@const snippet = getCellSnippet(column)}
-							<td class={column.class}>
+							<td class="{column.class ?? ''} truncate" style={columnStyle(column)}>
 								{@render (snippet ?? defaultCell)(item, column)}
 							</td>
 						{/each}
@@ -366,3 +450,22 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	.resize-handle {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 6px;
+		cursor: col-resize;
+		touch-action: none;
+		user-select: none;
+		background: transparent;
+		transition: background-color 120ms ease;
+	}
+	.resize-handle:hover,
+	.resize-handle:active {
+		background: oklch(var(--p) / 0.5);
+	}
+</style>
