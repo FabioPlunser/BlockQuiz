@@ -58,6 +58,7 @@ const statements = [
 		id text PRIMARY KEY NOT NULL,
 		content text NOT NULL,
 		published integer DEFAULT 0 NOT NULL,
+		demo integer DEFAULT 0 NOT NULL,
 		archived_at integer,
 		archived_by text,
 		created_at integer DEFAULT (unixepoch() * 1000) NOT NULL,
@@ -226,6 +227,7 @@ function ensureColumn(table: string, column: string, definition: string) {
 }
 
 ensureColumn('audit_logs', 'category', `text DEFAULT 'user' NOT NULL`);
+ensureColumn('courses', 'demo', `integer DEFAULT 0 NOT NULL`);
 
 // Role 'author' was retired in favour of just teacher/admin/student. Re-map any
 // existing rows so the runtime enum stays valid.

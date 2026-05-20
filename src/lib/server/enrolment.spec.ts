@@ -27,6 +27,7 @@ CREATE TABLE courses (
   id text PRIMARY KEY NOT NULL,
   content text NOT NULL,
   published integer NOT NULL DEFAULT 0,
+  demo integer NOT NULL DEFAULT 0,
   archived_at integer,
   archived_by text,
   created_at integer NOT NULL DEFAULT (unixepoch() * 1000),

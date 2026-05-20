@@ -75,6 +75,7 @@ export const courses = sqliteTable('courses', {
 	id: text('id').primaryKey(),
 	content: text('content', { mode: 'json' }).notNull(),
 	published: integer('published', { mode: 'boolean' }).notNull().default(false),
+	demo: integer('demo', { mode: 'boolean' }).notNull().default(false),
 	archivedAt: integer('archived_at', { mode: 'number' }),
 	archivedBy: text('archived_by'),
 	createdAt: integer('created_at', { mode: 'number' }).notNull().default(nowMs()),

@@ -16,6 +16,7 @@ export interface Course {
 	updatedAt: Date;
 	createdBy: string;
 	published: boolean;
+	demo: boolean;
 	archivedAt?: number | null;
 	archivedBy?: string | null;
 }
@@ -39,6 +40,7 @@ export interface CourseWithRelations extends Course {
 export interface CourseFormData {
 	content: CourseContent;
 	published: boolean;
+	demo: boolean;
 	exerciseIds: string[];
 	userIds: string[];
 	classIds: string[];
@@ -58,6 +60,7 @@ export function createDefaultCourseFormData(): CourseFormData {
 			image: ''
 		},
 		published: false,
+		demo: false,
 		exerciseIds: [],
 		userIds: [],
 		classIds: []
