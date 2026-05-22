@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { BookOpen, Blocks, Play } from '@lucide/svelte';
 	import { getLocalized, i18n } from '$lib/i18n/index.svelte';
 	import type { Exercise } from '$lib/types/exercise';
 	import type { AttemptCapture, HintRevealEvent } from '$lib/types/attempt';
@@ -12,6 +13,8 @@
 	import CollisionBanner from './CollisionBanner.svelte';
 	import { ExercisePlayerState, setExercisePlayer } from './ExercisePlayerState.svelte';
 	import { getToolbox } from '$lib/player/toolbox';
+
+	const uid = $props.id();
 
 	type Props = {
 		exercise: Exercise;
@@ -63,7 +66,8 @@
 			text: i18n.toolbox_text,
 			variables: i18n.toolbox_variables,
 			turtle: i18n.toolbox_turtle,
-			robot: i18n.toolbox_robot
+			robot: i18n.toolbox_robot,
+			input: i18n.toolbox_input
 		})
 	);
 
@@ -88,107 +92,127 @@
 	}
 </script>
 
-<div class="@container/player flex flex-col gap-4">
-	<!-- Tab bar: shown only when container is narrow enough that even a vertical stack is too cramped. -->
-	<div class="flex gap-1 rounded-lg bg-base-200 p-1 @md/player:hidden">
+<div class="flex flex-col gap-4">
+	<div role="tablist" aria-label={i18n.player_workspace_aria_label} class="tabs-box tabs">
 		<button
-			class="btn flex-1 btn-sm"
-			class:btn-primary={activeTab === 'task'}
-			class:btn-ghost={activeTab !== 'task'}
+			id="{uid}-tab-task"
+			role="tab"
+			type="button"
+			aria-selected={activeTab === 'task'}
+			aria-controls="{uid}-panel-task"
+			class="tab flex-1 gap-2"
+			class:tab-active={activeTab === 'task'}
 			onclick={() => (activeTab = 'task')}
 		>
-			{i18n.player_tab_task}
+			<BookOpen size="16" aria-hidden="true" />
+			<span>{i18n.player_tab_task}</span>
 		</button>
 		<button
-			class="btn flex-1 btn-sm"
-			class:btn-primary={activeTab === 'blocks'}
-			class:btn-ghost={activeTab !== 'blocks'}
+			id="{uid}-tab-blocks"
+			role="tab"
+			type="button"
+			aria-selected={activeTab === 'blocks'}
+			aria-controls="{uid}-panel-blocks"
+			class="tab flex-1 gap-2"
+			class:tab-active={activeTab === 'blocks'}
 			onclick={() => (activeTab = 'blocks')}
 		>
-			{i18n.player_tab_blocks}
+			<Blocks size="16" aria-hidden="true" />
+			<span>{i18n.player_tab_blocks}</span>
 		</button>
 		<button
-			class="btn flex-1 btn-sm"
-			class:btn-primary={activeTab === 'run'}
-			class:btn-ghost={activeTab !== 'run'}
+			id="{uid}-tab-run"
+			role="tab"
+			type="button"
+			aria-selected={activeTab === 'run'}
+			aria-controls="{uid}-panel-run"
+			class="tab flex-1 gap-2"
+			class:tab-active={activeTab === 'run'}
 			onclick={() => (activeTab = 'run')}
 		>
-			{i18n.player_tab_run}
+			<Play size="16" aria-hidden="true" />
+			<span>{i18n.player_tab_run}</span>
 		</button>
 	</div>
 
 	<!--
-		Layout tiers driven by the container's width (so embeds in narrower
-		columns like the CMS preview pick the right layout, regardless of viewport):
-		  • narrow  (default)         → tab bar above, single panel below
-		  • medium  (@md/player)      → all three panels stacked vertically, full width
-		  • wide    (@4xl/player ~56rem) → three-column grid
+		Panels stay mounted across tab switches so the Blockly workspace keeps
+		the learner's in-progress blocks. Toggle visibility via `hidden` instead
+		of `{#if}` to avoid unmount/remount of expensive children.
 	-->
 	<div
-		class="grid min-h-[60vh] gap-4 @4xl/player:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(20rem,24rem)]"
+		id="{uid}-panel-task"
+		role="tabpanel"
+		aria-labelledby="{uid}-tab-task"
+		hidden={activeTab !== 'task'}
+		class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100"
 	>
-		<section
-			class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100 @md/player:block"
-			class:hidden={activeTab !== 'task'}
-		>
-			<div class="max-h-[28rem] overflow-y-auto p-4 @4xl/player:max-h-[70vh]">
-				<ExerciseInfoPanel
-					{exercise}
-					{currentIndex}
-					{totalExercises}
-					onHintEventsChange={handleHintEventsChange}
-				/>
-			</div>
-		</section>
-
-		<section
-			class="flex min-h-[36rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4 @md/player:flex"
-			class:hidden={activeTab !== 'blocks'}
-		>
-			<div
-				class="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-base-300 pb-4"
-			>
-				<div>
-					<p class="text-xs font-medium tracking-[0.2em] text-base-content/50 uppercase">
-						{currentIndex + 1}/{totalExercises}
-					</p>
-					<h2 class="mt-1 text-lg font-semibold">{workspaceHeading}</h2>
-					<p class="mt-1 text-sm text-base-content/65">{workspaceDescription}</p>
-				</div>
-				<div class="badge badge-outline badge-lg">{exerciseTitle}</div>
-			</div>
-
-			<div class="flex min-h-[28rem] flex-1 flex-col">
-				{#key `${exercise.id}-${i18n.locale}`}
-					<BlocklyWorkspace
-						bind:this={blocklyRef}
-						{toolboxConfig}
-						starterXml={initialWorkspaceXml ||
-							(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
-						ariaLabel={i18n.player_workspace_aria_label}
-					/>
-				{/key}
-			</div>
-
-			{#if exercise.type !== 'io'}
-				<div class="mt-3">
-					<CodeReadout getXml={getWorkspaceXml} refreshKey={exercise.id} />
-				</div>
-			{/if}
-		</section>
-
-		<section class="flex flex-col gap-4 @md/player:flex" class:hidden={activeTab !== 'run'}>
-			{#if player.collision}
-				<CollisionBanner onRetry={() => player.handleRetry()} />
-			{/if}
-			<ResultsPanel
-				result={player.displayedResult}
-				isSubmitting={player.isSubmitting}
-				{hasNextExercise}
-				onRetry={() => player.handleRetry()}
-				{onNext}
+		<div class="min-h-0 overflow-y-auto p-4">
+			<ExerciseInfoPanel
+				{exercise}
+				{currentIndex}
+				{totalExercises}
+				onHintEventsChange={handleHintEventsChange}
 			/>
-			<ExecutionArea {exercise} {getCode} onSubmit={handleSubmit} />
-		</section>
+		</div>
+	</div>
+
+	<div
+		id="{uid}-panel-blocks"
+		role="tabpanel"
+		aria-labelledby="{uid}-tab-blocks"
+		hidden={activeTab !== 'blocks'}
+		class="flex min-h-[36rem] flex-col rounded-2xl border border-base-300 bg-base-100 p-4"
+	>
+		<div
+			class="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-base-300 pb-4"
+		>
+			<div>
+				<p class="text-xs font-medium tracking-[0.2em] text-base-content/50 uppercase">
+					{currentIndex + 1}/{totalExercises}
+				</p>
+				<h2 class="mt-1 text-lg font-semibold">{workspaceHeading}</h2>
+				<p class="mt-1 text-sm text-base-content/65">{workspaceDescription}</p>
+			</div>
+			<div class="badge badge-outline badge-lg">{exerciseTitle}</div>
+		</div>
+
+		<div class="flex min-h-[28rem] flex-1 flex-col">
+			{#key `${exercise.id}-${i18n.locale}`}
+				<BlocklyWorkspace
+					bind:this={blocklyRef}
+					{toolboxConfig}
+					starterXml={initialWorkspaceXml ||
+						(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
+					ariaLabel={i18n.player_workspace_aria_label}
+				/>
+			{/key}
+		</div>
+
+		{#if exercise.type !== 'io'}
+			<div class="mt-3">
+				<CodeReadout getXml={getWorkspaceXml} refreshKey={exercise.id} />
+			</div>
+		{/if}
+	</div>
+
+	<div
+		id="{uid}-panel-run"
+		role="tabpanel"
+		aria-labelledby="{uid}-tab-run"
+		hidden={activeTab !== 'run'}
+		class="flex flex-col gap-4"
+	>
+		{#if player.collision}
+			<CollisionBanner onRetry={() => player.handleRetry()} />
+		{/if}
+		<ResultsPanel
+			result={player.displayedResult}
+			isSubmitting={player.isSubmitting}
+			{hasNextExercise}
+			onRetry={() => player.handleRetry()}
+			{onNext}
+		/>
+		<ExecutionArea {exercise} {getCode} onSubmit={handleSubmit} />
 	</div>
 </div>

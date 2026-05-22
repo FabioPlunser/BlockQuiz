@@ -41,7 +41,8 @@ const BLOCK_BUCKETS = {
 	math: { primary: '#a85a2b', secondary: '#d28252', tertiary: '#824421' }, // burnt orange
 	text: { primary: '#946945', secondary: '#b88a64', tertiary: '#705034' }, // cocoa
 	variables: { primary: '#8a3a4d', secondary: '#b25a6b', tertiary: '#682b3a' }, // plum
-	engine: { primary: WARM_PRIMARY, secondary: '#d97a3f', tertiary: '#8a3f06' } // rust headline
+	engine: { primary: WARM_PRIMARY, secondary: '#d97a3f', tertiary: '#8a3f06' }, // rust headline
+	input: { primary: '#3f6b8a', secondary: '#5b8eb0', tertiary: '#284a63' } // steel blue — distinct from text
 } as const;
 
 // Blockly normalises theme names to lowercase internally — match it here so
@@ -82,7 +83,8 @@ export const warmBlocklyTheme: Blockly.Theme = Blockly.Theme.defineTheme(
 			math_category: { colour: BLOCK_BUCKETS.math.primary },
 			text_category: { colour: BLOCK_BUCKETS.text.primary },
 			variable_category: { colour: BLOCK_BUCKETS.variables.primary },
-			engine_category: { colour: BLOCK_BUCKETS.engine.primary }
+			engine_category: { colour: BLOCK_BUCKETS.engine.primary },
+			input_category: { colour: BLOCK_BUCKETS.input.primary }
 		},
 		blockStyles: {
 			logic_blocks: {
@@ -114,6 +116,11 @@ export const warmBlocklyTheme: Blockly.Theme = Blockly.Theme.defineTheme(
 				colourPrimary: BLOCK_BUCKETS.engine.primary,
 				colourSecondary: BLOCK_BUCKETS.engine.secondary,
 				colourTertiary: BLOCK_BUCKETS.engine.tertiary
+			},
+			input_blocks: {
+				colourPrimary: BLOCK_BUCKETS.input.primary,
+				colourSecondary: BLOCK_BUCKETS.input.secondary,
+				colourTertiary: BLOCK_BUCKETS.input.tertiary
 			}
 		}
 	}

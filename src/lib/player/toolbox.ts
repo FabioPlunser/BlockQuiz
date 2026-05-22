@@ -4,6 +4,7 @@ import { BlocklyToolboxKind } from '$lib/blockly/types';
 import { Turtle } from '$lib/canvas/Turtle.svelte';
 import { Robot } from '$lib/canvas/Robot.svelte';
 import { getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
+import { IO_INPUT_BLOCKS } from '$lib/blockly/ioBlocks';
 import {
 	LOGIC_BLOCKS,
 	LOOP_BLOCKS,
@@ -20,13 +21,14 @@ export type ToolboxLabels = {
 	variables: string;
 	turtle: string;
 	robot: string;
+	input: string;
 };
 
 // Map each builtin category to a theme-resolved category style key. Blockly
 // looks the key up in the active theme's `categoryStyles`. Classic supplies
 // sensible defaults; the warm theme overrides them with cohesive warm tones.
 const BUILTIN_GROUPS: ReadonlyArray<
-	[keyof Omit<ToolboxLabels, 'turtle' | 'robot'>, string, readonly string[]]
+	[keyof Omit<ToolboxLabels, 'turtle' | 'robot' | 'input'>, string, readonly string[]]
 > = [
 	['logic', 'logic_category', LOGIC_BLOCKS],
 	['loops', 'loop_category', LOOP_BLOCKS],
@@ -70,7 +72,18 @@ export function getToolbox(exercise: Exercise, labels: ToolboxLabels): BlocklyTo
 	const builtinCategories = buildBuiltinCategories(exercise, labels);
 
 	if (exercise.type === 'io') {
-		return { kind: BlocklyToolboxKind.CATEGORY, contents: builtinCategories };
+		// The input blocks are foundational to I/O exercises — always include them,
+		// regardless of whether the author listed them in `exercise.config.toolbox`.
+		const inputCategory: BlocklyCategoryConfig = {
+			kind: 'category',
+			name: labels.input,
+			categorystyle: 'input_category',
+			contents: IO_INPUT_BLOCKS.map((id) => ({ kind: 'block' as const, type: id }))
+		};
+		return {
+			kind: BlocklyToolboxKind.CATEGORY,
+			contents: [inputCategory, ...builtinCategories]
+		};
 	}
 
 	const engine = getEngine(exercise);

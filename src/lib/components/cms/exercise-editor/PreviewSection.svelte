@@ -41,9 +41,9 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="@container/preview space-y-4">
 	<div
-		class="flex flex-col gap-3 rounded-2xl border border-base-300 bg-base-100 p-4 lg:flex-row lg:items-center lg:justify-between"
+		class="flex flex-col gap-3 rounded-2xl border border-base-300 bg-base-100 p-4 md:flex-row md:items-center md:justify-between"
 	>
 		<div>
 			<h2 class="text-lg font-semibold">{i18n.cms_preview_title}</h2>
@@ -66,7 +66,7 @@
 		</div>
 	{/if}
 
-	<div class="min-h-[80vh] rounded-2xl border border-base-300 bg-base-100 p-3">
+	<div class="rounded-2xl border border-base-300 bg-base-100 p-3">
 		{#key previewVersion}
 			{#if ready}
 				<ExercisePlayer

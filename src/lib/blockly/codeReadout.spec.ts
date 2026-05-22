@@ -81,6 +81,14 @@ describe('describeWorkspace', () => {
 		expect(describeWorkspace(xml, 'en')).toEqual(['(some_unknown_type)']);
 	});
 
+	it('describes the I/O input reporter blocks', () => {
+		expect.assertions(2);
+		const xml = wrap(`<block type="io_input_text"/>`);
+		expect(describeWorkspace(xml, 'en')).toEqual(['Read the next line of input (text)']);
+		const xmlNum = wrap(`<block type="io_input_number"/>`);
+		expect(describeWorkspace(xmlNum, 'de')).toEqual(['Lies die nächste Eingabezeile als Zahl']);
+	});
+
 	it('flags additional standalone blocks separately from the main chain', () => {
 		expect.assertions(1);
 		const xml = wrap(

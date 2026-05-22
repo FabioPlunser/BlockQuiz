@@ -1,32 +1,47 @@
 <script lang="ts">
 	import * as Blockly from 'blockly/core';
 	import 'blockly/blocks';
-	// Locale message bundles for built-in Blockly blocks. The active one is
-	// applied below via `applyBlocklyLocale`. Without one of these, built-in
-	// blocks render the raw msg key (e.g. "%{BKY_CONTROLS_IF_MSG_IF}").
-	import * as En from 'blockly/msg/en';
-	import * as De from 'blockly/msg/de';
+	// Locale message bundles for built-in Blockly blocks. The ESM build
+	// (`msg/*.mjs`) exposes only named exports — no default — so a namespace
+	// import is required to avoid an SSR "no default export" error.
+	import * as EnMsg from 'blockly/msg/en';
+	import * as DeMsg from 'blockly/msg/de';
 	import { onDestroy, onMount } from 'svelte';
 	import { javascriptGenerator as jG } from 'blockly/javascript';
 	import type { BlocklyToolboxConfig, BlocklyConfig } from '$lib/blockly/types';
 	import { getDefaultConfig } from '$lib/blockly/BlocklyFactory';
 	import { syncCustomBlocklyMsg } from '$lib/blockly/i18n';
+	import { migrateIoInputXml, registerIoInputBlocks } from '$lib/blockly/ioBlocks';
 	import { pickBlocklyTheme } from '$lib/blockly/warmTheme';
 	import { theme as appTheme } from '$lib/theme.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
 
-	const BLOCKLY_MSG: Record<string, unknown> = { en: En, de: De };
+	type MsgMap = Record<string, string>;
+	// Namespace imports include a non-enumerable Symbol.toStringTag; spreading
+	// strips that and gives us a clean `{ key: value }` map for setLocale.
+	const BLOCKLY_MSG: Record<string, MsgMap> = {
+		en: { ...(EnMsg as unknown as MsgMap) },
+		de: { ...(DeMsg as unknown as MsgMap) }
+	};
 
 	function applyBlocklyLocale(locale: string) {
-		Blockly.setLocale((BLOCKLY_MSG[locale] ?? En) as Record<string, string>);
-		// Friendlier labels for the prompt block — "input" reads more naturally to
-		// learners than Blockly's default "prompt for … with message …".
-		Blockly.Msg['TEXT_PROMPT_TYPE_NUMBER'] = locale === 'de' ? 'Zahl eingeben' : 'input number';
-		Blockly.Msg['TEXT_PROMPT_TYPE_TEXT'] = locale === 'de' ? 'Text eingeben' : 'input text';
-		syncCustomBlocklyMsg();
+		try {
+			const msgs = BLOCKLY_MSG[locale] ?? BLOCKLY_MSG.en;
+			if (msgs && typeof msgs === 'object') Blockly.setLocale(msgs);
+			// Friendlier labels for the prompt block — "input" reads more naturally
+			// to learners than Blockly's default "prompt for … with message …".
+			Blockly.Msg['TEXT_PROMPT_TYPE_NUMBER'] = locale === 'de' ? 'Zahl eingeben' : 'input number';
+			Blockly.Msg['TEXT_PROMPT_TYPE_TEXT'] = locale === 'de' ? 'Text eingeben' : 'input text';
+			syncCustomBlocklyMsg();
+			// (Re-)register custom I/O blocks so their labels and tooltips track
+			// the active locale (and so their definitions are present before any
+			// workspace is injected on this page).
+			registerIoInputBlocks();
+		} catch (e) {
+			// Never let a locale apply failure prevent the workspace from rendering.
+			console.warn('Blockly locale apply failed:', e);
+		}
 	}
-
-	applyBlocklyLocale(i18n.locale);
 
 	const uid = $props.id();
 
@@ -64,6 +79,11 @@
 	}
 
 	onMount(() => {
+		// Apply locale right before injecting so the built-in block messages on
+		// `Blockly.Msg` reflect the active locale. Doing this at module-scope
+		// failed silently in some browser/bundler combos, leaving the workspace
+		// blank with no console error.
+		applyBlocklyLocale(i18n.locale);
 		try {
 			workspace = Blockly.inject(blocklyDiv, {
 				toolbox: toolboxConfig,
@@ -133,6 +153,9 @@
 		if (starterXml && workspace) {
 			try {
 				const xml = Blockly.utils.xml.textToDom(starterXml);
+				// Rewrite legacy text_prompt_ext blocks to the new io_input_* reporters
+				// before they hit the workspace — old saves stay loadable.
+				migrateIoInputXml(xml);
 				Blockly.Xml.domToWorkspace(xml, workspace);
 			} catch (e) {
 				console.error('Failed to load starter XML:', e);
@@ -186,7 +209,7 @@
 	}
 </script>
 
-<div class="blockly-host">
+<div class="blockly-host flex h-full min-h-[28rem] flex-col">
 	<p id={`${uid}-instructions`} class="sr-only">
 		Use the toolbox to choose blocks, then build your program in the workspace.
 	</p>
@@ -197,7 +220,7 @@
 	{/if}
 	<div
 		bind:this={blocklyDiv}
-		class="blockly-shell w-full overflow-hidden rounded-xl border border-base-300 bg-base-100"
+		class="blockly-shell w-full min-h-[28rem] flex-1 overflow-hidden rounded-xl border border-base-300 bg-base-100"
 		role="region"
 		aria-label={ariaLabel}
 		aria-describedby={`${uid}-instructions`}

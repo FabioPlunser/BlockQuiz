@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { LOGIC_BLOCKS, LOOP_BLOCKS, MATH_BLOCKS, TEXT_BLOCKS } from '$lib/blockly/presets';
+	import { IO_INPUT_BLOCKS } from '$lib/blockly/ioBlocks';
 	import { Turtle } from '$lib/canvas/Turtle.svelte';
 	import { Robot } from '$lib/canvas/Robot.svelte';
 	import type { ExerciseType } from '$lib/types/exercise';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { localized, BUILTIN_BLOCK_LABEL_KEYS } from '$lib/blockly/i18n';
+	import { CircleHelp } from '@lucide/svelte';
 
 	let {
 		selectedBlocks = $bindable([]),
@@ -21,6 +23,8 @@
 		id: string;
 		label: string;
 		searchText: string;
+		locked?: boolean;
+		helpKey?: string;
 	};
 
 	type BlockCategory = {
@@ -40,6 +44,7 @@
 	};
 
 	let search = $state('');
+	let helpOpen = $state(false);
 
 	function formatBuiltinBlockName(id: string): string {
 		const key = BUILTIN_BLOCK_LABEL_KEYS[id];
@@ -131,6 +136,43 @@
 		return categories;
 	}
 
+	function buildIoInputCategory(): BlockCategory {
+		const name = i18n.toolbox_input;
+		return {
+			id: 'io-input',
+			name,
+			description: i18n.cms_blockpicker_io_input_desc,
+			group: i18n.cms_blockpicker_group_thinking,
+			colorClass: 'bg-sky-500',
+			blocks: IO_INPUT_BLOCKS.map((blockId) => {
+				const label = formatBuiltinBlockName(blockId);
+				return {
+					id: blockId,
+					label,
+					searchText: `${label} ${blockId} ${name}`.toLowerCase(),
+					locked: true,
+					helpKey: 'cms_blockpicker_io_input_help_body'
+				};
+			})
+		};
+	}
+
+	const lockedIds = $derived(
+		new Set<string>(exerciseType === 'io' ? IO_INPUT_BLOCKS : [])
+	);
+
+	function withLockedIds(ids: string[]): string[] {
+		return [...new Set([...ids, ...lockedIds])];
+	}
+
+	// Always keep locked I/O blocks present in the selection. This is also a
+	// safety net for legacy exercises whose stored toolbox never included them.
+	$effect(() => {
+		if (lockedIds.size === 0) return;
+		const missing = [...lockedIds].some((id) => !selectedBlocks.includes(id));
+		if (missing) selectedBlocks = withLockedIds(selectedBlocks);
+	});
+
 	function buildBuiltinCategory(
 		id: string,
 		name: string,
@@ -156,7 +198,9 @@
 	}
 
 	function getCategories(): BlockCategory[] {
+		const ioInput = exerciseType === 'io' ? [buildIoInputCategory()] : [];
 		return [
+			...ioInput,
 			...buildEngineCategories(),
 			buildBuiltinCategory(
 				'logic',
@@ -262,16 +306,21 @@
 	}
 
 	function toggleBlock(id: string, checked: boolean) {
+		if (lockedIds.has(id)) {
+			// Locked rows stay selected regardless of UI toggling.
+			selectedBlocks = withLockedIds(selectedBlocks);
+			return;
+		}
 		if (checked) {
-			selectedBlocks = [...new Set([...selectedBlocks, id])];
+			selectedBlocks = withLockedIds([...selectedBlocks, id]);
 			return;
 		}
 
-		selectedBlocks = selectedBlocks.filter((blockId) => blockId !== id);
+		selectedBlocks = withLockedIds(selectedBlocks.filter((blockId) => blockId !== id));
 	}
 
 	function setSelectedBlocks(nextIds: string[]) {
-		selectedBlocks = [...new Set(nextIds)];
+		selectedBlocks = withLockedIds(nextIds);
 	}
 
 	function selectCategory(category: BlockCategory) {
@@ -279,8 +328,10 @@
 	}
 
 	function clearCategory(category: BlockCategory) {
-		const ids = new Set(category.blocks.map((block) => block.id));
-		selectedBlocks = selectedBlocks.filter((blockId) => !ids.has(blockId));
+		const ids = new Set(
+			category.blocks.filter((block) => !block.locked).map((block) => block.id)
+		);
+		selectedBlocks = withLockedIds(selectedBlocks.filter((blockId) => !ids.has(blockId)));
 	}
 
 	function applyPreset(preset: BlockPreset) {
@@ -448,22 +499,48 @@
 							{@const selected = selectedBlocks.includes(block.id)}
 							<label
 								class={[
-									'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition',
-									selected
+									'flex items-start gap-3 rounded-xl border p-3 transition',
+									block.locked
+										? 'cursor-default border-primary/30 bg-primary/5'
+										: 'cursor-pointer',
+									!block.locked && selected
 										? 'border-primary bg-primary/10'
-										: 'border-base-300 bg-base-100 hover:border-base-content/20'
+										: !block.locked
+											? 'border-base-300 bg-base-100 hover:border-base-content/20'
+											: ''
 								]}
 							>
 								<input
 									type="checkbox"
 									class="checkbox mt-0.5 checkbox-sm"
 									checked={selected}
+									disabled={block.locked}
 									onchange={(event) => toggleBlock(block.id, event.currentTarget.checked)}
 								/>
-								<span class="min-w-0">
-									<span class="block font-medium">{block.label}</span>
+								<span class="min-w-0 flex-1">
+									<span class="flex items-center gap-2">
+										<span class="block font-medium">{block.label}</span>
+										{#if block.locked}
+											<span class="badge badge-primary badge-xs"
+												>{i18n.cms_blockpicker_locked_badge}</span
+											>
+										{/if}
+									</span>
 									<span class="block text-xs text-base-content/55">{block.id}</span>
 								</span>
+								{#if block.locked}
+									<button
+										type="button"
+										class="btn btn-circle btn-ghost btn-xs"
+										aria-label={i18n.cms_blockpicker_io_input_help_title}
+										onclick={(event) => {
+											event.preventDefault();
+											helpOpen = true;
+										}}
+									>
+										<CircleHelp class="h-4 w-4" aria-hidden="true" />
+									</button>
+								{/if}
 							</label>
 						{/each}
 					</div>
@@ -478,3 +555,32 @@
 		{/if}
 	</div>
 </div>
+
+{#if helpOpen}
+	<div
+		class="modal modal-open"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="block-picker-help-title"
+	>
+		<div class="modal-box max-w-lg">
+			<h3 id="block-picker-help-title" class="text-lg font-semibold">
+				{i18n.cms_blockpicker_io_input_help_title}
+			</h3>
+			<p class="mt-3 whitespace-pre-line text-sm text-base-content/80">
+				{i18n.cms_blockpicker_io_input_help_body}
+			</p>
+			<div class="modal-action">
+				<button type="button" class="btn btn-primary btn-sm" onclick={() => (helpOpen = false)}>
+					{i18n.cms_blockpicker_io_input_help_close}
+				</button>
+			</div>
+		</div>
+		<button
+			type="button"
+			class="modal-backdrop"
+			aria-label={i18n.cms_blockpicker_io_input_help_close}
+			onclick={() => (helpOpen = false)}
+		></button>
+	</div>
+{/if}

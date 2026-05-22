@@ -68,5 +68,7 @@ export const BUILTIN_BLOCK_LABEL_KEYS: Record<string, string> = {
 	text_prompt_ext: 'block_builtin_text_prompt_ext',
 	text_append: 'block_builtin_text_append',
 	variables_get: 'block_builtin_variables_get',
-	variables_set: 'block_builtin_variables_set'
+	variables_set: 'block_builtin_variables_set',
+	io_input_text: 'block_io_input_text',
+	io_input_number: 'block_io_input_number'
 };

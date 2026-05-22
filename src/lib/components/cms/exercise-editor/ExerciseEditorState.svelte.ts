@@ -14,6 +14,7 @@ import { BlocklyToolboxKind } from '$lib/blockly/types';
 import { Turtle } from '$lib/canvas/Turtle.svelte';
 import { Robot } from '$lib/canvas/Robot.svelte';
 import { getCategoryForBlocks } from '$lib/blockly/BlocklyFactory';
+import { IO_INPUT_BLOCKS } from '$lib/blockly/ioBlocks';
 import {
 	LOGIC_BLOCKS,
 	LOOP_BLOCKS,
@@ -344,8 +345,19 @@ export class ExerciseEditorState {
 	getToolbox(): BlocklyToolboxConfig {
 		const builtins = this.buildBuiltinCategories();
 		if (this.exercise.type === 'io') {
-			if (!builtins.length) return { kind: BlocklyToolboxKind.FLYOUT, contents: [] };
-			return { kind: BlocklyToolboxKind.CATEGORY, contents: builtins };
+			// I/O exercises always expose the input reporters, even if the
+			// author has not selected any other blocks yet — they are foundational
+			// to the exercise type, so the toolbox stays usable from the start.
+			const inputCategory: BlocklyCategoryConfig = {
+				kind: 'category',
+				name: i18n.toolbox_input,
+				categorystyle: 'input_category',
+				contents: IO_INPUT_BLOCKS.map((id) => ({ kind: 'block', type: id }))
+			};
+			return {
+				kind: BlocklyToolboxKind.CATEGORY,
+				contents: [inputCategory, ...builtins]
+			};
 		}
 		const engine = this.getEngine();
 		const engineBlocks =

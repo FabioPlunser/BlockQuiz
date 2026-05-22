@@ -12,6 +12,6 @@ export const LOOP_BLOCKS = ['controls_repeat_ext', 'controls_whileUntil', 'contr
 
 export const MATH_BLOCKS = ['math_number', 'math_arithmetic', 'math_round', 'math_number_property'];
 
-export const TEXT_BLOCKS = ['text', 'text_print', 'text_join', 'text_prompt_ext', 'text_append'];
+export const TEXT_BLOCKS = ['text', 'text_print', 'text_join', 'text_append'];
 
 export const VARIABLE_BLOCKS = ['variables_get', 'variables_set', 'math_change'];

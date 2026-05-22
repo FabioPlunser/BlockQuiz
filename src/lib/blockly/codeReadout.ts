@@ -201,6 +201,8 @@ const T = {
 		changeVar: (name: string) => `Change the variable "${name}"`,
 		print: 'Print a value to the output',
 		prompt: 'Ask the user for a value',
+		ioInputText: 'Read the next line of input (text)',
+		ioInputNumber: 'Read the next line of input as a number',
 		unknown: (type: string) => `(${type})`,
 		indent: '  '
 	},
@@ -224,6 +226,8 @@ const T = {
 		changeVar: (name: string) => `Ändere die Variable „${name}"`,
 		print: 'Gib einen Wert aus',
 		prompt: 'Frage den Benutzer nach einem Wert',
+		ioInputText: 'Lies die nächste Eingabezeile (Text)',
+		ioInputNumber: 'Lies die nächste Eingabezeile als Zahl',
 		unknown: (type: string) => `(${type})`,
 		indent: '  '
 	}
@@ -306,6 +310,12 @@ function describeBlock(block: ParsedBlock, locale: ReadoutLocale, indent: number
 			break;
 		case 'text_prompt_ext':
 			push(t.prompt);
+			break;
+		case 'io_input_text':
+			push(t.ioInputText);
+			break;
+		case 'io_input_number':
+			push(t.ioInputNumber);
 			break;
 		default:
 			push(t.unknown(block.type));

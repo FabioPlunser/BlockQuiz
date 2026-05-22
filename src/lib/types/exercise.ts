@@ -251,6 +251,8 @@ const ALLOWED_TOOLBOX_BLOCKS = new Set([
 	...MATH_BLOCKS,
 	...TEXT_BLOCKS,
 	...VARIABLE_BLOCKS,
+	'io_input_text',
+	'io_input_number',
 	'move',
 	'turn',
 	'pen',
@@ -260,6 +262,13 @@ const ALLOWED_TOOLBOX_BLOCKS = new Set([
 	'turn_left',
 	'turn_right'
 ]);
+
+// Legacy block ids we keep recognising so that existing exercises continue to
+// load and validate. The workspace remaps them on load (see migrateIoInputXml
+// in $lib/blockly/ioBlocks); the entries here only cover validation paths.
+const LEGACY_BLOCK_ALIASES: Record<string, string> = {
+	text_prompt_ext: 'io_input_text'
+};
 
 export const DEFAULT_LOCALIZED_STRING: LocalizedString = {
 	de: '',
@@ -353,6 +362,19 @@ function normalizeStringArray(value: unknown): string[] {
 	}
 
 	return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function normalizeToolboxArray(value: unknown): string[] {
+	const raw = normalizeStringArray(value);
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const entry of raw) {
+		const remapped = LEGACY_BLOCK_ALIASES[entry] ?? entry;
+		if (seen.has(remapped)) continue;
+		seen.add(remapped);
+		out.push(remapped);
+	}
+	return out;
 }
 
 function normalizePoint(value: unknown, fallback: Point = EMPTY_POINT): Point {
@@ -817,7 +839,8 @@ function collectStarterBlockTypes(xml: string): string[] {
 
 function normalizeStarterBlockType(blockType: string, exerciseType: ExerciseType) {
 	const prefix = `${exerciseType}_`;
-	return blockType.startsWith(prefix) ? blockType.slice(prefix.length) : blockType;
+	const stripped = blockType.startsWith(prefix) ? blockType.slice(prefix.length) : blockType;
+	return LEGACY_BLOCK_ALIASES[stripped] ?? stripped;
 }
 
 function validateLocalizedField(
@@ -1005,7 +1028,7 @@ type ExerciseInput = Record<string, unknown> & {
 export function canonicalizeExercise(input: ExerciseInput): Exercise {
 	const type: ExerciseType = input.type === 'io' || input.type === 'robot' ? input.type : 'turtle';
 	const configRecord: Record<string, unknown> = isRecord(input.config) ? input.config : {};
-	const toolbox = normalizeStringArray(input.toolbox ?? configRecord.toolbox);
+	const toolbox = normalizeToolboxArray(input.toolbox ?? configRecord.toolbox);
 	const starterXml = normalizeString(input.starterXml ?? configRecord.starterXml);
 	const hasStarterBlocks = normalizeBoolean(
 		input.hasStarterBlocks ?? configRecord.hasStarterBlocks,
