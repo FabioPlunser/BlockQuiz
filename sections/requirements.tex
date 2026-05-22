@@ -11,8 +11,7 @@ The most important stakeholder group consists of learners between the ages of 8 
 forgiving of mistakes and capable of returning immediate, understandable feedback.
 Teachers form the second central stakeholder group. Their interest lies less in the technical implementation than in whether they can create, adapt and organize exercises without touching source code.
 School IT administrators represent a third perspective, since they need a deployment model that is easy to operate, simple to back up and compatible with school privacy expectations.
-Finally, the thesis itself also imposes a developer-facing perspective: the architecture should remain maintainable, extensible and honest about its security assumptions.
-The platform serves multiple stakeholder groups with distinct needs:
+Finally, the thesis itself also imposes a developer-facing perspective. The architecture should remain maintainable, extensible and honest about its security assumptions.
 
 \section{Functional Requirements}
 \label{sec:req-functional}
@@ -28,10 +27,12 @@ with deterministic textual results, while turtle-graphics and robot-grid exercis
 At the same time, the exercise architecture should not be so specialized that the addition of future exercise types would require a complete redesign.
 
 \subsection*{Authoring and Course Organization (FR-3)}
-Authorized users must be able to create and edit exercises through a teacher-facing interface.
-They also need a way to combine exercises into ordered courses so that tasks can be used as part of a broader learning path instead of only as isolated examples.
-Reuse is an important requirement here: the same exercise should be usable in more than one course. Since authoring mistakes can easily lead to confusing learner experiences, the system
-should also support previewing an exercise before it is published
+Authorized users must be able to create and edit exercises through a teacher interface. 
+They also need a way to combine exercisese into ordered courses so that tasks can be used as part of a broader learning path instead of only as isolated examples. 
+Reuse is an important requiremetnt here. The same exercise shoudl be usable in more than one course. In addition, theacers need a way to make a course available to a whole class of students at once rather 
+than only to invididual accounts, because handling enrolment one learner at a time does not scale to a typical classroom. The system should therefore support a class abstraction that can be linked to a course 
+so that every memberof the class receives the assignment automatically. Since authoring mistakes can easily lead to confusing leaner experiences, the system should also support previewing and 
+exercise before it is published. 
 
 \subsection*{Execution and Feedback (FR-4)}
 Learner block programs must be translated into executable code and run inside a restricted environment. The execution model therefore needs a controlled API surface through which 
@@ -46,9 +47,14 @@ The grading result must at least distinguish between successful and unsuccessful
 The system should therefore present feedback that is more informative and helps learners understand why a solution did or did not satisfy the task.
 
 \subsection*{User Modes and Progress (FR-6)}
-The platform must support authenticated teacher access for authoring and management tasks, yet the learner side should remain flexible enough to support guest use where possible. 
-This is particularly relevant for privacy-conscious deployment scenarios or informal try-out settings.
-Exercise progress must be persisted in a way that matches the chosen user mode, whether this means local storage for guest use or server-side persistence for authenticated users.
+The platform must support authenticated teacher access for authoring and management tasks, 
+yet the learner side should remain flexible enough to support guest use where possible. 
+This is particularly relevant for privacy-conscious deployment scnearios or informal try-out settings. 
+Exercise prgoress must be persisted in a way that mathces the chosen user mode, whether this means local storage for guest 
+use or server-side persistence for authenticated users. 
+Where a school already operates an identity provider, authentiation should optionally route through that provider rather than requiring a parallel password directory, while still supporting
+a local email-and-password fallback for administrator recovery. When the identity provider exposes group claims, the system should be able to mirror those groups into its own class model so that 
+institutional cohorts and BlockQuiz classes stay in sync without manual roster work. 
 
 \subsection*{Internationalization (FR-7)}
 Internationalization applies both to the general interface and to exercise content. The user interface should support German and English and exercises should be available bilingually with a defined 
@@ -79,7 +85,7 @@ This requires a separation between user interface, execution logic, grading and 
 The system should also be reproducible across environments with minimal configuration effort so that deployment and further development do not depend on undocumented local setup steps.
 
 
-\subsection{Representative Use Cases}
+\section{Representative Use Cases}
 The core value proposition of the platform can be summarized through a small set of representative use cases. The first is the learner workflow: a child opens an exercise, assembles a block program, 
 runs it and receives immediate feedback. The second is the teacher workflow: a teacher defines task text, available blocks, hints and grading configuration for a new exercise. 
 The third is course composition, in which a teacher selects existing exercises and arranges them into an ordered sequence.

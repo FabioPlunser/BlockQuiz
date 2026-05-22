@@ -56,6 +56,12 @@ Taken together, these platforms show that there is no single dominant design for
 in hardware-oriented contexts. Code.org offers strongly scaffolded instruction and Blockly acts as an enabling framework.
 BlockQuiz positions itself with a different focus where constrained exercises, teacher authoring, automatic assessment and privacy-conscious deployment need to coexist. 
 
+The matrix in Table~\ref{tab:platform-comparison} shows that BlockQuiz does not compete with these platforms on creative freedom. It instead occupies a specific intersaction that is otherwise empty. 
+Per-exercise toolbox constraints under a GUI authoring workflow, automatic grading, structured per-attempt analytics that go beyond completion counts and a dpleoyment model that is 
+genuinely self-hostable inside school infrastructure rather than only theoretically open source. 
+Scracth and Blockly Games optimiye for open creation rather than guided practice. MakeCode target hardware tutorials. None of tem comebine teacher-side authoring of constrained tasks with on-prem deployment 
+and learner-procress analytics. 
+
 \begin{table}[H]
   \centering
   \caption{Comparison of Block-Based Programming Platforms}
@@ -125,13 +131,13 @@ supports focused learning and reduces distraction.
 
 % Cogni
 
-\subsubsection{Zone of Proximal Development}
+\subsection{Zone of Proximal Development}
 Vygotsky's Zone of Proximal Development describes the range in which learners can complete a task with guidance but not yet entirely on their own \cite{Vygotsky1980, Shabani2010}.
 This idea is relevant for platforms that provide progressive support rather than all-or-nothing assessment. In BlockQuiz, the use of staged hints, starter blocks and ordered
 task progression is intended to keep exercises within that zone. The platform does not merely judge whether an answer is correct, it is also
 designed to support learners while they move toward a correct solution. 
 
-\subsection{Age-Appropriate Design}
+\section{Age-Appropriate Design}
 Design for children aged 8-12 requires more than simply scaling down an adult programming environment.
 At this age, many learners are still more comfortable with concrete and visual representation than with abstract symbolic formalisms. 
 Tasks therefore need to connect closely to visible outcomes, especially for younger learners, while still leaving room for gradually more
@@ -144,7 +150,7 @@ A child should be able to understand what an exercise asks for without encounter
 motor frustration, and should receive clear feedback after each attempt. 
 Readability and immediate visual response are therefore not cosmetic concerns but core usability requirements. 
 
-\subsection{Privacy and Data Protection}
+\section{Privacy and Data Protection}
 Privacy is a particularly important design consideration when educational software is used with children.
 Within the European Union, the GDPR places strict limits on the processing of personal data and emphasizes data minimization, purpose limitation and privacy by design. 
 For school software, this means that architectural choices such as account models, storage location and reliance on external services are not only technical decisions but also institutional and legal ones \cite{gdpr2016}.
@@ -156,8 +162,7 @@ Currently, user accounts store a name, email address, role and active status on 
 
 
 
-\subsection{Technical foundations}
-\subsubsection{SvelteKit and Svelte 5}
+\section{Technical foundations}
 The technical implementation builds on SvelteKit and Svelte 5, whose component model and reactive primitives are well suited to an application that combines a rich frontend, 
 custom editing interfaces and reusable logic for exercise engines. 
 In the context of this project, the relevant advantage is that reactive state can be kept close to the domain logic while still integrating cleanly with user interface components. 

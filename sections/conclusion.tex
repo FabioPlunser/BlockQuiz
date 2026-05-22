@@ -1,0 +1,74 @@
+\section{Summary}
+\label{sec:summary}
+This thesis set out to design a web-based block-programming platform for structured introductory exercises in school context.
+The core motiviation was to combine several requirements that are often only partally addressed togehter. Age-appropriate visual programming, immediate feedback, teacher-oriented authoring, privacy-conscious deployment and
+a workflow that remians practical for classroom use.
+
+The resulting system, BlcokQuiz, was developed as a design and reference implementation rather than as a productized commercial offering. Within that scope, the thesis makes three main
+contributions. First, it defines a focused exercise model for guided programming taks instead of open-ended project work.
+Second, it develops an implements an architecture that combines Blockly-based editing, sandboxed code execution, structured auto-grading and persisten progress caputre.
+Third, it demonstrates that htis architecture can be realized in a technically coherent system with support for bilingual content, guest-mode use, authenticated progress tracking
+with self-service password reset, optional OIDC and SAML Single Sign-On with identity provider synchronized classes for institutional deployment and
+teacher facing exercise and class authoring.
+
+\section{Lessons Learned}
+The implementation work surface concrete lessons.
+\subsection{What worked}
+The \texttt{typed discriminated-uinion exercise model} was the single most load-baring decision. Forcing every exercise into one of three structured branches
+(io|turtle|robot), each carrying its own grader configuration, kept the rest of system honset. The CMS, the player, the sandbox and the analytics
+view all branch on the sam uinion and adding a fourth exercise type would now be a localized extension rather than a system-wide rewrite.
+The \texttt{message-based sandbox protocol} was the second decision worth highlighting. Once execution lived behind a typed channel it became
+natural to wrap it again in a separate authoritative path on the server, which is what leter turned the subprocess regrading into a simple
+addition rather than a refactor.
+The \texttt{publish-validation gate} also paid off in practice, because it caught real authoring mistakes during the implemetnation work istelf.
+more than once a seeded exercise was rejected because its starter XML referenced blocks that were not in the configured toolbox, exactly the
+failure mode the gate was mean to prevent.
+
+\subsection{Compromises}
+Several decisions were deliberate compromises rather than ideal choices. The \texttt{browser-side sandbox} is the clearest
+Example. It gives immediate feedback and zero per-submission server cost, which fits a school deployment where neither operations staff nor budget
+for a code-execution service can be assumed, but it would not be appropriate for an open-internet code playground that has to defend against motivated adversaries.
+The \texttt{file-based outbox} remains the default email driver for password resets because it requires no infrastructure and produces a durable
+record an administrator can deliver out of band, which fits the school-context reality where teachers already hand out credentials in person.
+Beyond a single chool network, deployment can opt into the bundled SMTP or Microsoft Graph drivers through the admin settings page.
+The file outbox then continues to act as a fallback when an external transport failes so that a reset link is nver silently lost.
+Finally the \texttt{complicated CMS} is a compromise between powerful exercise and course creation and usability.
+The inherent idea of blockly being able to program near any program makes it very difficult to abstract in a way for non technical users to understand easily.
+Without training how should a teacher know when they want to create a specific exercise like multiply by two which blocks they need for the system to work.
+But this can be solved with training videos.
+
+\subsection{What I would do differently}
+Given more time, I would like to query more teachers and students to understand better how they would
+use the system and what features they would like to see.
+Also how performant the system is when hundreds of students are using ist at the same time.
+I would spend more time cooperating with teachers on the design of the CMS and the exercises and creating good
+base exercises for the system which are included in every deployment.
+I would rework the internatiolization system to be more flexible and support more languages and mauybe add the feature to
+auto translate everything using AI.
+
+\subsection{Limiations}
+Beyond the lessons above, three limitations of the current state of the wrok should be stated explicitly.
+First, the evaluation is not strong enough. The present resutls show that the implementation is testable and interanlly consistent, but they do
+not yet prove measurble learning outcomes or classroom adoption.
+The implemted feature set covers the full tehsis scope, but it has not yet been validated with real learners or teachers in a classroom setting.
+
+Second, the execution model is layered but not perfect. To protect against malicious actors a container-grade suystem would be needed.
+The security model is appropriate for the intended educational deployment, but it remains an explicit compromise rathern than a formal isolation guarantee.
+
+Thirdly, adding new exercise types is possible but not trivial. The system is designed to be extensible,
+but the current implementation only includes three exercise types and adding a new one would require changes across the CMS, player, grader and analytics.
+
+
+\subsection{Future Work}
+The most valuable next step is more systematic evaluation with actual learners and teachers.
+The implementation itself is, after the bug fixes from the evaluation, now broad enough to support such a study without further core development.
+Even a small classroom pilor or a strucutred usability study would strengthen the thesis considerably by connecting the technical design to obsereved educational use.
+
+Further work could expand the range of supported exericse types beyond the current three, or improve the existing ones. For example in the turlte exercsise,
+currently there is now way to check if the path the teacher sets is even sovable, which can lead to frustation for the teacher having to learn which paths are possible
+and which are not. Adding a path solver to the grader would allow teachers to set any path and be sure that it is solvable, which would make the system more flexible and easier to use.
+Improving the UI in cooperation with teachers and students would also be a valuable next step, especially for the CMS which is currently the most complex part of the system.
+
+Overall, the thesis shows that there is a viable technical path toward such a platform. In its current form, BlockQuiz already demonstrates that tightly
+scoped exercises, automatic feedback, end-to-end account management and privacy-oriented deployment can be combined into a coheren web-based system suitable for furhter
+educational evaluation and refinement.

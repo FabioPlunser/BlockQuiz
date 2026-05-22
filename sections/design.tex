@@ -1,7 +1,7 @@
 \section{Design decisions}
 \label{sec:design-decisions}
-This chapter expalins the principal architectural choices behind BlockQuiz. The focus is on decisions that strongly influence the prototype: the visual editor technology, the execution model, the 
-persistence layer and the seperation of concersn between exercise defintion, execution, grading and presetnation. 
+This chapter expalins the principal architectural choices behind BlockQuiz. The focus is on decisions that strongly influence the prototype: the visual editor technology, the execution model, the
+persistence layer and the seperation of concersn between exercise defintion, execution, grading and presetnation.
 
 \subsection{Block Editor: Google Blockly}
 \begin{table}[h]
@@ -10,26 +10,30 @@ persistence layer and the seperation of concersn between exercise defintion, exe
   \caption{Block Editor Selection}
   \begin{tabularx}{0.9\textwidth}{|l|X|X|}
     \hline
-    Option                & Pros                                                 & Cons                                      \\\hline
-    Google Blockly        & Mature, documented, accessible, customizable toolbox & Larger bundle size                        \\\hline
-    Custom implementation & Full control, smaller size                           & Development time, maintenance burden                 \\\hline
-    Scratch Blocks        & Familiar Scratch aesthetics                          & Less flexible, tied to Scratch ecosystem             \\\hline
+    Option                & Pros                                                 & Cons                                     \\\hline
+    Google Blockly        & Mature, documented, accessible, customizable toolbox & Larger bundle size                       \\\hline
+    Custom implementation & Full control, smaller size                           & Development time, maintenance burden     \\\hline
+    Scratch Blocks        & Familiar Scratch aesthetics                          & Less flexible, tied to Scratch ecosystem \\\hline
   \end{tabularx}
 \end{table}
 
-Blockly was selected because it offerse the best balance between maturtiy and adaptablity. 
-Its toolbox model directly supports the pedagogical goal of restricting the available blocks on a per-exercise basis, which helps reduce unnecessary complexity 
-for novice learners. The same integration can also be reused in both the learner-facing player and the teacher-facing CMS> 
-A custom implementation would have provided greate control, but the additional development effort would have been difficutl to justify within the scope of the thesis. 
-Scratch Blocks, while visually familiar, would have constrained the platform more strongly to an ecosystem that is not primrarly designed for this kind of custom guided-learing workflow. 
+Blockly was selected because it offerse the best balance between maturtiy and adaptablity.
+Its toolbox model directly supports the pedagogical goal of restricting the available blocks on a per-exercise basis, which helps reduce unnecessary complexity
+for novice learners. The same integration can also be reused in both the learner-facing player and the teacher-facing CMS.
+A custom implementation would have provided greate control, but the additional development effort would have been difficult to justify within the scope of the thesis.
+Scratch Blocks, while visually familiar, would have constrained the platform more strongly to an ecosystem that is not primrarly designed for this kind of custom guided-learing workflow.
 
 \subsection{Excecution mode: Client-Side sandbox}
-The execution model is intentionally optimized for classroom repsonsiveness and low deployment complexity. 
-A client-side iframe sandbox therefore represents a pragramtic compromise. It allows learners to receive immediat feedback without requiring the server to execute every submission, 
-which keeps the overall system ligher and easier to deploy. 
-At the same time, this decision does not remove all security concerns. 
-The thesis therefore treats client-side execution as a risk-managed prototype choice rather than as a perfect isolation boundary. 
-Since authenitcated submissions can additionally be re-executed on the server before they are stroed, the design combines responsive local interaction with a more trustworthy persistence path. 
+The execution model is intentionally optimized for classroom repsonsiveness and low deployment complexity.
+A client-side iframe sandbox therefore represents a pragramtic compromise. It allows learners to receive immediat feedback without requiring the server to execute every submission,
+which keeps the overall system ligher and easier to deploy.
+At the same time, this decision does not remove all security concerns.
+The design therefore pairs the responsive client-side path with a separate authoritative path on the server. When an authenticated submission is persited, 
+The same generated code is re-executed inside an isolated BUn subprocess worker that has no access to the database or the application session. 
+The browser sandbox provides immediate feedback, while the subprocess re-execution provides a trusted result that becomes the stored score. 
+This layered execution model is the central reason the implementation can combin fast learner interaction with a meaningufl trust boundary, without adopting the operational 
+complexicty of a per-submission cntainer servicer. 
+
 
 \begin{table}[h]
   \centering
@@ -44,28 +48,90 @@ Since authenitcated submissions can additionally be re-executed on the server be
   \end{tabularx}
 \end{table}
 
-\subsection{Database: SQLite with Drizzle ORM}
+\subsection{Persistence Layer: SQLite with Drizzle ORM}
 \begin{table}[h]
   \centering
   \label{tab:database-selection}
   \caption{Database Selection}
   \begin{tabularx}{0.9\textwidth}{|l|X|X|l|}
     \hline
-    Option      & Pros                         & Cons                          \\\hline
-    SQLite      & No setup, embedded, portable & Single-writer limitation      \\\hline
+    Option     & Pros                         & Cons                          \\\hline
+    SQLite     & No setup, embedded, portable & Single-writer limitation      \\\hline
     PostgreSQL & Scalable, concurrent writes  & Requires server, more complex \\\hline
   \end{tabularx}
 \end{table}
 
-SQLite is well suited to a prototype and to modest self-hsoted school deployments because it keeps operational overhead low. 
-When combined with Drizzle ORM, it also provides a typesave development workflow and explicit schema management. 
-A more scalable databse system would only become necesssary if the platform were extendet beyond the intended deployment model. 
+SQLite is well suited to a prototype and to modest self-hsoted school deployments because it keeps operational overhead low.
+When combined with Drizzle ORM, it also provides a typesave development workflow and explicit schema management.
+A more scalable databse system would only become necesssary if the platform were extendet beyond the intended deployment model.
+
+\subsection{Client-Server Boundary: SvelteKit Remote Functions and Async Svelte}
+A non-trivial design decision in this project was how the browser should talk to the server.
+Two SvelteKit features that were experimental at the time of writing made it possible to collapse
+The conventional split between REST endpoints, server load functions and form actions into a single
+typed boundary and the project opted into both.
+
+The first is the \textbf{remote functions} feature. Server-only code in a file ending in \texttt{.remote.ts} can export three kinds of functions:
+\texttt{query} for read operations, \texttt{command} for mutations and \texttt{form} for HTML-form-styel mutation that integrate with
+Progressive enhancement. Each function is declared with a Zod schema for its input, so the same definition is the implementation, 
+the validation rule and the TypeScript type that the client sees. The client imports the function directly, there is no intermediate REST contract.
+and SvelteKit transparently turns the call into a fetch under the hood, validates the payload, runs the function on the server and returns the typed result. 
+It is more like Remote Procedure Call than REST, but it provides a clean and typesafe client-server boundary with minimal boilerplate.
+The practical effect for BlockQuiz is that the per-route boundary that woudl otherwise be expresse as a handful of REST endpoints,
+a Zod schema and client wrapper collapses into a single typed function call.
+The remote layer in \texttt{src/lib/remote} containst he project's full server-side contract.
+Courses, exercises, classes, users, settings, logs, i18n and auth. Each in its own *.remote.ts file with role-checked query and command exports.
+
+The second is the experimental \textbf{async Svelte} compiler option.
+With this option, a Svelte component can await a remote function anywhere in the script block.
+Most importantly inside of a \textbf{\$derived} rune. SvelteKit handles suspension, hydration and re-fetching on its own.
+Where a traiditional setup would require a \texttt{+page.server.ts} load function to pre-fetch the data, an explicit prop on the page component
+and a fall-back skeleton the same flow now eread as:
+\begin{lstlisting}
+  let publicCourseLIst = $derived(await getPublicCourseList({}));
+\end{lstlisting}
+inside the component itself. The data-flow argument sit the same as the remote-fucntion.
+By treating the server contract as something the component can directlty await, the layer of glue etween
+the \textit{server} and the \textit{componetn} disappears.
+
+If an await fails in a script tag in will throw an error.
+That error can be catched by button the entire component inside of an \texttt{<svelte:boundary>}.
+Fetching of data, showing load state and error handling can also be part of the markup directly.
+Because Svelte itself is a language with a compiler we do not have to await in the script tag block some of the page rendering (if fetching is not done correclty).
+But fetch directly in the markup
+
+\begin{lstlisting}
+  <svelte:boundary>
+    {#await getPublicCourseList({})}
+      <p>Loading...</p>
+    {:then publicCourseList}
+      <CourseList {publicCourseList} />
+    {:catch error}
+      <p>Error loading courses: {error.message}</p>
+    {/await}
+  </svelte:boundary>
+\end{lstlisting}
+
+Remote functions also provide build in support for progressive enhancement and single flight mutations.
+A muatation that adds a course, for example, has to tell every other place that displays course to re-run its query.
+BlockQuiy expresses this declaratively by chaining \lstinline{.update(querFn)} onto the command call stie, with a mirroring
+\lstinline{requested(q,n).refreshAll()} on the server side. The mutation declares which queries it invalidates, SvelteKit recomputes exactly those and 
+the rest of the page is left undisturbed. This is single flight mutation without it the component would need to call \lstinline{await query.refresh()} manually, 
+and then instead of having one POST call which returns the updated Data we get a POST and then a GET request. 
+
+These two featuers are explicity experimental in usptream SvelteKit currently and their use in BlockQuiz is therefore 
+a project-scope bet rather than a neutral framework choice. However, the do align so well with the Meta framework concept 
+that many other projects are already using them in production. 
+They are mentione here because they shaped both the file layout and the interaction model in components. 
+Also because they are still experimental we note that should either feature change shape before its stable release, the 
+there would be some necessary refactoring. But it is unlikely that the Svelte-Core team are going to abonden this approach since the response to the 
+primitives is extremely positive, so that the whole code needs to be refactored is not a likely scenario. 
 
 \section{Architectural Overview}
 \label{sec:design-overview}
-The sytstem follow a layered architecture in which the user interface, exercise logic, grading and persistence remain conceptually separate. This separation is visible in the code base: 
-Svelte components are primarily responsible for presentation, wherease execution, graing, typing and persistence are handled in dedicated modules. 
-The result is not only easier to reason about technically, but also easier to explain as part of the thesis. 
+The sytstem follow a layered architecture in which the user interface, exercise logic, grading and persistence remain conceptually separate. This separation is visible in the code base:
+Svelte components are primarily responsible for presentation, wherease execution, graing, typing and persistence are handled in dedicated modules.
+The result is not only easier to reason about technically, but also easier to explain as part of the thesis.
 
 \begin{figure}[h]
   \centering
@@ -74,47 +140,91 @@ The result is not only easier to reason about technically, but also easier to ex
   \label{fig:architecture-overview}
 \end{figure}
 
-\subsubsection{Frontend Layer}
-The fronted is implemented with SvelteKit and primarily supports two interaction contexts. 
-The learner interface presents an exercise together with Blockly workspace, a visual or textual output area and the resulting feedback. 
-The teacher interface supports exercise authoring, review and course composition. 
-The current implementation also contains additional management views, such as log inspection and user administration, but these play a secondary role in the argument of the thesis. 
-The central design focus remainse the learner workflow and the teacher-facing authoring process. 
+\subsection{Frontend Layer}
+The fronted is implemented with SvelteKit and primarily supports different views depending on the user permissions. 
+The learner interface presents an exercise together with Blockly workspace, a visual or textual output area and the resulting feedback.
+The teacher interface supports exercise authoring, review, course composition and a dedicated analytics dashboard that drills from a list of classes down through each 
+class's students and from there into a per student per class detail view.
+The admin interface provides user managment, log inspection and settings for IdP (Identity Provider) configuration and other application-level concerns.
+But the admin interface is a secondary concern for the thesis. 
+The central design focus remains on the learner workflow and the teacher authoring, class-management and analytics processes. 
 
 
-\subsubsection{Exercise Engines}
-The exercise layer models the behavior of each supported task type, The Input/Output engine provides controlled input consumption and output collection for text-oriented tasks, while the turlte 
-engine manges position, orientation, pen state and drawing history for visual exercises. 
-Each exercise type is associated with an exercise definition, a Blockly toolbox and generator mapping, a restricted execution API and a grading strategy that matches the exercise semantics. 
+\subsection{Exercise Layer}
+The exercise layer models the behavior of each supported task type. 
+The Input/Output engine provides controlled input consumption and output collection for text-oriented tasks
+The turtle engine manages position, orientation, pen state, drawing history, configurable start and finish points, walls that the turtle collides with 
+at run time and and apple the turtle can eat. 
+The robot enigne mnages a discrete grid with start position, directin, walls and targes and exposes fixed-action movement blocks tailored to grid puzzles 
+rather than parameterized turtle commands. Each exercise type is associated with an exercise definition, a Blockly toolbox and generator mapping, restricted execution 
+API and grading strategy that matches the exercise semantics. 
 
 
-\subsubsection{Sandbox}
-The sandbox executes generated code in a restricted context. 
-in practical terms, execution takes place in an iframe with restricitve sandbox setttings and all communication with the main application occurs to browser capabilities; 
-they can only call the exercise-specific commands exposed by the application. 
-Runtime guards additionally limit execution time and help detect non-terminating behavior. 
-The resulting design does not claim absolute security, but it does establish a clear and trsut boundary that is appropriate for the protoype. 
+\subsection{Sandbox Layer}
+The sandbox executes generated code in a restricted context.
+In practical terms, execution takes place in an iframe with restricitve sandbox setttings and all communication with the main apllication 
+occurs through a message-based interface. Learner programs therefore do ot receive arbitrary access to browser capabilities. They can 
+only call the exercise-specific commands exposed by the application. 
+runtime guards additionally limit execution time and help detect non-terminating behabior. The resulting design does not claim absolute security, but 
+it does establish a clear and limited trust boundary that is appropriate for the educational deployment context.
 
 
-\subsubsection{Graders}
-The grading layer evaluates exercise outcomse after execution. 
-For Input/Otuput tasks, this means comparing actual and expexted output across defined test cases. 
-For tturlte exercsies, it measn comapring either the xecuted command trace or the resulting final state. 
-Keepking grading separate from execution and presentation makes the platfrom easier to extend and allows the grading logic to be discussed indepentendtly of the user interface. 
+\subsection{Grading Layer}
+The grading layer evaluates exercise outcomse after execution.
+For Input/Otuput tasks, this means comparing actual and expexted output across defined test cases.
+For tturlte exercsies, it measn comapring either the xecuted command trace or the resulting final state.
+Keepking grading separate from execution and presentation makes the platfrom easier to extend and allows the grading logic to be 
+discussed indepentendtly of the user interface.
 
 
 
-\subsection{Data Model}
-The data model stays close to the implemetned scope of the protoype. Its most important entities are users, exercsies, course, relations between courses and exercises, and attempt or progress revords. 
-users store account and role information wherever authenticated access is needed. Exercsies contain the task definition and grading configuration. 
-Coruses ogranize exercsies into ordered learning sequences, and the course-exercises relations capture both ordering and reuse. 
-Attemtps or prgoress recorsd connect learners to exercises and presever the outcomse of their interaction with the platform. 
-The repository also contains supporting entities such as audit logs, version tables and translations. 
-Tehse are part of the braoder application context, but within the scope of the thesis they remain secondary to the core educational entities of exercises, courses, users and attempts. 
+
+\section{Pedagogical Design Rationale}
+Several of the design decisions described above are not purely techincal. They oeprationalize specific findings from learning theory and child-computer interaction research. 
+Stating these connections explicitly is important because the paltform is intended for an educational audience, not as a generic coding tool. 
+
+The first connection is between the per-exercise toolbox constraint and \texttt{Cognitive Load Theory} \cite{sweller1988}. A toolbox containing dozens of unrelated blocks asks the 
+learner to make selection decisions that have nothing to do with the actual task. In Sweller's terms, this is extraneous load that competes with the germane load 
+of soling the proble. Weintrop et. al. report similar effects empirically for block-based environments \cite{weintrop2016}. 
+BlockQuiy therefore lets each exercise declare a small allow-list of blocks and pbulish-validation gate enforces that every block in the starter workspace also apperas in that allow-list. 
+The result is that the learner only sees blocks that are pedagogically relevant to the current task. 
+
+The second connection is between the progressive-hint mechanism and Vygotsky's \texttt{Zone of Proximal Development} \cite{vygotsky1978}, together with the related notionf of scaffolding \cite{wood1976}. 
+Hints are not all visible at once; they unlcok either after a delay or on explicit learner request, which keeps the assistance clsoe to what the learner needs at the moment. 
+Because each reveal event is caputred per attempt, the system can also report back to the teacher how often hints were taken and at which point turning a classroom intuition 
+('most learner struggled at exercise 3') into a measurable signal. 
+
+The third connection is between the slow-motion replay feature and debugging as a core computational-thinking practice. After a run, the leaner can play the recorded command 
+Trace step by step at a chosen speed. This maks the gap between the program the learner intended and the program they actually wrote observable, rather than abstract. 
+
+\section{Data Model}
+The data model stays close to the implemented scope of the system. Its most important entities are users, exercises, courses, relations between courses and exercises, classes that grou learner into cohorts and attempt or progress records. 
+Users store account and role information wherever authenticated access is needed. 
+Exercises contain the task definition and grading configuration. 
+Courses organize exercises into ordered learning sequences and the course-exercise relations capture both ordering and reuse. 
+Classes group students into cohorts that mirror real classroom groupings and a separate course-class relation lets a teacher hand a course to an entire class in a single 
+assignment. The enrolment is either single student or whole class, but enforced via UI.  
+Classes themselves can be either administrator-maintained or source from an identity provider's group claims and recnciled on every SSO login, which keeps 
+The BlockQuiz roster aligne with the school's IdP without an extra provisioning protocol. 
+Courses carry both a \texttt{published} flag and a separate \texttt{demo} flag. The demo flag is gated on \lstinline{published=ture} so that an unpublished work-in-progress course 
+annot leak through the public surface. Attempts or progress recrods connect learners to exercises and preserve the outcome of their interaction witht the platform. 
+
+The repository also contains supporting entities such as audit logs, version tables an IdP group discovery table that helps administrators audit which group claims exist 
+Before promoting them into classes and translations. These are part of the broader application context, but within the scope of the thesis they remain secondary to the core 
+educational entities of exercises, courses, classes, users and attempts. 
 
 \subsection{Security Considerations}
-The main threats considered in the design are accidental or malicious infinite loops, uinteded access to browser capabilities from learner code, and unauthorized access to protected authoring features. 
-The response to these threats is deliberatley layered. Iframe-bases andboxing limits the execution context, command whitelisting constrains the API available to generated programs and timeout or step-based execution limits keep 
-programs fro running indefinetly. 
-In paralle, validation of application input and API payloads protects the wider application, while role-based authorization seperates leraner, authoring and management privileges. 
-These measures reduce risk for the intended educational prototype but they do not justify absolute security claims.
+The main threats considered in the designa are accidental or malicious infinite loops, unintended access to browser capabilities from learner code and unauthorized 
+access to protected authoring features. 
+The response to these threats is deliberately layered. 
+Iframe-based sandboxing limits the execution context, command whitelisting constraints the API available to generated programs and timeout or step-based execution 
+limits keep programs from running indefinitely. In parallel, validation of application input and API payloads protects the wider application, 
+While role-based authorization separates learner, authoring and management privileges. 
+Where a school alread operates an identity provider, the same role boundary can be sourced from the IdP throught the optional OIDC or SAML SSO path. 
+Which re-evaluates the BlockQuiz role from IdP claims on every login and, in the same callback, reconciles the learner's class memberships against the 
+IdP-claimed gorups, so that revoked group membership and removed classes propagate without manual cleanup. 
+The browser-facing trust boundary is addtionally narrowed by a server-side response-header policy: ever HTML response receives a restricitive Content-Security-Policy, togehter with 
+\texttt{X-Frame-Options, X-Content-Type-Options, Referrer-Policy} and the cross-origin isolation headers. 
+THE CSP is not maximally strict. 
+These measuers reduce risk for the intended educationa system, but they do not justify absolute security claims, which is why the thesis treats the security model as adequate 
+And explicit about its won boundaries. 

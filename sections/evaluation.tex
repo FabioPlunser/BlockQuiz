@@ -1,0 +1,301 @@
+\section{Evaluation Goal}
+\label{sec:eval-goal}
+The evaluation of BlockQuiz combines two perspectives.
+The first is a technical perspective. Whethe the proposed architecture can be implemented in a coherent, testable and operationally plausible way ad whether the
+implementation saisfies the functional and non-funcitonal requirmenets.
+The second is a user perspective. Whether teachers, the primary group expected to author exercises and embed the platform in lessons, find the system understandable
+, age-appropriate, usable and what concrete obstacles they identifiey when working with the protoype.
+
+Both perspectives are reported in this chapter. The technical evaluation relies on automated test, static checking, a database verification script,
+build-size metrics and a structured mapping back to the requirements catalogue.
+The user evaluation relies on a small qualitative study with two student teachers at the University of Innsbruck, wo worked through a structured set of tasks, filled in
+a twenty-item scale quesionnaire and discussed their imprssions afterwards. The two perspecitves are complementary. The techincal evaluation answers whether the system
+works, the user evaluation answers whether the system works for the people it was build for.
+
+\section{Evaluation Questions and Method}
+\label{sec:evulation-questions}
+The evaluation is structured around the following questions:
+\begin{enumerate}
+  \item Can the implementaiton execute and grade the supported exercise families correclty and deterministically?
+  \item Does the implementation separate immediate learner feedback from trusted persistence in a techinically meaningful way?
+  \item To what extent does the implemented system satisfy the functional and non-functional requirements
+  \item Do student teachers find the platform understandable, age-appropriate and pedagogically suitable and which concrete obstacles do they identify in the prototype?
+  \item Which limitations remain visible after static checking, automated test, analytical inspection and qualitative user feedback?
+\end{enumerate}
+
+\section{Techinical Evaluation}
+\label{sec:technical-evaluation}
+The project passes \texttt{bun run check} with yero reported errors and warnings.
+The automated test suuite executes \textbf{296} tests across 27 test files via \texttt{bun --bun run test} and a dedicated database verification script
+asserts that the seed data is idmpotent and that every published seeded exercise still satisfies the publish-validation rules.
+Thes eresults do not replace pedagogical evaulation with learners, but they estabilish a repeatable technical baseline that is rerunnable on any commit.
+
+\subsection{Automated Test Suite}
+The tests are concentrated on the technical core of the system rather than on end-to-end browser automation. The largest tests are about the exercise engines and graders.
+These are the most complex and critical parts of the system and are tested on correctness of visual state changes and gradng resulsts.
+The sandbox tests cover particularly important invariants such as the message protocol, loop instrumentation, blocked globals and error mapping.
+The authoritative-execution tests focus on a security-relevant property of the system. Stored results for authenticated submissions are de-
+rived from server-side re-execution inside an isolated subprocess rather than from client trust,
+and the subprocess itself rejects malformed or tampered worker output.
+
+A second concentration of tests sits around the class system and SSO, which are operationally the riskiest parts of the codebase because they have to remain correct across
+both manual administrator action and Idp claims deltas.
+
+The remeinaing tests cover cross-cutting invariants of the platform, including the three level class-analytics aggregator, submission-payload validation, the public-route boundary,
+exercise canonicalization, the plain-language code readout parse, and locale parity between the German and English translation files.
+
+The test suite does not cover everything. There is no comprehensive end-to-end browser
+test suite for the full learner or CMS workflows, the unit suite is complemented by a focused
+Playwright pass that exercises the public flow, the authenticated learner and CMS flows, the
+responsive tab strip, and the SSO login link rendering, but full CMS-form regression coverage
+is intentionally out of scope for a bachelor-thesis prototype.
+
+\subsection{Database Verification}
+The dedicated \texttt{bun --bun run db:verify} script provisions a fresh SQLite database in a tempo-
+rary directory, runs db:push twice to prove idempotency, runs \texttt{db:seed} twice to prove the seed
+itself is idempotent, asserts the presence of every expected table and column, asserts the seeded
+counts (two courses, ten exercises), exercises the attempt-actor CHECK constraint with both a
+valid guest insertion and an invalid user-without-user\_id insertion, and finally loads every
+published seeded exercise and runs it through validateExercise. This last step caught a real
+defect during development. The new robot blocks were initially missing from the toolbox allow-
+list, which would have blocked publication of the seeded robot exercises. The script therefore
+acts as a regression gate against the exact class of authoring error that the publish-validation
+pass is designed to catch.
+
+\section{User Evaluation}
+\label{sec:user-evaluation}
+In addition to the technical evaluation above, the implementation was put in front of two student teachers at
+the University of Innsbruck.
+The purpose was to obtain qualitative feedback, whether the system is understandable and pedagogically suitable from the perspective of the user group that is expected to author and embed
+exercises in real classroom situations and to surface concrete obstacles that the technical evaluation cannot see.
+
+With two participants no statistical inference is attempted, the value of the data lies in the themes that emerge form the open-ended responses and the post-task discussion.
+
+\subsection{Method}
+Both participants worked through four structured tasks against a running instance of BlockQuiz seeded with the default course bundle. The tasks were
+designed to walk through the system in the order a teacher would naturally encounter it:
+\begin{enumerate}
+  \item First orientation. Open the application, log in and explore the main surface without a specific goal
+  \item Example use. Open an existing exerise as learner and solve it
+  \item Feedback and help. Trigger the platform's feedback and hint mechanisms and assess whether the explanations are useful.
+  \item Pedagogical Use. Author a small exercise and refelct on the intergration into a classroom context.
+\end{enumerate}
+
+Each task carried an open-text response field. After the tasks, the participants filled in a twenty-item scale questionnaire on a six-point scale where 1 corresponds to "strongly disagree" and 6 corresponds to "strongly agree".
+A short debriefing discussion was held afterwards, during which the experimente took written notes. The items from that discussion are interleaved with the questionnaire resulsts below.
+
+\subsection{Participants}
+Both pariticpants itentify as student teachers and have direct pedagogical experience but no substaintial classroom taching record yet.
+Their background differ enought to privide useful contrast on the same prototype
+\begin{itemize}
+  \item Particiapnt A: self-describes as a "Studentin Lehramt", with pedagogical training through the teacher-education programme and
+        occasional experience with educational software and digital leraning environments.
+  \item Participant B: self-describes as "Kindergartenpädagoging und angehene Lehrering", with pedagogical experience from kindergarten, school placements and childcare but
+        no or hardly any experience with educational software.
+\end{itemize}
+
+The contrast matters. P1 brings some prior familiarity with educational software, P2 bring concrete experience with younger learners and almost none with software platforms.
+Their reactions to the system therefore probe different parts of the design space.
+
+\subsection{Quantitative Results}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Likert ratings on the twenty questionnaire items (1~=~strongly disagree, 5~=~strongly agree)}
+  \label{tab:eval-likert}
+  \begin{tabularx}{\textwidth}{|X|c|c|}
+    \hline
+    \textbf{Item (translated)}                                                 & \textbf{P1}   & \textbf{P2}   \\\hline
+    The software is easy to understand overall                                 & 4             & 5             \\\hline
+    Operating the software feels intuitive                                     & 3             & 4             \\\hline
+    I could orient myself in the application quickly                           & 3             & 3             \\\hline
+    The most important functions are easy to find                              & 4             & 5             \\\hline
+    The interface feels clear and not overloaded                               & 4             & 3             \\\hline
+    The terms and explanations used are understandable                         & 3             & 5             \\\hline
+    The software is fundamentally suitable for children/students               & 5             & 5             \\\hline
+    The tasks and content feel age-appropriate                                 & 5             & 5             \\\hline
+    The software can meaningfully support learning processes                   & 5             & 5             \\\hline
+    The feedback from the software is helpful for learners                     & 5             & 5             \\\hline
+    The software supports independent exploration and learning                 & 5             & 5             \\\hline
+    The software can foster motivation or interest in the topic                & 5             & 4             \\\hline
+    I consider the software useful in an educational context                   & 5             & 5             \\\hline
+    I could imagine using the software in a pedagogical situation              & 4             & 5             \\\hline
+    The effort of using the software seems appropriate relative to its benefit & 5             & 5             \\\hline
+    The software fundamentally fits pedagogical work or learning contexts      & 5             & 4             \\\hline
+    I would recommend the software after improvements or adjustments           & 5             & 5             \\\hline
+    The software overall makes a polished impression                           & 4             & 5             \\\hline
+    The software fulfils its purpose in an understandable way                  & 5             & 5             \\\hline
+    Overall, I evaluate the software positively                                & 5             & 5             \\\hline
+    \textbf{Mean (twenty items)}                                               & \textbf{4.45} & \textbf{4.65} \\\hline
+  \end{tabularx}
+\end{table}
+
+Two patterns stand out across both participants. First, the pedagogical-fit cluster, suitability for children, age-appropriateness, support for learning
+processes, feedback usefulness and the global 'would recommend after improvements' item, sits consistently in the 4-5 range for both, with suggests
+that the platform's stated target audience and educational orientation are recofnised by readers who are not its authors. Second, the onboarding-related items..
+'I could orient myself in the application quickly' and 'operating feels intuitive' are the lowest in both columns. In the discussion afterwards,
+both expressed why they found the onboarding difficult which will be reported in a later section.
+
+\subsection{Qualitative Findings}
+The open-text responses and the debrief discussion converge on a small number of recurring themes. The themes are reported in the order they typically surfaced in the session.
+
+\subsubsection*{Visual design and first impression}
+The visual design is the most consistent positive theme. B named 'das Layout, die Vielfalft' as the best aspect of the software, A wrote that
+'viele kleine Details wirken gut durchdacht' and the debrief notes record an overall imression that 'the UI is very nice and inviting and clean in general'.
+B specfically praised the colour choice and the icon set in the first orientation taks: 'nettes Layout, gute Farbauswahl, nette Icons.'
+
+\subsubsection*{Onboarding cognitive load}
+The strongest negative theme is the steepness of the first encounter. B described the volume of information at the start as 'etwas überfordernd am Anfang' and predicted that children
+would experience overwhelment and distraction. A task-1 notes echoed this 'etwas überfordert von vielen Input.' In the debrief, both participants summarised the same
+point as 'too much text, too small, accessibilit is missing, too much information'. The remedy both suggested converges on a signle intervetion, a short instructional
+video or guided tour. A wrote explicitly that 'ein Erklärvideo, das es vormacht' would have made the authoring task much easier and the debrief notes record
+'better block explaination through videos and instructions'. The existing in-app hints address learner-side discovery but do not yer extend to the authoring surface, which is where the overload is worst.
+
+\subsubsection*{Localisation gap on block labels}
+Both participants flagged that the Blockly block labels themselves
+are still rendered in English while the rest of the German UI is
+localised. P1 named this directly as the most important missing element the german translation of blockly blocks in the CMS.
+\textbf{This was fixed after the evaluation session}
+
+\subsubsection*{Discoverability and navigation}
+Several individual navigation affordances were not where the
+participants expected them. The back-arrow was the first concrete
+issue mentioned in P1's task-1 notes (Zurück Pfeil nicht sofort
+ersichtlich) and recurs in the debrief . The starter-block section of the exercise editor
+did not surface for P1 (Starterblöcke nicht sichtbar) and the
+add check button on the I/O exercise editor was reported as
+non-functional (Prüfung hinzufügen Button geht nicht). The
+debrief notes corroborate these as concrete bugs rather than UX
+ambiguities. 'Live-update of checks in I/O did not work' \textbf{was fixed after the evaluation}.
+The starter blocks not showing in the editor also a bug which was fixed after the evaluation.
+Two further workflow suggestions arose from the same
+discussion. A 'save and return to the listing' redirect after
+saving an exercise or a course, and a way to attach an exercise to
+a course from the exercise-detail view rather than only from the
+course editor. Both are small but high-impact changes to the
+authoring path.
+
+
+\subsubsection*{Bugs that block classroom use today}
+The debrief discussion produced the strongest piece of unsolicited qualitative feedback in the whole study.
+'Due to the bugs, especially the starter workspace, currenlt not usable for school. But if the bugs are fixed and the problems mentioned in the
+evaluation are addressed, both would be happy to use it in school.' This both confirm the pedagogical fit and identifies the gating proble.
+The system is regarded as fit for purpose in principle but not in its current build state at the evaluation. The specific bugs called out in the
+debrief are the starter-workspace visibility issue, the non-updating I/O check editor, the unvalidated preview blocks, and the confusion around the I/O input block.
+
+\subsubsection*{Missing features and forward-looking suggestions}
+Several suggestions in the responses point beyond bug-fixing into genuine feature reqeusts. A named per-student analytics as the most important addition
+for pedagogical use. This has been added after the evulation meeting.
+B suggested that the platform should rather be a standalone app rather than a website to limit distractions of the students which will, inevetibly serach something online
+than doing the exercises.
+
+\subsubsection*{Accessibility and differentiation}
+Two specific accessibilitz concerns surfaced. A, who flagged her own consideration for
+dylsexic leraners, found the default font size too small and felt that the system
+would be hard to adapt to the needs of learners with reading or learning
+dissabilities. She said she would delpoy the sofrware only in a more
+homogenous class because she finds it hard to adapt the platform
+for learners with different needs.
+B pointed out that the layout on the desktop and tablet should be more like
+the mobile layout, which is more compact and presents the
+exercise in stages the learner can choose in a navigation bar (Description, Blocks, Run).
+This is a good point and was adapted to all layoust after the evaluation.
+
+
+\subsubsection*{Pedagogical fit and intended target audience}
+The pedagogical fit of the platform is consistent and positive.
+Both participants identified primary school and lower-secondary as the most
+appropriate target groups, with A adding secondary level 2 and both adding
+out-of-school yout work. A specificallz saw the platform's main home in the Austrian school
+subject 'Digitale Grundbildung' with secondary applicability in mathematics, while B saw a strong
+fit in MINT-focused schools at the secondary level.
+B closing answer to the question: "Would you consider using the software in a pedagogical context? Why, why not?" was: "Yes, because
+it conveys an easy undersating to learners.
+A closing answer is the cautious version. She would deploy the software afther another iteration and
+only in a relatively homogeneous class given her concerns about differentiation.
+
+\subsection{Issues Identified and Triage}
+Table \ref{tab:eval-issues} consolidates every concrete issue raised in the questioning into a triage list.
+The intent is to make the link between qualitative feedback and prioritisable enginnering work.
+
+Three issues in the triage table are gbugs thath the evaluation was the first encounter to surface.
+The non-updating I/O check editor, the unvalidated preview blocks and the broken I/O input block.
+These have been fixed since then.
+Several other entries are small UX changes thar are straigtforwad to address within the existing remote-function layer.
+The two substantial entires, the german Blockly localisation and the responsive CMS layout, are larger pieces of work and have
+also already been addressed.
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{issues raised in the user evaluation, classified by type and engineering effort}
+  \label{tab:eval-issues}
+  \begin{tabularx}{\textwidth}{|X|l|l|X|X|}
+    \hline
+    \textbf{issue}                                                      & \textbf{type}           & \textbf{effort} & \textbf{description}                                                                                                                          & \textbf{status} \\\hline
+    blockly block labels still in english under de locale               & localisation / fr-7 gap & medium          & requires a german message catalogue for the blockly built-in blocks alongside the existing application i18n parity test                       & closed          \\\hline
+    starter blocks not surfaced in the exercise editor                  & bug                     & medium          & starter-workspace section should always be visible when an exercise type is selected                                                          & closed          \\\hline
+    "add check" button does not update the i/o checks list live         & bug                     & low             & a reactive query subscription is missing on the editor                                                                                        & closed          \\\hline
+    i/o input block confusing and non-functional                        & bug                     & high            & the input-block authoring path needs both a wording revision and a behaviour fix                                                              & closed          \\\hline
+    preview blocks are not validated against the toolbox                & bug                     & medium          & preview path should reuse the same publish-validation pass that the publish action runs                                                       & closed          \\\hline
+    save action on exercise/course does not return to listing           & ux / workflow           & low             & post-save redirect to the parent listing                                                                                                      & open            \\\hline
+    cannot attach an exercise to a course from the exercise detail view & ux / workflow           & medium          & requires a small course-picker affordance on the exercise detail surface                                                                      & open            \\\hline
+    authoring surface overall feels overwhelming for newcomers          & ux / training           & high            & candidate for a short instructional video and/or a guided tour overlay; per-section progressive disclosure                                    & open            \\\hline
+    font size too small for dyslexic learners                           & accessibility           & medium          & requires using the font settings of the browser and for accessibility itself a redesing of the whole webiste                                  & open            \\\hline
+    mobile / tablet layout reuses the desktop layout                    & responsive design       & medium          & the player tab strip is responsive but the cms surfaces are not yet tablet-optimised                                                          & cloesd          \\\hline
+    per-student analytics page                                          & discoverability         & low             & has been added after the evaluation since it was seen by the participants as an inherent feature                                              & solved          \\\hline
+    teacher cannot tell which blocks are needed to solve an exercise    & training                & high            & teacher training and totorial videos would be necessary for an real deployment                                                                & open            \\\hline
+    distraction risk on shared tablets (browser tab vs. dedicated app)  & deployment              & high            & requires platform to be PWA compatible or made as an app so that learners are discouraged to open another browser tab and browse the internet & open            \\\hline
+  \end{tabularx}
+\end{table}
+
+
+\section{Interpretation}
+Taken together, the technical and the user evaluation support a limited but coherent conclusion.
+The proposed architecture is technically feasible and stable neough to justify the main design decisions of the thesis
+and the design is recognised as pedagogially appropriate by readers who are training to use
+such systems in real classrooms.
+
+The technical evidence is shows the runimte and grading behaviour are backed by 296 automated tests.
+THe submission path includes an explicit trust boundary between client interaction and server persistence.
+The authoring workflow is broad enough to support real content creation rather than only hardcoded demo
+exercises.
+The class system and its SSO reconciliation are exercised by deidacted test stuies that pin down both
+the adding and removing of users and classes. The deployment model is simple enough to remain credible for small
+Self-hosted school installations.
+
+The user evidence is more limited but important.
+Both participants  rated the platform positively overall and identified its target audience
+and pedagogical fit consisten with the thesis's state scope.
+At the same time, both reported a steep onboarding into the CMS and a small set of bugs that would blcok clasroom
+use in the current build. The most actionable consequence of the studiy is not a rehtinkg
+of the architecture but a traige list of concrete issues that need to be addressed.
+The stronges unsolicited message from the debrief is that both participants would consider
+deploying the system in their own future classrooms once the listed issues are addressed and
+tutorials exist for teachers to learn how to use the system.
+
+At the same time, the evaluation should not be overstated. Technical stability is not equivalent
+to educational effectiveness. A pasing test suite does not prove that children understand the interface,
+That teachers will find the CMS easy to adopt at scale or
+That the platform improves learning outcomes. The user study, with n=2student teachers and no actual
+child participants, is too small for any quantitative claim about usability and
+does not speak to learning outcomes at all.
+What both perspectives together do show is that the implementation ha moved beyond a conceptual mock-up,
+embodies the core thesis argument in executable and testable software and produces a positive impression
+On the users which are going to create content in the system.
+
+
+\section{Evaluation Limitations}
+The evaluation comes with some clear limitations.\\\\
+\textbf{Small qualitative sample.} The user study reports findings from two participants, both of them student teachers at the same university.
+This is a very small sample and does not support quantitative inference.
+Their opinion and evaluation is important to get an idea of the pedagogical fit of the system, but it is not representative of the full range of potential users and does not speak to actual learning outcomes with real child learners.
+\\\\
+\textbf{Bo child or in-classroom data.} Neither participant is a child in the target age range and no exercises were run with actual learners in a classroom setting. 
+The findings therefore speack to the teacher-facing UI and to pedagogical judgements about classroom suitability, but they do not speak to whether the platform improves learning 
+outcomes fro children aged 8-12. A follow-up study with actual learners in a classroom is the most valuable next step to address this gap. 
+\\\\
+The present evulation demonstrates technical viability, repeatable subsystem correctness and a first piece of qualitative evidence from student teachers that the design 
+is recognised as pedagogically appropriate. 
+A fuller study with children in a classroom remains future work. 

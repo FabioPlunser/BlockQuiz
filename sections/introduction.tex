@@ -3,8 +3,9 @@ increasingly recognized as essential for all learners regardless of their future
 In Austria, this recognition materialized with the introduction of ``Digitale Grundbildung'' (Digital Basic Education)
 as a mandatory subject for secondary education in 2022/23, reflecting a broader European trend
 toward integrating computational concepts into primary and secondary curricula.
-As a result, schools need programming tools that fit actual classroom conditions: they must be understandable for beginners,
-manageable for teachers with limited programming experience, and suitable for an institutional context in which privacy, deployment simplicity, and curricular alignment all matter.
+As a result, schools need programming tools that fit actual classroom conditions. They must be understandable for beginners,
+manageable for teachers with limited programming experience, and suitable for an institutional context in which privacy, deployment 
+simplicity, and curricular alignment all matter.
 
 
 \section{Motivation and Problem Statement}
@@ -35,11 +36,11 @@ Finally, the system also addresses administrators or school IT staff who need a 
 
 
 \section{Scope and Limitations}
-The implemented minimum viable product focuses on three exercise types: input/output tasks, turtle-graphics tasks, and grid-based robot tasks,
-together with a basic course model, multilingual content, and a teacher-facing authoring workflow.
-The platform emphasizes constrained tasks, client-side sandboxed execution, server-side authoritative grading for authenticated submissions, and Docker-based deployment.
-It does not attempt to provide a complete learning management system, full classroom analytics, advanced institutional identity management, or a broad range of domain-specific simulators.
-These omissions are intentional, as the thesis concentrates on the core software of a focused, privacy-conscious block-programming platform.
+The implemented covers three exercise types, namely input/output style tasks, turtle-graphics exercises, and grid-based robot puzzles, together witha course model, 
+a class model that maps cohorts of students onto courses, multilingual content, account management with selfservice password reset, 
+optional OIDC and SAML Single Sign-On for institutional deployments, and a teacher-facing authoring workflow. 
+The platform emphasizes constrained tasksm client-side sandbox execution and Docker-based deployment. It does not attempt 
+to provide a complete learning management system like a borad range of domain specific simulators. 
 
 \section{Document Structure}
 The remainder of this thesis follows the development of the platform.
@@ -49,5 +50,5 @@ Chapter \ref{chap:requirements} derives the requirements from the target group, 
 Chapter \ref{chap:design} then explains the resulting system design and the main architectural decisions.
 Chapter \ref{chap:implementation} describes the implementation of the platform in more detail, including the integration of Blockly, the execution sandbox,
 and the grading framework.
-Chapter \ref{chap:evaluation} presents a technical and heuristic evaluation of the prototype, including limitations and future validation needs.
+Chapter \ref{chap:evaluation} presents a technical and exploratory evaluation of the implemented system.
 Finally, Chapter \ref{chap:conclusion} summarizes the thesis, reflects on limitations, and identifies directions for future work.
