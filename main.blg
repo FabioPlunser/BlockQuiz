@@ -1,0 +1,25 @@
+This is BibTeX, Version 0.99d
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: main.aux
+The style file: plainnat.bst
+Database file #1: refs.bib
+Warning--entry type for "codeorg2026" isn't style-file defined
+--line 492 of file refs.bib
+Warning--entry type for "snap2026" isn't style-file defined
+--line 500 of file refs.bib
+Warning--entry type for "roperta" isn't style-file defined
+--line 509 of file refs.bib
+Warning--entry type for "lego" isn't style-file defined
+--line 518 of file refs.bib
+Warning--entry type for "scratch2026" isn't style-file defined
+--line 527 of file refs.bib
+Warning--entry type for "makecode2026" isn't style-file defined
+--line 536 of file refs.bib
+Warning--entry type for "svelte-async" isn't style-file defined
+--line 545 of file refs.bib
+Warning--entry type for "svelte-remote" isn't style-file defined
+--line 552 of file refs.bib
+Warning--empty year in svelte-async
+Warning--empty year in svelte-remote
+Warning--can't use both author and editor fields in Vygotsky1980
+(There were 11 warnings)

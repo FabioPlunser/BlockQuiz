@@ -7,16 +7,93 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{listings}
+\usepackage{xcolor}
 \usepackage{tabularx}
 \usepackage{graphicx}
 \graphicspath{{./images}}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage{pdfpages}
+
+% ---- Svelte / TS syntax highlighting (Atom One Dark) ------------------------
+\definecolor{atombg}{HTML}{282C34}
+\definecolor{atomframe}{HTML}{3E4451}
+\definecolor{atomfg}{HTML}{ABB2BF}
+\definecolor{atomcomment}{HTML}{5C6370}
+\definecolor{atomred}{HTML}{E06C75}
+\definecolor{atomorange}{HTML}{D19A66}
+\definecolor{atomyellow}{HTML}{E5C07B}
+\definecolor{atomgreen}{HTML}{98C379}
+\definecolor{atomcyan}{HTML}{56B6C2}
+\definecolor{atomblue}{HTML}{61AFEF}
+\definecolor{atompurple}{HTML}{C678DD}
+\definecolor{atomgutter}{HTML}{636D83}
+
+\lstdefinelanguage{Svelte}{
+  sensitive=true,
+  % control flow / declaration keywords (purple)
+  morekeywords={let,const,var,function,return,if,else,for,while,do,switch,case,
+    break,continue,new,this,typeof,instanceof,in,of,async,await,import,from,
+    export,default,extends,super,try,catch,finally,throw,yield,as,
+    interface,enum,public,private,protected,readonly,implements,abstract},
+  % type / literal keywords (orange)
+  morekeywords=[2]{type,class,null,undefined,true,false,number,string,boolean,
+    any,void,never,unknown,object},
+  % Svelte 5 runes (cyan)
+  morekeywords=[3]{\$state,\$derived,\$effect,\$props,\$bindable,\$inspect,\$host},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morecomment=[s]{<!--}{-->},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  alsoletter={\$,\#,\:,\/,\@},
+  % HTML / Svelte component tags (red)
+  moredelim=[s][\color{atomred}]{<}{>},
+  % Svelte block tags {#each}, {/each}, {:then}, {@const} (purple)
+  moredelim=*[s][\color{atompurple}]{\{\#}{\}},
+  moredelim=*[s][\color{atompurple}]{\{\:}{\}},
+  moredelim=*[s][\color{atompurple}]{\{\/}{\}},
+  moredelim=*[s][\color{atompurple}]{\{\@}{\}},
+}
+
+\lstdefinestyle{svelte}{
+  language=Svelte,
+  basicstyle=\ttfamily\small\color{black},
+  keywordstyle=\color{atompurple},
+  keywordstyle=[2]\color{atomorange},
+  keywordstyle=[3]\color{atomcyan},
+  identifierstyle=\color{black},
+  stringstyle=\color{atomgreen},
+  commentstyle=\color{atomcomment}\itshape,
+  numbers=left,
+  numberstyle=\ttfamily\footnotesize\color{atomgutter},
+  numbersep=10pt,
+  stepnumber=1,
+  showstringspaces=false,
+  tabsize=2,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  upquote=true,
+  extendedchars=true,
+  frame=single,
+  frameround=tttt,
+  rulecolor=\color{atomframe},
+  framesep=6pt,
+  xleftmargin=12pt,
+  xrightmargin=6pt,
+  aboveskip=1em,
+  belowskip=1em,
+  captionpos=b,
+  abovecaptionskip=0.5em,
+}
 
 % \usepackage[ngerman]{babel}     % if the thesis is written in German
 
 \title[BlockQuiz]{Web-Based Block Programming Platform
-with Auto-Grading for students}
+with Auto-Grading for Students}
 \author{Fabio Plunser}
 \supervisor{Ass. Prof. Dr. Michael Vierhauser}
 %\supervisor{Firstname1 Lastname1\\ Firstname2 Lastname2}
@@ -34,10 +111,23 @@ with Auto-Grading for students}
 \tableofcontents
 \listoffigures
 \listoftables
+\lstlistoflistings
 \uibkdeclaration
 \label{chap:declare}
 
+\chapter*{Declaration of AI Usage}
+\label{chap:ai-usage}
+AI tools were used in this project.
+They served as a coding assistant during implementation, helped search for related
+Scientific work, ran sentiment analysis and type checking on some of the thesis text and helped
+rephrasing a few sentences and paragraphs to make them less technical and easier to read.
+The author reviewed and edited every AI-assisted output.
+Final decisions about, content, structure and claims rest with the author.
+
+
 \mainmatter
+\pagestyle{headings}
+
 
 \chapter{Introduction}
 \label{chap:introduction}
@@ -70,16 +160,9 @@ with Auto-Grading for students}
 
 \bibliography{refs}
 
-\appendix
+\chapter{Evaluation Questionnaire}
+\label{app:questionnaire}
+\includepdf[pages=-]{./EvaluationForm.pdf}
 
-% \chapter{Proof}
-% Cubum autem in duos cubos, aut quadratoquadratum in duos quadratoquadratos,
-% et generaliter nullam in infinitum ultra quadratum potestatem in duos eiusdem nominis fas
-% est dividere cuius rei demonstrationem mirabilem sane detexi. Hanc marginis exiguitas non caperet\ldots
-
-% \chapter{Algebra}
-% L'alg\`ebre n'est qu'une g\'eom\'etrie \'ecrite; la g\'eom\'etrie n'est qu'une alg\`ebre figur\'ee.
-
-% \hfill Sophie Germain
 
 \end{document}

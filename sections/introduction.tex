@@ -2,7 +2,7 @@ Computational thinking has emerged as a fundamental skill for the 21st century,
 increasingly recognized as essential for all learners regardless of their future career paths~\cite{wing2006, grover2013}.
 In Austria, this recognition materialized with the introduction of ``Digitale Grundbildung'' (Digital Basic Education)
 as a mandatory subject for secondary education in 2022/23, reflecting a broader European trend
-toward integrating computational concepts into primary and secondary curricula.
+toward integrating computational concepts into primary and secondary curricula \cite{digitale_grundbildung}.
 As a result, schools need programming tools that fit actual classroom conditions. They must be understandable for beginners,
 manageable for teachers with limited programming experience, and suitable for an institutional context in which privacy, deployment 
 simplicity, and curricular alignment all matter.
@@ -10,9 +10,9 @@ simplicity, and curricular alignment all matter.
 
 \section{Motivation and Problem Statement}
 Many established block-based environments already support introductory programming quite well, yet they do not fully address this combination of requirements.
-Scratch encourages creativity and experimentation, but its open-ended project structure makes it difficult to use for short, deterministically assessable classroom tasks.
-Microsoft MakeCode offers a highly polished environment and a valuable bridge from blocks to text, but much of its design is centered on hardware integration and project-based exploration.
-Code.org provides structured learning sequences and strong scaffolding, yet its deployment model and platform boundaries are less aligned with a privacy-first, self-hosted use case
+Scratch \cite{resnick2009} encourages creativity and experimentation, but its open-ended project structure makes it difficult to use for short, deterministically assessable classroom tasks.
+Microsoft MakeCode \cite{ball2019} offers a highly polished environment and a valuable bridge from blocks to text, but much of its design is centered on hardware integration and project-based exploration.
+Code.org \cite{codeorg2026} provides structured learning sequences and strong scaffolding, yet its deployment model and platform boundaries are less aligned with a privacy-first, self-hosted use case
 in European school settings.
 Teachers therefore face a practical gap between highly creative block environments on the one hand and the need for tightly guided, easy-to-manage learning tasks on the other.
 
@@ -32,17 +32,17 @@ for exercise authoring, and a privacy-conscious deployment model that supports c
 The primary audience of the platform consists of children aged 8--12, a group for whom block-based interaction remains especially appropriate because it removes syntax barriers and keeps attention on
 logic, sequencing, repetition, and conditional behavior. A second important audience consists of teachers who need to create, organize, and evaluate exercises without having to
 program the platform itself.
-Finally, the system also addresses administrators or school IT staff who need a solution that can be deployed and maintained with limited operational complexity.
+Finally, the system also targets administrators or school IT staff who need a solution that can be deployed and maintained with limited operational complexity.
 
 
 \section{Scope and Limitations}
-The implemented covers three exercise types, namely input/output style tasks, turtle-graphics exercises, and grid-based robot puzzles, together witha course model, 
-a class model that maps cohorts of students onto courses, multilingual content, account management with selfservice password reset, 
+The implementation covers three exercise types, namely input/output style tasks, turtle-graphics exercises, and grid-based robot puzzles, together with a course model, 
+a class model that maps cohorts of students onto courses, multilingual content, account management with self-service password reset, 
 optional OIDC and SAML Single Sign-On for institutional deployments, and a teacher-facing authoring workflow. 
-The platform emphasizes constrained tasksm client-side sandbox execution and Docker-based deployment. It does not attempt 
-to provide a complete learning management system like a borad range of domain specific simulators. 
+The platform emphasizes constrained tasks, client-side sandbox execution and Docker-based deployment. It does not attempt 
+to provide a complete learning management system or implement a broad range of domain specific simulators. 
 
-\section{Document Structure}
+\section{Thesis Structure}
 The remainder of this thesis follows the development of the platform.
 Chapter \ref{chap:background} reviews the educational and technical background, discusses related platforms, and situates the work in existing literature on block-based programming and automatic
 feedback.

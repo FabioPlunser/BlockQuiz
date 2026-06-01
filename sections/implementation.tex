@@ -1,62 +1,94 @@
+This chapter walks through the concrete implementation of BlockQuiz. It describes the project structure,
+the domain model, the Blockly integration, the dual-path execution pipeline, the grading layer, the learner player,
+the teacher CMS and the authentication and class machinery that ties the system to a school identity provider.
+
 \section{Implementation Scope}
 \label{sec:implementation-scope}
-The implemented system covers the full learner flow, the teacher-facing authoring workflow and the technical infrastructure required for sandboxed excution and automatic grading.
-The system is broad enough to demonstrate the architecture described in Chapter \ref{chap:design} as a coherent whoel rather htna as a collection of isolated components.
-In practice, the stronges,t parts of the code base are the submission pipeline, the grading logic, the typed exerice model and the shared player used by both guest and authenticated learners.
+The implemented system covers the full learner flow, the teacher-facing authoring workflow and the
+technical infrastructure required for sandboxed execution and automatic grading.
+The system is broad enough to demonstrate the architecture described in Chapter \ref{chap:design} as a
+coherent whole rather than as a collection of isolated components.
+In practice, the strongest parts of the code base are the submission pipeline, the grading logic,
+the typed exercise model and the shared player used by both guest and authenticated learners.
 
-The implmetnation is organized as a SvelteKit application with TypeScript. The frontend uses Svelte5 components for the learner player, the teacher-facing CMS and the Blockly integration.
-Persistence is handled through SQLite with Drizzle ORM, while authentication, sessions and password reset are provided through Better Auth.
-Development and verification are performce through bun-based commands and the same runtime choise is also reflected in deployment through the Bun adapter, the \textbf{bun:sqlite} database client
-and the isolated Bun subprecess that performs server-side code execution.
+The implementation is organized as a SvelteKit application with TypeScript.
+The frontend uses Svelte 5 components for the learner player, the teacher-facing CMS and the
+Blockly integration. Persistence is handled through SQLite with Drizzle ORM, while authentication,
+sessions and password reset are provided through Better Auth. Development and verification are
+performed through bun-based commands and the same runtime choice is also reflected in deployment
+through the Bun adapter, the \textbf{bun:sqlite} database client
+and the isolated Bun subprocess that performs server-side code execution.
 
 \section{Project Structure and Technology Stack}
 \label{sec:project-structure}
-The repository is divided into route componetns, reusable interface componetns, typed domain moduels, gradin logic, sandbox infrastrucutre, 
+The repository is divided into route components, reusable interface components, typed domain modules,
+grading logic, sandbox infrastructure,
 remote functions and database access.
-This separation is visibe in the implementation. 
-The learner player and the CMS live in Svelte route components, while exercise normalization, grading, authoritative re-execution and persistence are
-Handled in dedicated library modules.
+This separation is visible in the implementation.
+The learner player and the CMS live in Svelte route components, while exercise normalization,
+grading, authoritative re-execution and persistence are
+handled in dedicated library modules.
 
-This split proved useful because the project combines several concersn that would otherwise become tightly coupled: visual programming, 
-learner interaction, runtime control, server-side persistence and authorization.
-Using SvelteKit for both interface and server integration simplified this boundary, since the same framework can host route components and typed server-side commands.
-At the same time, the more critical logic such as grading and sandbox coordination is kept outside user-interface files, which improves testability.
+This split proved useful because the project combines several concerns that would otherwise
+become tightly coupled. Visual programming, learner interaction, runtime control, server-side
+persistence and authorization.
+Using SvelteKit for both interface and server integration simplified this boundary, since the same
+framework can host route components and typed server-side commands.
+At the same time, the more critical logic such as grading and sandbox coordination is kept outside
+user-interface files, which improves testability.
 
-The final stack also refelcts the deployument goal of a privacy-conscious, self-hostable school system.
-The application runs without a seperate database server, does not depend on third-party APIs for tis core functionality and can be shipped as a signle containerized web application.
+The final stack also reflects the deployment goal of a privacy-conscious, self-hostable school system.
+The application runs without a separate database server, does not depend on third-party APIs for its core
+functionality and can be shipped as a single containerized web application.
 
 \section{Domain Model and Persistence}
 \label{sec:domain-model}
-One of the most important implementation tasks was turning the originally broad platform idea into a concrete and typed exercise model. In the final implementation, the central runtime model implements
-three exercise families: \texttt{io, turtle} and \texttt{robot}. Each type has a dedicated configuration and grading strategy, while shared learner-facing properties such as localized content, hints, toolbox restrictions and starter workspaces remain available across all types.
+One of the most important implementation tasks was turning the originally broad platform idea into a
+concrete and typed exercise model. In the final implementation, the central runtime model implements
+three exercise types: \texttt{io, turtle} and \texttt{robot}.
+Each type has a dedicated configuration and grading strategy, while shared
+learner-facing properties such as localized content, hints, toolbox restrictions and
+starter workspaces remain available across all types.
 
-The resulting model is strictre than a generic JSON-based exercise desription. For example, \texttt{io} exercises define normalization rules and epxlicit input and output test cases, where \texttt{turtle} and \texttt{robot} exercises use canvas or grid configuration togehter with strucuted state,command, or path based checks.
-In practice, this made it easier to keep authoring, grading and persistence consistent, because each exercise type has a clear set of expeceted fields.
+The resulting model is stricter than a generic JSON-based exercise description.
+For example, \texttt{io} exercises define normalization rules and explicit input and
+output test cases, whereas \texttt{turtle} and \texttt{robot} exercises use canvas or
+grid configuration together with structured state, command, or path based checks.
+In practice, this made it easier to keep authoring, grading and persistence consistent,
+because each exercise type has a clear set of expected fields.
 
-At the same time, the implementation keeps a compatibility oriented \textbf{config} object in addition to the typed branches. This is a pragmatic engineering comproise.
-It allows generic CMS and player components to access shared properties such as toolbox selection, starter XML, or hints through a stable shape, even though the runtime reperesentation is type sepecific.
-The result is slightly less pure than a fully separated model but it reduces UI duplication and kept the authoring surface manageable within thesis scope.
+At the same time, the implementation keeps a compatibility oriented \textbf{config}
+object in addition to the typed branches. This is a pragmatic engineering compromise.
+It allows generic CMS and player components to access shared properties such as toolbox selection,
+starter XML, or hints through a stable shape, even though the runtime representation is type-specific.
+The result is slightly less pure than a fully separated model but it reduces UI duplication and
+kept the authoring surface manageable within thesis scope.
 
 
 \begin{table}[H]
   \footnotesize
-  \caption{Implemented exercise families in BlockQuiz}
+  \caption{Implemented exercise types in BlockQuiz}
   \label{tab:impl-exercise-families}
   \begin{tabularx}{\textwidth}{|l|X|X|X|}
     \hline
     \textbf{Type}   & \textbf{Learner interaction}                                                                                                                   & \textbf{Grading basis}                                                & \textbf{Current maturity}                                                                        \\\hline
-    \texttt{io}     & Text-oriented tasks with generated JavaScript reading input and producing output                                                               & Visible and hidden stdin/stdout tests with configurable normalization & Mature and used as a main exercise family                                                        \\\hline
+    \texttt{io}     & Text-oriented tasks with generated JavaScript reading input and producing output                                                               & Visible and hidden stdin/stdout tests with configurable normalization & Mature and used as a main exercise type                                                        \\\hline
     \texttt{turtle} & Visual movement and drawing on a two dimensional canvas                                                                                        & Command replay, target checks, final state, and path comparison       & Mature and central to the implementation                                                         \\\hline
-    \texttt{robot}  & Grid based movement with walls, targets, and optional collectibles, using fixed-action step and turn blocks rather than parameterized movement & State, command, path and collect based checks                         & Implemented and seeded as a full third exercise family alongside \texttt{io} and \texttt{turtle} \\\hline
+    \texttt{robot}  & Grid based movement with walls, targets, and optional collectibles, using fixed-action step and turn blocks rather than parameterized movement & State, command, path and collect based checks                         & Implemented and seeded as a full third exercise type alongside \texttt{io} and \texttt{turtle} \\\hline
   \end{tabularx}
 \end{table}
 
-The same emphasis on typed structure appears in persistence. The database schema contains the expected educational entities of users, courses, exercises, course-exercise relations and attempts, but
-it also stores validation snapshots, exercise version, translations and audit-related information.
-For the thesis, the most interesting table is the attempt record, because attempts form the common interface between learner interaction, grading, analytics and export.
+The same emphasis on typed structure appears in persistence. The database schema contains the
+expected educational entities of users, courses, exercises, course-exercise relations and attempts,
+classes but it also stores validation snapshots, exercise version,
+translations and audit-related information.
+For the thesis, the most interesting table is the attempt record, because attempts form the
+common interface between learner interaction, grading, analytics and export.
 
-Instead of storing only a score and a timestamp, the implementation persists the replayable leraner artifact: workspace XML, generated code, serialized grading result, locale, hint events, and additional
-analytics metadata. This makes it possible to reconstruct what a learner submitted and not merely what score they received.
+Instead of storing only a score and a timestamp, the implementation persists the replayable
+learner artifact: workspace XML, generated code, serialized grading result, locale, hint events,
+and additional analytics metadata. This makes it possible to reconstruct what a learner
+submitted and not merely what score they received.
 
 
 \begin{table}
@@ -74,258 +106,384 @@ analytics metadata. This makes it possible to reconstruct what a learner submitt
   \end{tabularx}
 \end{table}
 
-Another improtant detail is publish validation. The final implementation does not allow exercise publication if not specific validation criteria are met.
+Another important detail is publish validation.
+The final implementation does not allow exercise publication unless specific validation criteria are met.
 Instead, exercises are validated against concrete conditions
-such as bilingual title and description, parseable starter XML, presence of test cases and at leas on hidden test.
-This is not a complete formal verification of exercise quality, but it create a meaningful boundary between authoring flexibility and learner-facing realiability.
+such as bilingual title and description, parseable starter XML, presence of test cases and
+at least one hidden test.
+This is not a complete formal verification of exercise quality, but it creates a meaningful
+boundary between authoring flexibility and learner-facing reliability.
 
 \section{Blockly Integration}
-\label{sec:bockly-integration}
-Blockly is integrated as the visual programming editor for both learners and teachers. In the learner player, the workspace is configured dynamically from the current exercise definition.
-The available blocks are not static; instead, the toolbox is assemled at runtime from built-in categories such as logic, lopps, math and text together with engine-specific blocks for turtle or robot behavior.
-This directly implements the didactic idea of constrained toolboxes discussed earlier in the thesis.
+\label{sec:blockly-integration}
+Blockly is integrated as the visual programming editor for both learners and teachers.
+In the learner player, the workspace is configured dynamically from the current exercise definition.
+The available blocks are not static, instead, the toolbox is assembled at runtime from built-in
+categories such as logic, loops, math and text together with engine-specific blocks for
+turtle or robot behavior.
+This directly implements the idea of constrained toolboxes discussed earlier in the thesis.
 
-The block integration is not merely visual. Custom block generators emit JavaScript calls such as \textbf{api.move(\dots)}, \textbf{api.turn(\dots)}, or \textbf{api.collect(\dots)}, which become the contract
-between Blockly and the sandbox runtime. This was an important design choice, because it gives the generated programs a narrow and exercise-sepcific execution surface instead of unrestricted access
-to browser objects.
-The same block definitions can therefore be reused in the learner player, the CMS preview and the grading-related execution paths.
+The block integration is not merely visual. Custom block generators emit JavaScript calls such as
+\textbf{api.move(\dots)}, \textbf{api.turn(\dots)}, or \textbf{api.collect(\dots)}, which become
+the contract between Blockly and the sandbox runtime. This was an important design choice,
+because it gives the generated programs a narrow and exercise-specific execution surface
+instead of unrestricted access to browser objects.
+The same block definitions can therefore be reused in the learner player, the CMS preview and
+the grading-related execution paths.
 
 The robot exercise type illustrates how this contract can be specialized for a different goal.
-Where the turlte exercises expose parameterized \texttt{move N steps} and \texttt{turn N degrees} blocks suitable for free drawing, the robot toolbox uses fixed-action blocks such as \texttt{step forward},
-\texttt{one cell}, \texttt{turn left}, and \texttt{turn right}. These blocks call the same underlying engine API but remove the need for learners to reason about arbitrary numeric arguments while solving grid
-puzzles.
-Together with the optional \texttt{collect} block, they make the robot tasks feel like a distinct puzzle activity rather than a numeric variant of the turlte exercises.
+Where the turtle exercises expose parameterized \texttt{move N steps} and \texttt{turn N degrees}
+blocks suitable for free drawing, the robot toolbox uses fixed-action blocks such as
+\texttt{step forward}, \texttt{one cell}, \texttt{turn left}, and \texttt{turn right}.
+These blocks call the same underlying engine API but remove the need for learners to reason
+about arbitrary numeric arguments while solving grid puzzles.
+Together with the optional \texttt{collect} block, they make the robot tasks
+feel like a distinct puzzle activity rather than a numeric variant of the turtle exercises.
 
 The same Blockly component is reused in the CMS editor.
-Teachers can choose blocks, define starter workspace and preview how an exercise appears from the learner perspective.
-The implementation stores and restores Blockly workspaces as XML, which allows a starter configuration to be reussed consistently between authroing and learner execution.
-For visual exercise types, Blockly categories combine generic logic and control blocks with engine-specific movement blocks.
+Teachers can choose blocks, define starter workspace and preview how an exercise appears
+from the learner perspective. The implementation stores and restores Blockly workspaces as
+XML, which allows a starter configuration to be reused consistently between authoring and learner
+execution. For visual exercise types, Blockly categories combine generic logic and
+control blocks with engine-specific movement blocks.
 
-In practice, the Blockly integration also required several smaller engineering adjustment that are worth documenting. The workspace component adds
-accessibility attributes after injection so that the generated DOM is exposed as a labbelled region, not just as an opaque graphics surface.
-In addtion, a \texttt{MutationObserver} is used to keep the flyout scrollbar behavior stable when toolbox visibility changes.
-These details are easy to omti in a broad design description, but they matter for turning a library integration into a usable web application.
+In practice, the Blockly integration also required several smaller engineering adjustments
+that are worth documenting. The workspace component adds
+accessibility attributes after injection so that the generated DOM is exposed as a labelled region,
+not just as an opaque graphics surface.
+In addition, a \texttt{MutationObserver} is used to keep the flyout scrollbar behavior stable when toolbox
+visibility changes. These details are easy to omit in a broad design description,
+but they matter for turning a library integration into a usable web application.
 
-One practical advantage of this design is that the editor remains largely data-drive. Exercise definitions determine both the learner experience and the authoring preveiw, which reduces
+One practical advantage of this design is that the editor remains largely data-driven.
+Exercise definitions determine both the learner experience and the authoring preview, which reduces
 duplication between CMS and player code.
-A typical \texttt{io} exercise can expose only arithmetic, text output and control flow blocks, whereas a turlte exercise can offer movement and pen blocks with a smaller set of generic constructs.
-In both cases, the learner sees only the blocks that are relevant for the current ask.
+A typical \texttt{io} exercise can expose only arithmetic, text output and control
+flow blocks, whereas a turtle exercise can offer movement and pen blocks with a
+smaller set of generic constructs. In both cases, the learner sees only the
+blocks that are relevant for the current task.
 
 \section{Execution Pipeline and Trust Boundaries}
 \label{sec:execution-pipeline}
-The submission pipelein is the strongest technical part of the implementation because it connects editing, execution, grading and persistence through explicit interfaces.
-From the leaner's perspective this appears as a simple \texttt{run} or \texttt{check} interaction, but the implementation actually performs a sequence of coordinated steps:
+The submission pipeline is the strongest technical part of the implementation because it connects
+editing, execution, grading and persistence through explicit interfaces.
+From the learner's perspective this appears as a simple \texttt{run} or \texttt{check} interaction,
+but the implementation actually performs a sequence of coordinated steps:
 \begin{enumerate}
   \item The Blockly workspace is translated into JavaScript code.
-  \item The player creats a sandbox request containing the code, exercise type allowed \texttt{API} methods, runtime limits and optional input data.
-  \item A hidden iframe receives this request through a \texttt{MessageChannel} and executes the code in an isolated browser context.
-  \item The sandbox returns a structured execution trace containing command logs, output streams, timing data and, for visual tasks, the final state.
+  \item The player creates a sandbox request containing the code, exercise type allowed
+        \texttt{API} methods, runtime limits and optional input data.
+  \item A hidden iframe receives this request through a \texttt{MessageChannel}
+        and executes the code in an isolated browser context.
+  \item The sandbox returns a structured execution trace containing command logs,
+        output streams, timing data and, for visual tasks, the final state.
   \item The appropriate grader converts this trace into a uniform grading result.
-  \item For authenticated submissions, the server validates the shape of the submitted grading object, re-executs the code authoritatively and only then stores the attempt in the database.
+  \item For authenticated submissions, the server validates the shape of the
+        submitted grading object, re-executes the code authoritatively and only
+        then stores the attempt in the database.
 \end{enumerate}
 
 
-This pipeline is intentionally layered. The player is responsible for user interaction, the sandbox is responsible for execution, the graders are responsible for
-correctness evaluation, and the server-side remote function is responsible for trust-sensitive persitence.
+This pipeline is intentionally layered. The player is responsible for user interaction,
+the sandbox is responsible for execution, the graders are responsible for
+correctness evaluation, and the server-side remote function is responsible for
+trust-sensitive persistence.
 This separation makes it easier to reason about failures and avoids hiding core logic in UI components.
 
-The sandbox implementation is intentionally generic across exercise types. The hidden iframe is created with restrictive sandbox settings and communcates with the main application only through
-typed messages. Each execution request includes the allowed API methods, timeout, maximum command count and maximum loop iterations. Loops in the generated code are instrumented before execution, so the runtime can interrupt programs that would otherwise run indefinitely.
+The sandbox implementation is intentionally generic across exercise types.
+The hidden iframe is created with restrictive sandbox settings and communicates
+with the main application only through typed messages.
+Each execution request includes the allowed API methods, timeout,
+maximum command count and maximum loop iterations.
+Loops in the generated code are instrumented before execution,
+so the runtime can interrupt programs that would otherwise run indefinitely.
 
-This design provides two practical benefits. First, it keeps the learner interface responsive even when a program fails or loops unexpectedly. Secondly, it establishes a clearer trust boundary than direct local execution in UI components.
-The browser-side sandbox is still a pragmatic prototype solution, not a formally strong isolation boundary, but it already separates learner code form the main interface and blocks many browser APIs that are irrelevant or dangerous in this context.
+This design provides two practical benefits. First, it keeps the learner interface
+responsive even when a program fails or loops unexpectedly.
+Secondly, it establishes a clearer trust boundary than direct local execution in UI components.
+The browser-side sandbox is still a pragmatic prototype solution,
+not a formally strong isolation boundary,
+but it already separates learner code from the
+main interface and blocks many browser APIs that are irrelevant or dangerous in this context.
 
-An imortant extension of this idea is the authoritative execution path on the server side.
-When an authenticated learner submits an attempt, the server does not simply trust the client reported score. Instead, it validates the strucutre of the submitted result and then re-executes the generated code inside an isolated Bun subprocess worker.
-The worker has no access to the database, the session, or any application module. It recieves only the code, the exerices type and the runtime limits over standard input and repots the reuslting trace over standard output.
-Inside the worker, the actual code runs in a \texttt{node:vm} context that enforces per-execition time and loop limits and the parent process additionally enforces a hard kill timeout and a maximum outputs size.
-The grading reuslt that is stored in the database therefore comes from this re-execution rather than from the client-reported value.
-This is one of the most important implementation choices of the project because it separates immediate learner feedback from trusted persistence at both the API and the operating-system level.
+An important extension of this idea is the authoritative execution path on the server side.
+When an authenticated learner submits an attempt, the server does not simply trust the client
+reported score. Instead, it validates the structure of the submitted result and then re-executes
+the generated code inside an isolated Bun subprocess worker.
+The worker has no access to the database, the session, or any application module.
+It receives only the code, the exercise type and the runtime limits over standard input
+and reports the resulting trace over standard output.
+Inside the worker, the actual code runs in a \texttt{node:vm} context that
+enforces per-execution time and loop limits and the parent process additionally
+enforces a hard kill timeout and a maximum output size.
+The grading result that is stored in the database therefore comes from
+this re-execution rather than from the client-reported value.
+This is one of the most important implementation choices of the project
+because it separates immediate learner feedback from trusted persistence at
+both the API and the operating-system level.
 
 \section{Grading Pipeline}
 \label{sec:grading-pipeline}
-The grading pipeline differs by exercise type, but all graders return the same result structure: pass/fail status, integer percentage score, number of passed test, total number of tests and per-test feedback.
-This common format was an important implementation goal because it allows the UI, persistence layer and analytics code to remain largely independent of the specific grading stragey.
+The grading pipeline differs by exercise type, but all graders return the same result structure.
+Pass/fail status, integer percentage score, number of passed test, total number of tests and
+per-test feedback. This common format was an important implementation goal because it allows the UI,
+persistence layer and analytics code to remain largely independent of the specific grading strategy.
 
-For \texttt{io} exercises, the executor runs the generated program once per test case, injecting the configured standard input and collecting standard output and error output. The grader then normalizes the
-produced text according to the exercise configuration.
-The supported normalization rules include trimming, whitespace collapsing, case handling, line-ending normalization, and decimal separator handling.
-This is more robust than direct string equality and reduces the number of irrelevant mismatches that beginners would otherwise encounter.
+For \texttt{io} exercises, the executor runs the generated program once per test case,
+injecting the configured standard input and collecting standard output and error output.
+The grader then normalizes the produced text according to the exercise configuration.
+The supported normalization rules include trimming, whitespace collapsing, case handling,
+line-ending normalization, and decimal separator handling.
+This is more robust than direct string equality and reduces the number of irrelevant
+mismatches that beginners would otherwise encounter.
 
-For visual exercises, execution produces a command trace that can be replayed on the corresponing engine. Grading then evaluates the toucome against target, state, command, path, or
-collect tests. A deliberate implementation decision was to grade the replayed command semantics rather than comparing rendered pixels.
-This keeps the grader deterministic, easier to test and less dependent on rendering details. In other words, the system asks whether the learner reached the intended logical state, not whether two canvases happen to look identical the pixel level.
+For visual exercises, execution produces a command trace that can be replayed on the corresponding engine.
+Grading then evaluates the outcome against target, state, command, path, or
+collect tests. A deliberate implementation decision was to grade the replayed command
+semantics rather than comparing rendered pixels.
+This keeps the grader deterministic, easier to test and less dependent on rendering details.
+In other words, the system asks whether the learner reached the intended logical state,
+not whether two canvases happen to look identical at the pixel level.
 
-The current implementation also distinguishes carefully between visible and hidden test.
-Visible tests can expose expected and actual values to learners, while hidden test contribute to the score without revealing complete solution information.
-This is especailly important for \texttt{io} tasks, where showing all hidden examples would make it easier to figure out a program.
-The grading and submission code therefore treats thidden tests not merely as a UI concern, but as part of the trusted exercise definition.
+The current implementation also distinguishes carefully between visible and hidden tests.
+Visible tests can expose expected and actual values to learners, while hidden tests contribute
+to the score without revealing complete solution information.
+This is especially important for \texttt{io} tasks, where showing all hidden
+examples would make it easier to figure out a program.
+The grading and submission code therefore treats hidden tests not merely as a UI concern,
+but as part of the trusted exercise definition.
 
 \section{Learner Player and Attempt Capture}
 \label{sec:learner-player}
-The learner-facing course player presetns on exercise at a time, maintains progress within the course and records attemtps together with additional metadata.
-The design intentionally emphasizes focus:
-the learner sees a taks description, as single Blockly workspace, and a resulsts area for execution and grading feedback.
-Course navigation is still present, but it does not dominate the screen.
+The learner-facing course player presents one exercise at a time, maintains progress within the
+course and records attempts together with additional metadata.
+The learner sees a top bar to switch between the task description, the Blockly workspace and the
+run and results panel.
+This has been changed after the evaluation.
+At first all of these areas were visible at the same time,
+side by side and only on mobile could you switch between them.
+In the evaluation, concerns were raised that the interface looked too busy and that the course
+navigation and task description competed for attention with the workspace and results.
 
-On wide screens, these three areas are arranged side by side as a three-column grid that mirros the conceptual strucutre of the activity.
-On smaller screens, the same three areas are exposed as a tab strip with \textit{Task, Blocks} and \textit{Run} buttons, while the underlying componetns remain moutned so that the execution state and
-grading feedback survive tab changes.
-This matters in practive becaues the platform must remain usable on tablets, which are commn in primary scool classrooms and would otherwise force the
-learner to scrool between editing and running.
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{Leaner-UI.png}
+  \caption{The learner player after the redesign. A top tab strip switches between the task
+  description, the Blockly workspace and the run and results panel.}
+  \label{fig:learner-ui}
+\end{figure}
 
-Each submission stores the Blockly workspace XML, the generated code, the grading result, the selected locale and structured metadata such as hint usage and test counts.
+Each submission stores the Blockly workspace XML, the generated code, the grading result, the selected
+locale and structured metadata such as hint usage and test counts.
 This is more detailed than a conventional quiz record.
-The platform does not only preserver whether a learner passet, it preserves what was submitted and under which conditions.
-This makes later review and export more meaningful and provides a better basis for future teacher facing analytics.
+The platform does not only preserve whether a learner passed, it preserves what was submitted and
+under which conditions. This makes later review and analysis more meaningful and provides useful
+data for the teacher.
 
-The player also restores stored workspace state when learner return to an exercise. This is especially relevant for guest mode, where continuity must be preserved without relying on an account.
-The course-level player therefore does not hard-code a persistence method. Instead it accepts and injected persistence function so that the same learner interface can be used with local guest storage
-or authenticated server-side submission.
+The player also restores stored workspace state when learners return to an exercise.
+This is especially relevant for guest mode, where continuity must be preserved without
+relying on an account.
+The course-level player therefore does not hard-code a persistence method.
+Instead it accepts an injected persistence function so that the same learner interface can
+be used with local guest storage or authenticated server-side submission.
 
-Hints are also treated as first-class interaction data. The player records which hints were revelead, when they were revealed and whether they were triggered byt time or explicit learner action.
-This is a small but important example of how the implementation already caputres richer learning process data than a simple final score.
+Hints are also treated as first-class interaction data. The player records which hints
+were revealed, when they were revealed and whether they were triggered by time or explicit learner action.
+This is a small but important example of how the implementation captures richer
+learning process data than a simple final score.
 
-\section{Teacher facing Authoring Workflow}
+\section{Teacher-facing Authoring Workflow}
 \label{sec:teacher-facing-auth}
-The CMS includes a substantial exercise editor for authoring. Teachers can define localized titles and descriptions, choose an exercise type, configure the toolbox, edit hints and mange test cases.
-In practice, the editor is not a single form but a multi-surface workflow that combines text editing, Blockly starter-block editing, visual canvas configuration and learner-side preview.
+The CMS includes a substantial exercise editor for authoring. Teachers can define localized titles and descriptions, 
+choose an exercise type, configure the toolbox, edit hints and manage test cases.
+In practice, the editor is not a single form but a multi-surface workflow that combines text editing,
+Blockly starter-block editing, visual canvas configuration and learner-side preview.
 
-For \texttt{io} tasks, the editor offers explicit control over visible examples, stdin/stdout test cases, normalization rules and localized success messages.
-For visual tasks, the editor supports both automatic and manual test creation. Targets placed on the canvas become target tests automatially and drawn path
-overlays become path tests.
-Additional state or command tests can then be added manually for more specific requirements. This combination proved useful because it allows quick authoring of straighforward exercises
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{Teacher-Exercise-CMS.png}
+  \caption{The teacher exercise editor in the CMS, showing localized content fields, exercise-type
+  selection, toolbox configuration, hints and test-case management.}
+  \label{fig:teacher-cms}
+\end{figure}
+
+For \texttt{io} tasks, the editor offers explicit control over visible examples, stdin/stdout test cases,
+normalization rules and localized success messages.
+For visual tasks, the editor supports both automatic and manual test creation. 
+Targets placed on the canvas become target tests automatically and drawn path overlays become path tests.
+Additional state or command tests can then be added manually for more specific requirements. 
+This combination proved useful because it allows quick authoring of straightforward exercises
 without removing the ability to define stricter checks.
 
-The authoring flow also includes an integrated preview. Before publication, theacers can run the current exercise definition through the same learner-facing logic that is used during
-normal exercise solving.
-This is important for thesis scope because it reduces the gap between authoring and devliery. The same execution and grading pipeline can be exercised locally before content is made public.
+The authoring flow also includes an integrated preview. Before publication, teachers can run the current exercise definition 
+through the same learner-facing logic that is used during normal exercise solving.
+This is important for thesis scope because it reduces the gap between authoring and delivery. 
+The same execution and grading pipeline can be exercised locally before content is made public.
 
-Before an exercise is publised, the current impleentation performs validation checks on requried fields and configuration completeness.
-Published exercises must have bilingual title and description fields, at least one test case, at least on hidden test, and type-specific dimensions or settings that make sense.
-Starter XML is also checked for parseability and the contained block ids must belogn to the configured toolbxo so that an exericse cannot be published with startert blocks the
-learner is not allowed to use.
-This validation is intentionally lightweight compared to a formal content-quality workflow, but it already blocks the most obvious authoring mistakes from reaching learners.
-The same validation function is also re-used in an automated database verification script that loads every seeded exercise after \textbf{db:seed} and asserst that each published
-exercise still passes publish validation.
+Before an exercise is published, the implementation performs validation checks on required fields and 
+configuration completeness. Published exercises must have bilingual title and description fields, at least one test case, 
+at least one hidden test, and type-specific dimensions or settings that make sense.
+Starter XML is also checked for parseability and the contained block ids must belong to the configured toolbox so that an 
+exercise cannot be published with starter blocks the learner is not allowed to use.
+This validation is intentionally lightweight compared to a formal content-quality workflow, but it already blocks 
+the most obvious authoring mistakes from reaching learners.
+The same validation function is also re-used in an automated database verification script that loads every seeded 
+exercise after \textbf{db:seed} and asserts that each published exercise still passes publish validation.
 
-The CMS also exposes a course-level analytics view and a dedicated multilevel class-analytics surface. The course-level view comines the summary statisticts such as average 
-scroe, number of attempts and unique student count with several proecess-oriented metrics that are derived from the analytics payload of each attempt. 
-Averave solve duraiton, average number of revealed hints, average workspace block count, average generated code lenght and the distribution of attempts across 
-the German and English locales. 
-The same metrics are also broken down per exericse so that teachers can spot tasks that are unusally difficutl, attract many hitn revelas, or are mostly attempted 
-in only one of the two languages. 
+The CMS also exposes a course-level analytics view and a dedicated multilevel class-analytics surface. 
+The course-level view combines the summary statistics such as average score, number of attempts and unique student count 
+with several process-oriented metrics that are derived from the analytics payload of each attempt.
+Average solve duration, average number of revealed hints, average workspace block count, average generated code length and the 
+distribution of attempts across the German and English locales.
+The same metrics are also broken down per exercise so that teachers can spot tasks that are unusually difficult, attract many 
+hint reveals, or are mostly attempted in only one of the two languages.
 
-The dedicated analytics pagescales teh same idea up to the classrooms level. The first level lists every calls with aggregated attempt cout, enrolled student count, 
-pass rate, average score, average solve duraiton, hint usage and time of last activity.  
-Clicking a class opens the second level, which keeps the same metrics in the page header and then decomposes them by individual stude. Clicking a student opens the third level, 
-Which follows the same student across every course assigned to the class and reports per-course attempts, exerises attempted, exercises passed, pass rate, average score and locale split. 
-These indicators do not rpelace classroom observation, but they make the captured attempt data actionable for teachers along the same axes their classroom is already organised on. 
-To noe the analytics page was not pare of the original project it was added after the first evaluation stating that it is a must have for teachers. 
+The dedicated analytics page scales the same idea up to the classrooms level. The first level lists every 
+class with aggregated attempt count, enroled student count, pass rate, average score, average solve duration, hint usage and 
+time of last activity. Clicking a class opens the second level, which keeps the same metrics in the page header and 
+then decomposes them by individual student. Clicking a student opens the third level, which follows the same student 
+across every course assigned to the class and reports per-course attempts, exercises attempted, exercises passed, pass rate, 
+average score and locale split. These indicators do not replace classroom observation, but they make the captured attempt 
+data actionable for teachers along the same axes their classroom is already organised on.
+Note that the analytics page was not part of the original project. It was added after the first evaluation, where participants stated 
+that it was a must-have for teachers.
 
 
 \section{Authentication, Authorization and Audit}
 \label{sec:authentication-authorization-audit}
-Authentication is implemented through Better Auth with both email-and-password accounts and an optional Signle Sign-On path.
-Sessions are stored in the application database and propagated to SvelteKit through the dedicated cookies plugin. User accounts carry a role field (student, teacher or admin) together with explicit active flag.
-A central server-side guard treats only login, demo, privacy, password-reset and authentication API aroutes as public, every other route is redirected to the login page when no valid
-session is present and inactive users are rejected even if they authenticate successfully. Theacer and admin-onyl remote functions reuse the same role check so that authorization is enforced at the data layer rather
+Authentication is implemented through Better Auth with both email-and-password accounts and an optional Single Sign-On path.
+Sessions are stored in the application database and propagated to SvelteKit through the dedicated cookies plugin. 
+User accounts carry a role field (student, teacher or admin) together with explicit active flag.
+A central server-side guard treats only login, demo, privacy, password-reset and authentication API routes as public, 
+every other route is redirected to the login page when no valid session is present and inactive users are 
+rejected even if they authenticate successfully. 
+Teachers and admin-only remote functions reuse the same role check so that authorization is enforced at the data layer rather
 than relying on the user interface alone.
 
-Signel Sign-On is provied by the \texttt{@better-auth/sso} plugin and supports both OIDC and SAML identity providers. Provider records are kept in a dedicated \texttt{ssoProvider} table and are managed at runtime trhough an admin settings page rather
-than through environment files, which means a school administrator can register, edit or remove providers without a code change.
-On every successfull SSO login the system inspects the IdP claims (groups, roles) and re-evaluates the mappint to a BlockQuiy role using a stored claim-to-role map for the amdin, teacher groups, falling back to student when no group matches.
-Because the mapping run son every login rather than only at account creation, changes to group membership in the IdP proapage without manual cleanup in BlockQuiz.
-The same admin settings page exposes a password login mode toggle (always versus fallback) that allows an SSO-primary deployment to hide the email-and-passsword form behind a small affordance while keeping it available for
-administrator recovery and the login page itself surface the configured providers as \texttt{Continue wiht SSO} button.
+Single Sign-On is provided by the \texttt{@better-auth/sso} plugin and supports both OIDC and SAML identity providers. 
+Provider records are kept in a dedicated \texttt{ssoProvider} table and are managed at runtime through an admin settings 
+page rather than through environment files, which means a school administrator can register, edit or remove providers without 
+a code change. On every successful SSO login the system inspects the IdP claims (groups, roles) and re-evaluates 
+the mapping to a BlockQuiz role using a stored claim-to-role map for the admin, teacher groups, falling back to 
+student when no group matches. Because the mapping runs on every login rather than only at account creation, 
+changes to group membership in the IdP propagate without manual cleanup in BlockQuiz.
+The same admin settings page exposes a password login mode toggle (always versus fallback) that allows an SSO-primary 
+deployment to hide the email-and-password form behind a small link while keeping it available for
+administrator recovery and the login page itself surfaces the configured providers as \texttt{Continue with SSO} button.
 
-Password reset is implement as an end-to-end flow. A learner who has forgotten their password enters their email address through the public logi screen, which calls the
-\textbf{requestPasswordReset} remote functionl. That function delegates to Better Auth, which generates a single-use, time-limited reset token.
-The \textbf{sendResetPassword} hook then sends the resulting reset URL through an email. Three email drivers are available and selectable through the amdin settings page: a file-based outbox driver that writes
-the message into a configurable direcrtory, an SMTP driver fro conventional mail relays and a Microsoft Graph driver that posts the message via the Graph API for Microsoft 365 tenants.
-The driver choice and its credentials can be overridden by environment variable for container deployments and an unexpected failure of the SMTP or Graph driver falls back to the file outbox so
-that the reset link is never silently lost.
-The file outbox is also the default in development and for school deployments without an outgoing mail relay. The matching \texttt{/reset-password} route accepts the token from the URL,
-Requires confirmation of the new password and submits both values to a second remote function that calls Better Auth's \textbf{resetPassword} endpoint. Successful invalidates the token, saves the password, and writes a corresponding entry to the audit log. User gets redirected to login page to login.
+Password reset is implemented as an end-to-end flow. A learner who has forgotten their password enters their email address 
+through the public login screen, which calls the \textbf{requestPasswordReset} remote function. That function 
+delegates to Better Auth, which generates a single-use, time-limited reset token.
+The \textbf{sendResetPassword} hook then sends the resulting reset URL through an email. 
+Three email drivers are available and selectable through the admin settings page. A file-based outbox driver that writes
+the message into a configurable directory, an SMTP driver for conventional mail relays and a Microsoft Graph driver that 
+posts the message via the Graph API for Microsoft 365 tenants.
+The driver choice and its credentials can be overridden by environment variable for container deployments and an unexpected 
+failure of the SMTP or Graph driver falls back to the file outbox so that the reset link is never silently lost.
+The file outbox is also the default in development and for school deployments without an outgoing mail relay. 
+The matching \texttt{/reset-password} route accepts the token from the URL, requires confirmation of the new password and 
+submits both values to a second remote function that calls Better Auth's \textbf{resetPassword} endpoint. 
+A successful reset invalidates the token, saves the password, and writes a 
+corresponding entry to the audit log. 
+The user is then redirected to the login page.
 
 Sensitive content and account events are captured through a small server-side audit-log helper.
-Exercise creation, update, clonign, archiving, restore and import write audit records, as do course creation, role or status change and administator-initiated password reset are logged as well.
-Together these evetns form a baseline trail that an administrator can review through a dedicated logs page, which also offers a CSV export of the audit history, per user filters, search and full json content display for each record.
+Exercise creation, update, cloning, archiving, restore and import write audit records, as do course creation, 
+role or status change and administrator-initiated password reset.
+Together these events form a baseline trail that an administrator can review through a dedicated logs page, 
+which also offers a CSV export of the audit history, per user filters, search and full json content display for each record.
 
 
-\section{Class Model and Idenityt-Provider Synchronisation}
+\section{Class Model and Identity-Provider Synchronisation}
 \label{sec:class-model}
-Educational deployments rarely enrol students int courses one ata time. The natural unit is a class. 
-The implementation therefore models classes as first-class entities, sitting alongside the existing user, course and attempt tables. 
+Educational deployments rarely enrol students into courses one at a time. The natural unit is a class.
+The implementation therefore models classes as first-class entities, sitting alongside the existing user, 
+course and attempt tables.
 
-Different types of class memberships. The implementation distinguishes two kinds of class membership at the schema level. each row in \texttt{class\_users} carries a 
-source column set to etiher 'sso' or 'manua' and the same suer may have both for the same class. 
-Manual rows are created by administrators through the CMS class editor and are off-limits to the SSO sync algorithm. 
-They survice identity-provider outages and do not dissapear when a user has been temporarliy removed from an Idp group. 
-SSO rwos, in contras, are owned by the \texttt{reconcileClassMembership} function and are added and removed to match the IdP-claimed group set on every login. 
-The split lets the same class hold a stable manual roster alongside an auto-managed IdP roster withoute ither side overwriting the other. 
+Different types of class memberships. The implementation distinguishes two kinds of class membership at the schema level. 
+Each row in \texttt{class\_users} carries a source column set to either 'sso' or 'manual' and the same user may have 
+both for the same class. Manual rows are created by administrators through the CMS class editor and are off-limits to the 
+SSO sync algorithm. They survive identity-provider outages and do not disappear when a user has been temporarily removed 
+from an IdP group.
+SSO rows, in contrast, are owned by the \texttt{reconcileClassMembership} function and are added and removed to 
+match the IdP-claimed group set on every login.
+The split lets the same class hold a stable manual roster alongside an auto-managed IdP roster without either 
+side overwriting the other.
 
-\textbf{Reconciliation on every login.} The reconciliation sstep runs inside the \texttt{provisoinUser} hook of the Better Auth SSO plugin, immediately after 
-the role mapping. 
-The hook resolves the Better AUth provider id back to the local \texttt{ssoProvider} row, extracts the group claims from the IdP user-info payload, 
-and asks \texttt{reconcileClassMembership} to compute the delta against the existing SSO-sourced memberships for that user and provider. 
-The detla is applied transactionally, an audit-log entry of the form \texttt{class.sync} records the added and removed class ids togehter with the count of 
-unmatched gorup claims and te reconciliation runs in a try/catch wrapper so that a class-sunc failure does \textit{not} block the login. 
-Each observed claim value is additionally written into the \texttt{idp\_group\_seen} discovery table in a fire-and-forget upsert. 
-This table is what powers the CMS Idp Group Discovery. 
+\textbf{Reconciliation on every login.} The reconciliation step runs inside the \texttt{provisionUser} hook of the 
+Better Auth SSO plugin, immediately after the role mapping.
+The hook resolves the Better Auth provider id back to the local \texttt{ssoProvider} row, extracts the group claims 
+from the IdP user-info payload, and asks \texttt{reconcileClassMembership} to compute the delta against the 
+existing SSO-sourced memberships for that user and provider. The delta is applied transactionally, an audit-log entry of 
+the form \texttt{class.sync} records the added and removed class ids together with the count of
+unmatched group claims and the reconciliation runs in a try/catch wrapper so that a class-sync failure does 
+\textit{not} block the login. Each observed claim value is additionally written into the \texttt{idp\_group\_seen} 
+discovery table in a fire-and-forget upsert.
+This table is what powers the CMS IdP Group Discovery.
 
-\textbf{Admin-facing class management} On the CMS side, the implemented page includes a class editor for manual classe. 
-The ourse editor exposes a class-assignment widget alongisde the existing per-user enrolment, so a teacher can 
-hand a course to either named individuals or a whole class wihtout leaving the editor. 
+\textbf{Admin-facing class management} On the CMS side, the implemented page includes a class editor for manual classes.
+The course editor exposes a class-assignment widget alongside the existing per-user enrolment, so a teacher can
+hand a course to either named individuals or a whole class without leaving the editor.
 
-\section{Guest Progress Handling}
-\label{sec:guest-progress-handling}
 
-\section{Representative Scenario: Authrogin, Learning and Feedback}
+\section{Representative Scenario: Authoring, Learning and Feedback}
 \label{sec:example-scenario}
-To make the preceding sections concrete, this section walks through on exercise end-to-end against the actually running system.
+To make the preceding sections concrete, this section walks through one exercise end-to-end against the actually running system.
 The example is the seeded I/O task "Sum to N", which is part of the default course bundle and exercises.
 
-\subsection*{Authoring:}
-A teacher (call her Jane) opens the CMS exercise editor, picks the \texttt{io} type and fills in the bilingual content fields. She then selects the toolbox: \texttt{varialbes\_set, variables\_get, math\_number, math\_arithmetic, controls\_repeat\_ext, text\_pring} and
-\texttt{text\_prompt\_ext}. She defines two visible test ases $(N = 3 \rightarrow 6, N = 5 \rightarrow 15)$ and three hidden ones $(N = 10 \rightarrow 55, N = 1 \rightarrow 1, N = 100 \rightarrow 5050)$.
-She enables the trim and case-insensitive normlization rules so that an extra trailing newline does not fail the grader.
-She adds two hints, one click-triggered (\texttt{"Use a loop to add the numbers one by one"}) and one delayed by 60 seconds (\texttt{"Try a controls\_repeat\_ext block with a counter variable"}).
+\subsection*{Authoring}
+A teacher (call her Jane) opens the CMS exercise editor, picks the \texttt{io} type and fills in the bilingual content fields.
+She then selects the toolbox: \texttt{variables\_set, variables\_get, math\_number, math\_arithmetic, controls\_repeat\_ext, 
+text\_print} and \texttt{text\_prompt\_ext}. She defines two visible test cases $(N = 3 \rightarrow 6, N = 5 \rightarrow 15)$ 
+and three hidden ones $(N = 10 \rightarrow 55, N = 1 \rightarrow 1, N = 100 \rightarrow 5050)$.
+She enables the trim and case-insensitive normalization rules so that an extra trailing newline does not fail the grader.
+She adds two hints, one click-triggered (\texttt{"Use a loop to add the numbers one by one"}) and one delayed by 
+60 seconds (\texttt{"Try a controls\_repeat\_ext block with a counter variable"}).
 
-When Jane clicks Publish, the \textbf{validateExercise} ffunction runs. Bilingual content is present, the starter XML is empty (so its block-id check is trivially satisfied) and the test set contains visible cases, hidden cases are not requiered.
+When Jane clicks Publish, the \textbf{validateExercise} function runs. Bilingual content is present, the starter XML is 
+empty (so its block-id check is trivially satisfied) and the test set contains visible cases, hidden cases are not required.
 The exercise becomes learner-visible.
 
 She then has to create a course add the exercise to the course and assign the course to a specific user or class.
 
-\subsection*{Learning:}
-A learner (call him John) enters the assigned course, lands on the exercise and sees the three-pane layout. He drags blocks into the workpsace and clicks Run.
-The Blockly XML is converted to JavaScript, sent into the hidden iframe sandbox with the configured runtime limits and the standard output stream is refelcted back into the result pane. His first attempt fails on the second visibile test,
-so the partial-rpgress bar read "1/2 visible tests passed" rathe than a flat red error.
+\subsection*{Learning}
+A learner (call him John) enters the assigned course, lands on the exercise and sees the top navigation layout. 
+He drags blocks into the workspace and clicks Run. The Blockly XML is converted to JavaScript, sent into the hidden 
+iframe sandbox with the configured runtime limits and the standard output stream is reflected back into the result pane. 
+His first attempt fails on the second visible test, so the partial-progress bar read "1/2 visible tests passed" 
+rather than a flat red error.
 He plays around with the blocks, tries again and now passes all tests.
-If John is a bit older he can look at the plain-language code readout panel and see that the loop body prins the running counter, not the accumulated sum.
 
 
-\subsection*{Submission, regrading and badges:}
-The submission goes through \textbf{submitAttempt}. The server validates the shape of the client-reported result, then re-executes Johns generated code inside the isolated Bun subprocess worker.
-The worker runs all five test cases and reports a final score back to the request handler, which is what is stored in the database.
-The handler then runs the badge rules engine against John's history, awards the \textbf{$first_solve$} badge, and returns the new badge in the response.
-The course player surfaces it as a small toast and the \textbf{$course_complete$} badge will fowllow once he finishes the remaining exercises.
+\subsection*{Submission, regrading and badges}
+The submission goes through \textbf{submitAttempt}. The server validates the shape of the client-reported result, 
+then re-executes Johns generated code inside the isolated Bun subprocess worker.
+The worker runs all five test cases and reports a final score back to the request handler, which is what is 
+stored in the database. The handler then runs the badge rules engine against John's history, awards the \texttt{first\_solve} 
+badge, and returns the new badge in the response. The course player surfaces it as a small toast and the 
+\texttt{course\_complete} badge will follow once he finishes the remaining exercises.
 
-\subsection*{Teacher feedback:}
-The  next morning Jane opens the course-analytics view. For "Sum to N", she reads: 18 attempts across 12 unique leaners, average score 78\%, average solve duration 4 minutes 12 seconds,
-average 1.4 hint reveals per attempt, 40\% German and 60\% English.
-The hint-reveal rate flags this exercise as the hardest in the course. She decides to add a stronger first hint and to keep the exercise as is otherwise.
-None of these signal com from seperate analytics service. they are derived directly from the per-attempt records the player captured during the learner flow.
+\subsection*{Teacher feedback}
+The next morning Jane opens the course-analytics view. For "Sum to N", she reads: 18 attempts across 12 unique learners, 
+average score 78\%, average solve duration 4 minutes 12 seconds, average 1.4 hint reveals per attempt, 
+40\% German and 60\% English. The hint-reveal rate flags this exercise as the hardest in the course. She decides to add a 
+stronger first hint and to keep the exercise as is otherwise. None of these signals come from a separate analytics service. 
+They are derived directly from the per-attempt records the player captured during the learner flow.
 
-\subsection*{What this scenario exercsies:}
-The walkthrough tuces every layer described in Chapter \ref{chap:design} they typed exercise model (publish validation), the Blockly toolbox constraint (per-exercise allowlist),
-the layered execution model (browser sandbox plus subprocess regrading), the strucutred attempt record (workspace, generated code, hint events, locale, duration), the achievement system (badge awared as side effect of the same submission path) and the teacher analytics
-view that clsoes the loop. It is the intended end-to-end of the system, not a single isolated feature.
+\subsection*{What this scenario exercises}
+The walkthrough touches every layer described in Chapter \ref{chap:design} the typed exercise model (publish validation), 
+the Blockly toolbox constraint (per-exercise allowlist), the layered execution model (browser sandbox plus subprocess regrading), 
+the structured attempt record (workspace, generated code, hint events, locale, duration), 
+the achievement system (badge awarded as side effect of the same submission path) and the teacher analytics
+view that closes the loop. It is the intended end-to-end of the system, not a single isolated feature.
 
 
 \section{Closing the Loop}
 \label{sec:closing-the-loop}
-Overall, the implementation confirms that the proposed archtiecture is technically viable. 
-The implementation is particularly strong where editing, execution, grading, persistence and authentication intersect. 
-Together with the audit log, the publish-validation pipeline, the analytics view and the authoritative server-side regrading, the code base now supports a complete flow from teacher authoring throuhg learner solving to administartor reveiw. 
-The implementation thereby demonstrates that a web-based block-programming platform with automatic graidng, guest mode, teacher authoring, account recovery and self-hosted depliyment can be built as a coherent system rather than as a clooection of isolated features. 
+Overall, the implementation confirms that the proposed architecture is technically viable.
+The implementation is particularly strong where editing, execution, grading, persistence and authentication intersect.
+Together with the audit log, the publish-validation pipeline, the analytics view and the authoritative server-side regrading, 
+the code base now supports a complete flow from teacher authoring through learner solving to administrator review.
+The implementation thereby demonstrates that a web-based block-programming platform with automatic grading, guest mode, 
+teacher authoring, account recovery and self-hosted deployment can be built as a coherent system rather than as a 
+collection of isolated features.

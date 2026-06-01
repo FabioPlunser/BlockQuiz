@@ -194,9 +194,6 @@
   \par\vspace{2cm}
   \noindent\ifgerman Signiert\else Signed\fi:\dotfill
   \ifgerman Datum\else Date\fi:\hbox to 4cm{\dotfill}
-  % Main text body:
-  \mainmatter%
-  \pagestyle{headings}
 }
 
 \def\@declarationde{Ich erkl\"are hiermit an Eides statt durch meine eigenh\"andige Unterschrift, dass ich die vorliegende Arbeit selbst{\"a}ndig verfasst und keine anderen als die angegebenen Quellen und Hilfsmittel verwendet habe. Alle Stellen, die w{\"o}rtlich oder inhaltlich den angegebenen Quellen entnommen wurden, sind als solche kenntlich gemacht.}

@@ -1,5 +1,3 @@
-\section{Overview}
-\label{sec:req-overview}
 This chapter derives the requirements for BlockQuiz from the intended learner group, the realities of classroom teaching, the desired self-hosted deployment model and the technical
 consequences of executing learner programs in the browser.
 The purpose of the requirements analysis is not to produce an exhaustive catalog of all imaginable platform features. Instead, it identifies the set of capabilities that
@@ -22,16 +20,16 @@ When appropriate, it may include a starter workspace and one or more hints that 
 Since the platform is intended for bilingual use, exercise content must support both German and English.
 
 \subsection*{Supported Exercise Types (FR-2)}
-The platform focuses on exercise families that cover complementary learning situations. Input/output tasks provide a way to model simple algorithmic problems
+The platform focuses on exercise types that cover complementary learning situations. Input/output tasks provide a way to model simple algorithmic problems
 with deterministic textual results, while turtle-graphics and robot-grid exercises make program behavior visible through movement and spatial state.
 At the same time, the exercise architecture should not be so specialized that the addition of future exercise types would require a complete redesign.
 
 \subsection*{Authoring and Course Organization (FR-3)}
 Authorized users must be able to create and edit exercises through a teacher interface. 
-They also need a way to combine exercisese into ordered courses so that tasks can be used as part of a broader learning path instead of only as isolated examples. 
-Reuse is an important requiremetnt here. The same exercise shoudl be usable in more than one course. In addition, theacers need a way to make a course available to a whole class of students at once rather 
-than only to invididual accounts, because handling enrolment one learner at a time does not scale to a typical classroom. The system should therefore support a class abstraction that can be linked to a course 
-so that every memberof the class receives the assignment automatically. Since authoring mistakes can easily lead to confusing leaner experiences, the system should also support previewing and 
+They also need a way to combine exercises into ordered courses so that tasks can be used as part of a broader learning path instead of only as isolated examples. 
+Reuse is an important requirement here. The same exercise should be usable in more than one course. In addition, teachers need a way to make a course available to a whole class of students at once rather 
+than only to individual accounts, because handling enrolment one learner at a time does not scale to a typical classroom. The system should therefore support a class abstraction that can be linked to a course 
+so that every member of the class receives the assignment automatically. Since authoring mistakes can easily lead to confusing learner experiences, the system should also support previewing an 
 exercise before it is published. 
 
 \subsection*{Execution and Feedback (FR-4)}
@@ -49,10 +47,10 @@ The system should therefore present feedback that is more informative and helps 
 \subsection*{User Modes and Progress (FR-6)}
 The platform must support authenticated teacher access for authoring and management tasks, 
 yet the learner side should remain flexible enough to support guest use where possible. 
-This is particularly relevant for privacy-conscious deployment scnearios or informal try-out settings. 
-Exercise prgoress must be persisted in a way that mathces the chosen user mode, whether this means local storage for guest 
+This is particularly relevant for privacy-conscious deployment scenarios or informal try-out settings. 
+Exercise progress must be persisted in a way that matches the chosen user mode, whether this means local storage for guest 
 use or server-side persistence for authenticated users. 
-Where a school already operates an identity provider, authentiation should optionally route through that provider rather than requiring a parallel password directory, while still supporting
+Where a school already operates an identity provider, authentication should optionally route through that provider rather than requiring a parallel password directory, while still supporting
 a local email-and-password fallback for administrator recovery. When the identity provider exposes group claims, the system should be able to mirror those groups into its own class model so that 
 institutional cohorts and BlockQuiz classes stay in sync without manual roster work. 
 
@@ -60,7 +58,7 @@ institutional cohorts and BlockQuiz classes stay in sync without manual roster w
 Internationalization applies both to the general interface and to exercise content. The user interface should support German and English and exercises should be available bilingually with a defined 
 fallback behavior where a translation is incomplete. Since learners interact with programming blocks as part of the same environment, Blockly labels should be localized consistently as well.
 
-\section{Non Functional Requirements}
+\section{Non-Functional Requirements}
 \label{sec:non-req-functional}
 \subsection*{Security (NFR-1)}
 Student-generated code must not receive unrestricted access to the document object model, browser storage, or general network functionality. Data crossing trust boundaries, especially authoring

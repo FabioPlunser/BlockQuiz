@@ -1,17 +1,32 @@
 
 This thesis presents the design and implementation of BlockQuiz, a web-based learning platform
-for block-based programming exercises aimed at children aged 8-12. The work is motivated by the increasing importance of
-computational thinking in school curricula and, in particular, by the Austrian subject "Digitale Grundbildung", which creates demand for classroom-ready tools
+for block-based programming exercises aimed at children aged 8--12. The work is motivated by the increasing importance of
+computational thinking in school curricula and, in particular, by the Austrian subject "Digitale Grundbildung",
+which creates demand for classroom-ready tools
 that offer guided learning tasks, immediate feedback, and a deployment model suitable for schools.
 
-Existing systems such as Scratch, Code.org, Microsoft MakeCode, and Blockly Games demonstrate the educational value of block-based programming, but
+Existing systems such as Scratch, Code.org, Microsoft MakeCode, and Blockly Games demonstrate the educational value of
+block-based programming, but
 they do not combine all of the requirements that are central to this project.
-Some of them focus primarily on open-ended creativity, others on hardware programming or cloud-hosted delivery, and only a subset support tightly constrained
+Some of them focus primarily on open-ended creativity, others on hardware programming or cloud-hosted delivery, and only a
+subset support tightly constrained
 exercises that can be assessed automatically.
-BlockQuiz addresses this gap through a teacher-oriented platform for authoring and delivering short programming tasks with clear learning goals, progressive hints, and
+BlockQuiz addresses this gap through a teacher-oriented platform for authoring and delivering short programming tasks with
+clear learning goals, progressive hints, and
 deterministic auto-grading.
 
-The implementation is based on SvelteKit and Google Blockly and includes a client-side sandbox for running generated code, a grading framework for input/output,
-turtle, and robot exercises, multilingual exercise content, and a privacy-first deployment model that supports self-hosting in school networks.
-Particular attention is paid to the authoring workflow for non-programming teachers, the safety limitations of browser-based execution. 
-The thesis concludes by outlining an exploratory evaluation for examining usability, ease of use and suitability of the platform for classroom use. 
+The implementation is based on SvelteKit and Google Blockly. It includes a client-side sandbox for
+running generated code, an authoritative server-side path that re-grades every submission inside an
+isolated subprocess, a typed exercise model with publish validation, a grading framework for
+input/output, turtle, and robot exercises, multilingual content, a teacher content-management system,
+and identity-provider-synchronised classes with optional OIDC and SAML Single Sign-On. The whole
+system follows a privacy-first deployment model that supports self-hosting in school networks.
+
+The system was evaluated along two axes. A technical evaluation with an automated test suite and a
+database verification script confirms that the exercise engines, the grading layer and the submission
+pipeline behave correctly and that the implementation meets its requirements. A user evaluation with
+two pre-service teachers found the platform understandable and pedagogically appropriate for its
+target group and surfaced concrete usability improvements, several of which were addressed in
+response. The results indicate that a focused, privacy-conscious block-programming platform with
+automatic grading is both technically viable and positively received by the teachers expected to
+author its content.
