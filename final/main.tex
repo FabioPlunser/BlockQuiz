@@ -4,28 +4,34 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage[english]{babel}
-\usepackage[backend=biber,style=numeric-comp,sorting=none]{biblatex}
+\usepackage[backend=bibtex,style=numeric-comp,sorting=none]{biblatex}
 \usepackage{xcolor}
 \usepackage{csquotes}
 \usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{media9} % embedded video with play/pause (works in Adobe Acrobat Reader)
 
 % Colors for code
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
 \definecolor{codepurple}{rgb}{0.58,0,0.82}
 \definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\definecolor{uibkorange}{RGB}{243,114,32}
+\definecolor{uibkdark}{RGB}{60,60,75}
+\definecolor{uibklight}{RGB}{225,225,235}
 
 % UIBK theme
 \usetheme[nototalframenumber,foot,logo,nosectiontitlepage]{uibk}
 \headerimage{3}
 
 % Metadata
-\title{BlockQuiz: Web-Based Block Programming Platform with Auto-Grading for students}
-\subtitle{Quality Engineering Research Group}
-\footertext{BlockQuiz: Web-Based Block Programming Platform}
-\author[]{Fabio Plunser\\{\footnotesize Supervisor: Ass. Prof. Dr. Michael Vierhauser}}
+\title{BlockQuiz: A Web-Based Block Programming Platform with Auto-Grading}
+\subtitle{Bachelor Thesis Final Presentation}
+\footertext{BlockQuiz \textbar{} Final Presentation}
+\author[]{\small Fabio Plunser\\{\footnotesize Supervisor: Ass.\ Prof.\ Dr.\ Michael Vierhauser \\ \vspace{-5pt}\footnotesize Quality Engineering Research Group}}
 
-% Code listing style (kept)
+% Code listing style
 \lstdefinestyle{mystyle}{
   backgroundcolor=\color{backcolour},
   commentstyle=\color{codegreen},
@@ -52,133 +58,353 @@
 
 \maketitle
 
-% Agenda
+% ============================================================
+% Slide 1 — Outline
+% SAY: "Here is the plan. I keep the slides light, show you a short live demo
+%       of the running system in the middle, then how it works, how I
+%       evaluated it, and what I learned."
+% ============================================================
 \begin{frame}{Outline}
   \begin{enumerate}
-    \item Motivation
+    \item Motivation \& the gap
     \item Requirements
-    \item Planned features
-    \item Blockly
-    \item UI Mockup
-    \item Implementation Challenges
-    \item Timeline
+    \item What BlockQuiz is + live demo
+    \item How it works: architecture, grading, classes
+    \item Pedagogical design rationale
+    \item Evaluation: technical \& with teachers
+    \item Lessons learned, limitations \& future work
   \end{enumerate}
 \end{frame}
 
-% Motivation
-\begin{frame}{Motivation}
-  Teaching children programming in an engaging way:
+% ============================================================
+% Slide 2 — Motivation
+% SAY: - Computational thinking is now a school topic, not a niche skill.
+%      - Austria made "Digitale Grundbildung" mandatory in 2022/23.
+%      - The existing tools are good, but none fits the specific classroom
+%        need. Point at each with the laser, one line each.
+%      - Then read out "the gap" slowly; that is what the thesis targets.
+% ============================================================
+\begin{frame}{Motivation \& the gap}
+  Digitale Grundbildung is mandatory in Austrian schools since 2022/23,
+  but the available block tools do not fit classroom constraints \cite{digitaleGrunbildung}.
   \begin{itemize}
-    \item \textbf{Problem:} Existing tools (Scratch, Tynker, MakeCode) are too open-ended or game/hardware-bound
-    \item \textbf{Need:} Focused, auto-graded puzzles with clear learning goals per task
+    \item \textbf{Scratch} -- creative, open-ended, no deterministic grading
+    \item \textbf{Code.org} -- well scaffolded, but cloud-only
+    \item \textbf{MakeCode} -- great for hardware, less for assessment
+    \item \textbf{Blockly} -- a library, not a platform on its own
   \end{itemize}
-  \vspace{0.3cm}
-  \textbf{Solution:} A web-based platform with short, constrained programming exercises inspired by Brilliant.org
+  The gap: short, gradable exercises a teacher can author, with a
+  privacy-conscious deployment that fits a school network.
 \end{frame}
 
-%% Screenshot of brilliant
-
+% ============================================================
+% Slide — Requirements
+% SAY: - These come from the target group and the classroom context.
+%      - Stress the three that drive the design: easy authoring, immediate
+%        feedback, automatic grading. The rest support those.
+% ============================================================
 \begin{frame}{Requirements}
   \begin{itemize}
-    \item Customizable block based programming examples
-    \item Content management system for courses and exercises
-    \item Easy to use interface for students and teachers
-    \item Auto-graded, grading support for exercises
-    \item Feedback support for students
+    \item Teachers author exercises and courses without coding
+    \item Learners get immediate, understandable feedback
+    \item Automatic grading, plus a hint system for support
+    \item Multiple exercise types
+    \item Bilingual (DE/EN) UI and content
+    \item Safe execution of learner code
   \end{itemize}
 \end{frame}
 
-% Goal
-% \begin{frame}{Goal}
-%   Build a web-based, block-programming learning platform for children aged 8--12:
-%   \begin{itemize}
-%     \item \textbf{Left pane:} Problem statement, examples, hints, feedback
-%     \item \textbf{Right pane:} Blockly workspace with constrained toolbox
-%     \item \textbf{Interaction:} "RUN" to execute code, "CHECK" for auto-grading
-%     \item \textbf{Safety:} Sandboxed execution with timeouts and loop guards
-%     \item \textbf{Languages:} English and German (i18n)
-%   \end{itemize}
-%   \vspace{0.3cm}
-%   \textbf{Deliverables:} 10 curated exercises covering loops, conditionals, variables, and simple functions
-% \end{frame}
-
-% Platform Concept
-\begin{frame}{Planned Features}
-  % \textbf{MVP Features:}
+% ============================================================
+% Slide 3 — BlockQuiz overview
+% SAY: - The whole system on one slide. Name the three types and the stack,
+%        then go straight into the demo so they see it instead of reading.
+% ============================================================
+\begin{frame}{BlockQuiz in one slide}
+  A web platform for short block-programming exercises:
   \begin{itemize}
-    \item Generated output: Text, code or 2D graphic
-    \item Per-exercise constrained block toolbox (reduces cognitive load)
-    \item Multi-level hints system
-    \item Deterministic auto-grading with public \& hidden test cases
-    \item JSON-based import/export for blocks
+    \item Three exercise types: \texttt{io}, \texttt{turtle}, \texttt{robot}
+    \item Per-exercise constrained Blockly toolbox
+    \item Browser sandbox + authoritative server-side regrading
+    \item Teacher CMS, class system with IdP sync, cohort analytics
+    \item Self-hosted, SQLite, no required external services
   \end{itemize}
-  \vspace{0.3cm}
-  \textbf{Out of Scope:}
-  \begin{itemize}
-    \item Full classroom management (Kahoot-style)
-    \item Complex simulators beyond 2D turtle graphics
-  \end{itemize}
+  {\footnotesize Built with SvelteKit, Svelte~5, Blockly, Bun, Drizzle ORM, Better Auth.}
 \end{frame}
 
-% Blockly
-\begin{frame}{Blockly}
-  Blockly \cite{blockly} is a visual programming editor from Google
-  \begin{itemize}
-    \item Drag-and-drop blocks generate executable code
-    \item Fully customizable: per-exercise toolbox, block definitions, code generators
-    \item Ideal for constrained learning environments
-  \end{itemize}
-  \vspace{0.3cm}
-  \textbf{Why Blockly over MakeCode? \cite{makecode}}
-  \begin{itemize}
-    \item Library vs. platform: full control over UI and grading logic
-    \item Easy integration with SvelteKit and custom CMS
-    \item Flexible for quiz-driven workflows
-  \end{itemize}
-  \begin{figure}[!htb]
-    \centering
-    \includegraphics[width=0.75\linewidth]{./images/Blockly.png}
-  \end{figure}
-\end{frame}
-
-% Exercise Types
-\begin{frame}{Mockup}
+% ============================================================
+% Slide — LIVE DEMO (~2 min screen recording)
+% SAY: - "Instead of more slides, let me show the running system."
+%      - Click once to play; click again (or use the control bar) to pause,
+%        then point with the laser.
+% IMPORTANT: the embedded video plays in ADOBE ACROBAT READER. Present this PDF
+%   in Acrobat. Put your recording in this folder named  demo.mp4  and
+%   recompile; until then it falls back to Turtle.mp4. If the embed fails on
+%   the day, just Alt-Tab to a local video player.
+% ============================================================
+\begin{frame}{Demo Screencapture}
   \centering
-  \includegraphics[width=0.85\linewidth]{./images/mockup.pdf}
 \end{frame}
 
-\begin{frame}{Implementation Challenges}
-  \textbf{Technical:}
+% ============================================================
+% Slide — Dual-path execution (the strongest technical claim)
+% SAY: - This is the key technical idea: every submission runs twice.
+%      - Left: the browser sandbox gives the learner instant feedback.
+%      - Right: the server re-runs the SAME code in an isolated subprocess,
+%        no DB, no session, and THAT score is the one we store.
+%      - So: speed for the learner, trust for the database.
+% ============================================================
+\begin{frame}{How it works: dual-path execution}
+  Every submission is executed twice, by design.
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Browser path (immediate)}
+      \begin{itemize}
+        \item Hidden iframe, blocked globals
+        \item Time / step / loop limits
+        \item learner sees feedback now
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Server path (authoritative)}
+      \begin{itemize}
+        \item Isolated Bun subprocess, \texttt{node:vm}
+        \item No DB, no session, hard kill timeout
+        \item the stored score, not the client's
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% Slide — Grading & publish validation
+% SAY: - All three types return the same result shape, so the UI and analytics
+%        do not care which type it is.
+%      - Visual tasks grade the command trace, not pixels, so grading is
+%        deterministic and testable.
+%      - The publish gate stops broken exercises from reaching learners.
+% ============================================================
+\begin{frame}{Grading \& publish validation}
+  One result shape for all types: pass/fail, score, per-test feedback.
   \begin{itemize}
-    \item Sandboxed execution with loop detection and timeouts
-    \item Deterministic grading with seeded RNG
-    \item Multi-language support (i18n) for content and UI
+    \item \texttt{io}: normalised string compare (trim, whitespace, case)
+    \item Visual: command-trace replay, not pixels, deterministic
   \end{itemize}
   \vspace{0.3cm}
-  \textbf{Design:}
+  \textbf{Publish gate} blocks broken exercises: bilingual content, parseable
+  starter XML, block ids in toolbox, $\ge 1$ test, and BFS reachability for
+  turtle/robot.
+\end{frame}
+
+% ============================================================
+% Slide — Class system & SSO
+% ============================================================
+% ============================================================
+% Slide — Class system & IdP sync
+% SAY: - Cohorts are first-class and can sync to the school identity provider.
+%      - Two kinds of membership: manual (admin) and sso (from IdP groups).
+%      - On every login the IdP rows are reconciled; manual rows are never
+%        touched. So the roster stays in sync without a separate SCIM service.
+%      - This is the operationally riskiest part, so it is heavily tested.
+% ============================================================
+\begin{frame}{Class system \& identity-provider sync}
+  Cohorts are first-class and can sync to the school IdP.
   \begin{itemize}
-    \item Defining good exercise criteria (one concept per puzzle, minimal toolbox)
-    \item Effective hint system (scaffolding without spoilers)
-    \item Age-appropriate feedback and error messages
-    \item Balancing expressiveness with cognitive load
+    \item Two membership sources per row: \emph{manual} (admin) and \emph{sso} (IdP)
+    \item On every SSO login, IdP rows are reconciled, manual rows untouched
+    \item Course assignment by class
+  \end{itemize}
+  Roster stays in sync with the school IdP without a separate SCIM endpoint.
+\end{frame}
+
+% ============================================================
+% Slide — Pedagogical design rationale
+% ============================================================
+% SAY: - The design is not arbitrary; each choice maps to a learning theory.
+%      - Constrained toolbox -> Cognitive Load Theory.
+%      - Staged hints -> Zone of Proximal Development / scaffolding.
+%      - Replay + plain-language readout -> debugging as a CT skill.
+%      - And each one is captured per attempt, so it becomes an analytics
+%        signal, not just a feature.
+\begin{frame}{Pedagogical design rationale}
+  Each design choice is anchored in learning theory:
+  \begin{itemize}
+    \item Per-exercise toolbox $\rightarrow$ Cognitive Load Theory \cite{sweller1988}
+    \item Staged, captured hints $\rightarrow$ Zone of Proximal Development \cite{Vygotsky1980}
+    \item Replay + plain-language readout $\rightarrow$ debugging as a computational thinking skill
+          \cite{brennan2012}, blocks-to-text bridge \cite{weintrop2015}
+  \end{itemize}
+  Each one is captured per attempt and surfaced in analytics.
+\end{frame}
+
+% ============================================================
+% Slide — Technical evaluation
+% SAY: - First axis: does it work. 296 tests, all passing, plus a DB
+%        verification script.
+%      - Heaviest testing on the engines/graders and on class+SSO, because
+%        those are the most complex and the riskiest parts.
+% ============================================================
+\begin{frame}{Technical evaluation}
+  \textbf{296 tests across 27 files, all passing}.
+  \footnotesize
+  \begin{tabularx}{\textwidth}{|X|c|}
+    \hline
+    \textbf{Area}                                        & \textbf{Tests} \\\hline
+    Canvas engines (turtle, robot, grid, pathfinding)    & 84             \\\hline
+    Graders (turtle, canvas, io normalisation)           & 45             \\\hline
+    Sandbox + authoritative subprocess execution         & 23             \\\hline
+    Class system + SSO (sync, enrolment, OIDC \& SAML)   & 97             \\\hline
+    Analytics, achievements, readout, i18n, publish gate & $\sim$47       \\\hline
+  \end{tabularx}
+\end{frame}
+
+% ============================================================
+% Slide — User evaluation: method
+% SAY: - Second axis: a small qualitative study with two pre-service teachers.
+%      - Four structured tasks, a 20-item questionnaire, and a debrief.
+%      - Be upfront: n=2, not a controlled study; the value is the themes.
+%      - The two backgrounds differ, which gives useful contrast.
+% ============================================================
+\begin{frame}{User evaluation -- method}
+  Small qualitative probe, $n = 2$ student teachers at UIBK.
+  \begin{itemize}
+    \item Four structured tasks with open-text responses
+    \item 20-item questionnaire (1--5), short debrief afterwards
+    \item P1: student teacher, some digital-learning experience
+    \item P2: kindergarten teacher, almost no software-platform experience
+  \end{itemize}
+  \vspace{0.2cm}
+  \emph{Not} a controlled study; the value is in the themes that emerged.
+\end{frame}
+
+% ============================================================
+% Slide — User evaluation: results
+% SAY: - Means were high: 4.5 and 4.65 out of 5.
+%      - Highest ratings: pedagogical fit. Lowest: orientation / onboarding.
+%      - One-line takeaway: fit is recognised, onboarding is the weak spot.
+% ============================================================
+\begin{frame}{User evaluation -- results}
+  \textbf{Means:} P1 = 4.5, P2 = 4.65 (of 5).
+  \begin{itemize}
+    \item \textbf{Highest:} suitability for children, age-appropriateness,
+          feedback usefulness, would recommend after improvements
+    \item \textbf{Lowest:} "I could orient myself quickly", "feels intuitive"
+  \end{itemize}
+  Pedagogical fit is recognised; onboarding is the weak spot.
+\end{frame}
+
+% ============================================================
+% Slide — User evaluation: themes & actions
+% SAY: - What worked: the UI, the layout, the pedagogical fit for primary /
+%        lower-secondary and Digitale Grundbildung.
+%      - What didn't: onboarding overload and a few concrete bugs.
+%      - Key point: everything they hit was fixable, not architectural. The
+%        bugs and the German Blockly labels are already fixed.
+%      - Read the debrief quote; it is the strongest result of the study.
+% ============================================================
+\begin{frame}{User evaluation -- themes \& actions}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{What worked}
+      \begin{itemize}
+        \item Clean, inviting UI and layout
+        \item Recognised pedagogical fit
+        \item Home in Digitale Grundbildung / MINT
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Weak spots (addressed)}
+      \begin{itemize}
+        \item CMS onboarding overload
+        \item DE Blockly labels (fixed)
+        \item Small bugs (fixed)
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  {\footnotesize Debrief: \emph{``Once the bugs are fixed, both would happily use it in class.''}
+    None of the issues were architectural.}
+\end{frame}
+
+% ============================================================
+% Slide — Lessons learned
+% SAY: - The typed exercise model was the best decision; it kept everything
+%        consistent as the system grew.
+%      - The message-based sandbox made the subprocess regrading a small add-on.
+%      - The publish gate caught real mistakes during my own development.
+%      - Betting on the experimental SvelteKit features paid off.
+% ============================================================
+\begin{frame}{Lessons learned}
+  \begin{itemize}
+    \item Typed discriminated-union exercise model: keeps CMS, player, sandbox,
+          analytics honest as the system grew
+    \item Message-based sandbox protocol, made subprocess regrading a small addition, not a refactor
+    \item Publish-validation gate, caught real authoring mistakes during development
+    \item Using SvelteKit experimental features, remote functions and async svelte
   \end{itemize}
 \end{frame}
 
-% Timeline
-\begin{frame}{Timeline}
-  \includegraphics[width=\linewidth]{images/Gantt-Chart.png}
+% ============================================================
+% Slide — Limitations & future work
+% SAY: - Honest limitations: tiny user study, no children, and adding a new
+%        exercise type still needs real work across layers.
+%      - Future: a classroom pilot with actual 8-12 learners, and a
+%        blocks-to-text view to bridge toward written code.
+% ============================================================
+\begin{frame}{Limitations \& future work}
+  \textbf{Limitations of this thesis}
+  \begin{itemize}
+    \item User study: $n = 2$, student teachers only, no child participants
+    \item Exercise type addition requires quite extensive code changes, but has been simplified as much as possible
+  \end{itemize}
+  \vspace{0.2cm}
+  \textbf{Future work}
+  \begin{itemize}
+    \item Classroom pilot with children in the 8-12 target range
+    \item Blocks-to-text showing the code for students to learn code.
+  \end{itemize}
 \end{frame}
 
-% Thank you
-\begin{frame}{Thank You}
+% ============================================================
+% Slide — Conclusion
+% SAY: - One sentence: BlockQuiz shows these pieces can be one coherent system.
+%      - And two teachers would use it once the polish is done.
+%      - Then invite questions.
+% ============================================================
+\begin{frame}{Conclusion}
+  BlockQuiz shows that
+  \vspace{0.2cm}
+  \begin{itemize}
+    \item constrained, deterministically-graded block exercises,
+    \item teacher authoring with publish validation,
+    \item identity-provider-synchronised classes \& analytics, and
+    \item privacy-conscious, self-hosted deployment
+  \end{itemize}
+  \vspace{0.2cm}
+  can be one coherent system, and that two student teachers see it as
+  something they would use in their own future classrooms once the
+  remaining polish is done.
+\end{frame}
+
+% ============================================================
+% Slide — Thank you
+% SAY: - Thank you, questions? Links are on the slide.
+% ============================================================
+\begin{frame}{Thank you}
   \begin{center}
     \Large Questions?
   \end{center}
-  \vspace{1cm}
+  \vspace{0.5cm}
+  \begin{center}
+    \footnotesize
+    \href{https://git.uibk.ac.at/csba3598/BlockQuiz}{https://git.uibk.ac.at/csba3598/BlockQuiz}\\
+    \href{https://thesis.fabioplunser.com}{https://thesis.fabioplunser.com}
+  \end{center}
+  \vspace{0.5cm}
   \includegraphics[width=0.8\linewidth]{_images/uibk_header1.png}
 \end{frame}
 
+% ============================================================
 % References
+% ============================================================
 \begin{frame}[allowframebreaks]
   \frametitle{References}
   \printbibliography

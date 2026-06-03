@@ -116,9 +116,34 @@
 \usepackage{iftex}
 \iftutex
   \usepackage[no-math]{fontspec}
-  \setsansfont{DejaVuSans}[Scale=.9] % similar to berasans but better Unicode coverage
-  \setmainfont{DejaVuSerif}[Scale=MatchLowercase]
-  \setmonofont{Latin Modern Mono}[Scale=1.0] %MatchUppercase]
+  % Original UIBK choice was DejaVuSans / DejaVuSerif. They are not always
+  % installed; fall back through a chain of likely-present system fonts so
+  % the theme compiles without requiring an external font install.
+  \IfFontExistsTF{DejaVuSans}{%
+    \setsansfont{DejaVuSans}[Scale=.9]
+  }{%
+    \IfFontExistsTF{Helvetica}{%
+      \setsansfont{Helvetica}[Scale=.95]
+    }{%
+      \IfFontExistsTF{Arial}{\setsansfont{Arial}[Scale=.95]}{}%
+    }%
+  }
+  \IfFontExistsTF{DejaVuSerif}{%
+    \setmainfont{DejaVuSerif}[Scale=MatchLowercase]
+  }{%
+    \IfFontExistsTF{Times New Roman}{%
+      \setmainfont{Times New Roman}[Scale=MatchLowercase]
+    }{%
+      \IfFontExistsTF{Georgia}{\setmainfont{Georgia}[Scale=MatchLowercase]}{}%
+    }%
+  }
+  \IfFontExistsTF{Latin Modern Mono}{%
+    \setmonofont{Latin Modern Mono}[Scale=1.0]
+  }{%
+    \IfFontExistsTF{Menlo}{\setmonofont{Menlo}[Scale=0.9]}{%
+      \IfFontExistsTF{Courier New}{\setmonofont{Courier New}[Scale=0.9]}{}%
+    }%
+  }
   %\setmonofont{GoMono}[Scale=MatchLowercase]
   %\setmonofont{FreeMono}[Scale=.9]
   %\setmonofont{DejaVuSansMono}[Scale=MatchLowercase]
