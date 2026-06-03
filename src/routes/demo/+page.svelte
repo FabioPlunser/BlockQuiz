@@ -92,7 +92,7 @@
 		loadingCourseId = course.id;
 
 		try {
-			const exerciseResult = await getPublicCourseExercises(course.id);
+			const exerciseResult = await getPublicCourseExercises(course.id).run();
 
 			if (exerciseResult.length === 0) {
 				toast.error(i18n.demo_no_published_exercises, {
@@ -213,7 +213,7 @@
 		mode="guest"
 		courseId={selectedCourse.id}
 		guestCourse={selectedCourse}
-		loadExercises={async (id) => (await getPublicCourseExercises(id)) as never}
+		loadExercises={async (id) => (await getPublicCourseExercises(id).run()) as never}
 		persistAttempt={persistGuestAttempt}
 		initialProgress={selectedCourseProgress}
 		initialSnapshots={selectedSnapshots}

@@ -33,7 +33,8 @@ services:
     image: oven/bun:1
     working_dir: /app
     ports:
-      - '5173:5173'
+      # Host port 3000 matches the Apache reverse-proxy target for thesis.fabioplunser.com.
+      - '3000:5173'
     volumes:
       # Mount source code for hot reloading
       - ./src:/app/src

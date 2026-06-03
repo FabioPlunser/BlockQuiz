@@ -1,5 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { setContext, getContext } from 'svelte';
+import { setContext, getContext, tick } from 'svelte';
 import {
 	getCourse,
 	getCourseExercises,
@@ -115,6 +115,11 @@ export class CoursePlayerState {
 	async init() {
 		this.loading = true;
 		this.error = null;
+		// The player can mount inside an effect flush (e.g. a modal that opens from
+		// an event handler), where remote-function `.run()` is still considered
+		// "in render". Wait for the flush to settle so the imperative loads below
+		// run in a plain async context.
+		await tick();
 		try {
 			if (this.options.mode === 'guest') {
 				const exercises = this.options.loadExercises
@@ -126,9 +131,9 @@ export class CoursePlayerState {
 				this.initialSnapshots = this.options.initialSnapshots ?? {};
 			} else {
 				const [course, exercises, progress] = await Promise.all([
-					getCourse(this.courseId),
-					getCourseExercises(this.courseId),
-					getCourseProgress(this.courseId)
+					getCourse(this.courseId).run(),
+					getCourseExercises(this.courseId).run(),
+					getCourseProgress(this.courseId).run()
 				]);
 				this.course = course;
 				this.exercises = exercises;

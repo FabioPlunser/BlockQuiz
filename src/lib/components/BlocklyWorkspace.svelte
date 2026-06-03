@@ -49,12 +49,19 @@
 		toolboxConfig,
 		starterXml = '',
 		config = getDefaultConfig(),
-		ariaLabel = 'Blockly workspace'
+		ariaLabel = 'Blockly workspace',
+		onChange
 	}: {
 		toolboxConfig: BlocklyToolboxConfig;
 		starterXml?: string;
 		config?: BlocklyConfig;
 		ariaLabel?: string;
+		/**
+		 * Fires (coalesced to one call per frame) whenever the blocks change in a
+		 * way that affects the generated program — lets parents live-update code or
+		 * description views without re-reading on a timer.
+		 */
+		onChange?: () => void;
 	} = $props();
 	export { getCode, getXml, clear };
 
@@ -62,7 +69,18 @@
 	let workspace: Blockly.WorkspaceSvg | null = null;
 	let scrollbarObserver: MutationObserver | null = null;
 	let resizeObserver: ResizeObserver | null = null;
+	let changeFrame: number | null = null;
 	let injectError = $state<string | null>(null);
+
+	// Coalesce the flood of Blockly change events (one block move fires several)
+	// into a single onChange call per animation frame.
+	function emitChange() {
+		if (!onChange || changeFrame !== null) return;
+		changeFrame = requestAnimationFrame(() => {
+			changeFrame = null;
+			onChange?.();
+		});
+	}
 
 	function updateAccessibility() {
 		const injectionDiv = blocklyDiv.querySelector('.injectionDiv');
@@ -93,6 +111,14 @@
 			});
 			updateAccessibility();
 			Blockly.svgResize(workspace);
+
+			// Notify parents of meaningful (non-UI) block changes so code/description
+			// views can update live. Starter-block creation and FINISHED_LOADING also
+			// fire here, giving the initial code without a manual refresh.
+			workspace.addChangeListener((event: Blockly.Events.Abstract) => {
+				if (event.isUiEvent) return;
+				emitChange();
+			});
 
 			// Fix flyout scrollbar persistence issue
 			if (workspace) {
@@ -168,6 +194,9 @@
 		}
 		if (resizeObserver) {
 			resizeObserver.disconnect();
+		}
+		if (changeFrame !== null) {
+			cancelAnimationFrame(changeFrame);
 		}
 		if (workspace) {
 			workspace.dispose();
@@ -267,6 +296,22 @@
 	.blockly-shell {
 		flex: 1 1 auto;
 		min-height: 28rem;
+		height: 100%;
+		/* Positioning context for the absolutely-filled injectionDiv below. */
+		position: relative;
+	}
+
+	/*
+	 * Blockly's injectionDiv has no intrinsic height (its SVG is absolutely
+	 * positioned, so it contributes nothing to layout). In the player's flex
+	 * column the injectionDiv therefore collapses to 0, svgResize() reads 0,
+	 * and the canvas renders blank with only a ~150px fallback SVG. Pin the
+	 * injectionDiv to fill the shell so Blockly sizes itself correctly.
+	 */
+	.blockly-shell :global(.injectionDiv) {
+		position: absolute;
+		inset: 0;
+		width: 100%;
 		height: 100%;
 	}
 

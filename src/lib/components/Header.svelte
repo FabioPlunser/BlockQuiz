@@ -49,6 +49,7 @@
 			</div>
 			<div class="flex gap-2">
 				<h1 class="flex items-center">{user.role}</h1>
+				<h1 class="flex items-center">{user.email}</h1>
 				<Avatar />
 			</div>
 		{/if}

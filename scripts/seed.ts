@@ -693,13 +693,6 @@ const exerciseSeeds: ExerciseSeed[] = [
 						visible: true,
 						type: 'target',
 						expected: { target: { x: 200, y: 50, tolerance: 25 } }
-					},
-					{
-						id: crypto.randomUUID(),
-						description: { de: 'Korrekte Endposition', en: 'Correct final position' },
-						visible: false,
-						type: 'state',
-						expected: { state: { x: 200, y: 50, angle: 0, tolerance: 5 } }
 					}
 				]
 			},
@@ -767,21 +760,6 @@ const exerciseSeeds: ExerciseSeed[] = [
 						visible: true,
 						type: 'state',
 						expected: { state: { x: 200, y: 200, angle: 0, tolerance: 5 } }
-					},
-					{
-						id: crypto.randomUUID(),
-						description: { de: 'Quadratischer Pfad', en: 'Square path' },
-						visible: false,
-						type: 'path',
-						expected: {
-							path: [
-								{ x: 200, y: 200 },
-								{ x: 200, y: 100 },
-								{ x: 300, y: 100 },
-								{ x: 300, y: 200 },
-								{ x: 200, y: 200 }
-							]
-						}
 					}
 				]
 			},
@@ -849,15 +827,6 @@ const exerciseSeeds: ExerciseSeed[] = [
 						visible: true,
 						type: 'state',
 						expected: { state: { x: 200, y: 200, angle: 0, tolerance: 10 } }
-					},
-					{
-						id: crypto.randomUUID(),
-						description: { de: 'Korrekte Befehle', en: 'Correct commands' },
-						visible: false,
-						type: 'commands',
-						expected: {
-							commands: ['move:3', 'turn:120', 'move:3', 'turn:120', 'move:3', 'turn:120']
-						}
 					}
 				]
 			},
@@ -925,26 +894,6 @@ const exerciseSeeds: ExerciseSeed[] = [
 						visible: true,
 						type: 'state',
 						expected: { state: { x: 200, y: 200, angle: 0, tolerance: 10 } }
-					},
-					{
-						id: crypto.randomUUID(),
-						description: { de: 'Korrekte Befehle', en: 'Correct commands' },
-						visible: false,
-						type: 'commands',
-						expected: {
-							commands: [
-								'move:3',
-								'turn:144',
-								'move:3',
-								'turn:144',
-								'move:3',
-								'turn:144',
-								'move:3',
-								'turn:144',
-								'move:3',
-								'turn:144'
-							]
-						}
 					}
 				]
 			},
@@ -1022,13 +971,6 @@ const exerciseSeeds: ExerciseSeed[] = [
 						visible: true,
 						type: 'target',
 						expected: { target: { x: 200, y: 50, tolerance: 25 } }
-					},
-					{
-						id: crypto.randomUUID(),
-						description: { de: 'Korrekte Endposition', en: 'Correct final position' },
-						visible: false,
-						type: 'state',
-						expected: { state: { x: 200, y: 50, angle: 0, tolerance: 10 } }
 					}
 				]
 			},
@@ -1114,13 +1056,6 @@ const exerciseSeeds: ExerciseSeed[] = [
 						visible: true,
 						type: 'collect',
 						expected: { collect: { count: 3 } }
-					},
-					{
-						id: crypto.randomUUID(),
-						description: { de: 'Korrekter Pfad', en: 'Correct path' },
-						visible: false,
-						type: 'state',
-						expected: { state: { x: 250, y: 200, angle: 90, tolerance: 25 } }
 					}
 				]
 			},

@@ -77,7 +77,7 @@
 	async function handleExportCsv() {
 		exporting = true;
 		try {
-			const out = await exportClassAttempts({ classId });
+			const out = await exportClassAttempts({ classId }).run();
 			if (!out?.rows?.length) {
 				showInfo(i18n.analytics_no_attempts);
 				return;
@@ -133,7 +133,7 @@
 	async function handleExportJson() {
 		exporting = true;
 		try {
-			const out = await exportClassAttempts({ classId });
+			const out = await exportClassAttempts({ classId }).run();
 			if (!out?.rows?.length) {
 				showInfo(i18n.analytics_no_attempts);
 				return;

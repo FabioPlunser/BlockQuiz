@@ -441,9 +441,8 @@ export class ExerciseEditorState {
 
 	private async refreshEditorExercise() {
 		if (!this.exercise.id) return;
-		const latest = getExercise({ id: this.exercise.id });
-		await latest.refresh();
-		if (latest.current) this.applyExercise(latest.current as Exercise);
+		const latest = await getExercise({ id: this.exercise.id }).run();
+		if (latest) this.applyExercise(latest as Exercise);
 	}
 
 	// =========================================================================

@@ -133,30 +133,16 @@ class ExecutionState {
 		const commands = this._trace?.commands ?? [];
 		const target = Math.max(0, Math.min(step, commands.length));
 		this._engine.reset();
+		// Dispatch each command by name against the engine's own API — the same
+		// mechanism the live run uses (see applyCommandsToEngine in executor.ts).
+		// A hardcoded switch here previously ignored robot commands (step,
+		// turn_left, turn_right), so the robot never moved while stepping.
 		const api = this._engine.api as Record<string, (...args: unknown[]) => void>;
 		for (let i = 0; i < target; i++) {
 			const cmd = commands[i];
-			const args = cmd.args ?? [];
-			switch (cmd.type) {
-				case 'move':
-					api.move?.(Number(args[0] ?? 0));
-					break;
-				case 'turn':
-					api.turn?.(Number(args[0] ?? 0));
-					break;
-				case 'pen':
-					if (args[0] === 'down') api.penDown?.();
-					else api.penUp?.();
-					break;
-				case 'color':
-					api.color?.(String(args[0] ?? '#000000'));
-					break;
-				case 'collect':
-					api.collect?.();
-					break;
-				default:
-					// Unknown commands are ignored — keeps the replay forward-compatible.
-					break;
+			const method = api[cmd.type];
+			if (typeof method === 'function') {
+				method(...(cmd.args ?? []));
 			}
 		}
 		return target;

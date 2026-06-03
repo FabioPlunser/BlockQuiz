@@ -123,6 +123,24 @@ describe('validateExercise', () => {
 		);
 	});
 
+	it('accepts io_input_text in starter XML even when not listed in the toolbox', () => {
+		const exercise = createDefaultExercise('io');
+		exercise.content.title = { de: 'Titel', en: 'Title' };
+		exercise.content.description = { de: 'Beschreibung', en: 'Description' };
+		exercise.toolbox = ['text_print'];
+		exercise.starterXml =
+			'<xml xmlns="https://developers.google.com/blockly/xml"><block type="io_input_text"></block></xml>';
+
+		const validation = validateExercise(exercise);
+
+		// The io input reporters are always available in the rendered toolbox, so
+		// they must not be flagged as unknown or outside-toolbox in the starter XML.
+		expect(validation.issues.some((issue) => issue.code === 'starterXml.unknownBlock')).toBe(false);
+		expect(
+			validation.issues.some((issue) => issue.code === 'starterXml.blockOutsideToolbox')
+		).toBe(false);
+	});
+
 	it('rejects unknown starter block ids', () => {
 		expect.assertions(2);
 

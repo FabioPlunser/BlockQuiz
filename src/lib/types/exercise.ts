@@ -263,6 +263,14 @@ const ALLOWED_TOOLBOX_BLOCKS = new Set([
 	'turn_right'
 ]);
 
+// The I/O input reporters are foundational to io exercises and are always
+// injected into the rendered toolbox (see getToolbox), regardless of the
+// author's selected block groups. Treat them as implicitly available so a
+// starter workspace that uses them validates without being listed explicitly.
+const ALWAYS_AVAILABLE_BLOCKS: Partial<Record<ExerciseType, readonly string[]>> = {
+	io: ['io_input_text', 'io_input_number']
+};
+
 // Legacy block ids we keep recognising so that existing exercises continue to
 // load and validate. The workspace remaps them on load (see migrateIoInputXml
 // in $lib/blockly/ioBlocks); the entries here only cover validation paths.
@@ -838,6 +846,11 @@ function collectStarterBlockTypes(xml: string): string[] {
 }
 
 function normalizeStarterBlockType(blockType: string, exerciseType: ExerciseType) {
+	// A real, known block id wins even when it happens to start with the exercise
+	// type prefix — e.g. `io_input_text` in an `io` exercise must not be stripped
+	// down to `input_text`. Prefix-stripping is only a fallback for legacy
+	// type-prefixed ids (e.g. `turtle_move` -> `move`).
+	if (ALLOWED_TOOLBOX_BLOCKS.has(blockType)) return blockType;
 	const prefix = `${exerciseType}_`;
 	const stripped = blockType.startsWith(prefix) ? blockType.slice(prefix.length) : blockType;
 	return LEGACY_BLOCK_ALIASES[stripped] ?? stripped;
@@ -925,7 +938,11 @@ export function validateExercise(exercise: Exercise): PublishValidationResult {
 				continue;
 			}
 
-			if (!exercise.toolbox.includes(normalizedBlockType)) {
+			const alwaysAvailable = ALWAYS_AVAILABLE_BLOCKS[exercise.type] ?? [];
+			if (
+				!exercise.toolbox.includes(normalizedBlockType) &&
+				!alwaysAvailable.includes(normalizedBlockType)
+			) {
 				issues.push(
 					createValidationIssue(
 						'starterXml.blockOutsideToolbox',

@@ -7,8 +7,10 @@
 	import type { GradingResult } from '$lib/player/executor';
 	import BlocklyWorkspace from '$cp/BlocklyWorkspace.svelte';
 	import ExerciseInfoPanel from './ExerciseInfoPanel.svelte';
+	import HintsPanel from './HintsPanel.svelte';
 	import ExecutionArea from './ExecutionArea.svelte';
 	import CodeReadout from './CodeReadout.svelte';
+	import GeneratedCodeView from './GeneratedCodeView.svelte';
 	import ResultsPanel from './ResultsPanel.svelte';
 	import CollisionBanner from './CollisionBanner.svelte';
 	import { ExercisePlayerState, setExercisePlayer } from './ExercisePlayerState.svelte';
@@ -48,6 +50,8 @@
 
 	let blocklyRef = $state<BlocklyWorkspace | undefined>(undefined);
 	let activeTab = $state<'task' | 'blocks' | 'run'>('blocks');
+	// Bumped on every block change so the code/description views recompute live.
+	let workspaceVersion = $state(0);
 
 	let workspaceHeading = $derived(
 		exercise.type === 'io' ? i18n.player_workspace_heading_io : i18n.player_workspace_heading_visual
@@ -148,12 +152,7 @@
 		class="min-h-0 overflow-hidden rounded-2xl border border-base-300 bg-base-100"
 	>
 		<div class="min-h-0 overflow-y-auto p-4">
-			<ExerciseInfoPanel
-				{exercise}
-				{currentIndex}
-				{totalExercises}
-				onHintEventsChange={handleHintEventsChange}
-			/>
+			<ExerciseInfoPanel {exercise} {currentIndex} {totalExercises} />
 		</div>
 	</div>
 
@@ -177,6 +176,12 @@
 			<div class="badge badge-outline badge-lg">{exerciseTitle}</div>
 		</div>
 
+		{#if exercise.config.hints && exercise.config.hints.length > 0}
+			<div class="mb-4">
+				<HintsPanel {exercise} onHintEventsChange={handleHintEventsChange} />
+			</div>
+		{/if}
+
 		<div class="flex min-h-[28rem] flex-1 flex-col">
 			{#key `${exercise.id}-${i18n.locale}`}
 				<BlocklyWorkspace
@@ -185,15 +190,19 @@
 					starterXml={initialWorkspaceXml ||
 						(exercise.config.hasStarterBlocks ? exercise.config.starterXml : '')}
 					ariaLabel={i18n.player_workspace_aria_label}
+					onChange={() => workspaceVersion++}
 				/>
 			{/key}
 		</div>
 
 		{#if exercise.type !== 'io'}
 			<div class="mt-3">
-				<CodeReadout getXml={getWorkspaceXml} refreshKey={exercise.id} />
+				<CodeReadout getXml={getWorkspaceXml} refreshKey={`${exercise.id}:${workspaceVersion}`} />
 			</div>
 		{/if}
+		<div class="mt-3">
+			<GeneratedCodeView {getCode} refreshKey={`${exercise.id}:${workspaceVersion}`} />
+		</div>
 	</div>
 
 	<div

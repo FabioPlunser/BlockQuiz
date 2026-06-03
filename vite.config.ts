@@ -5,7 +5,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
-		allowedHosts: ['.ngrok-free.app', '.ngrok.app', '.ngrok.io']
+		allowedHosts: ['.ngrok-free.app', '.ngrok.app', '.ngrok.io', '.fabioplunser.com']
 	},
 	build: {
 		chunkSizeWarningLimit: 700,
