@@ -29,7 +29,7 @@
 \title{BlockQuiz: A Web-Based Block Programming Platform with Auto-Grading}
 \subtitle{Bachelor Thesis Final Presentation}
 \footertext{BlockQuiz \textbar{} Final Presentation}
-\author[]{\small Fabio Plunser\\{\footnotesize Supervisor: Ass.\ Prof.\ Dr.\ Michael Vierhauser \\ \vspace{-5pt}\footnotesize Quality Engineering Research Group}}
+\author[]{\small Fabio Plunser \\ {\footnotesize Supervisor: Ass.\ Prof.\ Dr.\ Michael Vierhauser}}
 
 % Code listing style
 \lstdefinestyle{mystyle}{
@@ -66,9 +66,9 @@
 % ============================================================
 \begin{frame}{Outline}
   \begin{enumerate}
-    \item Motivation \& the gap
+    \item Motivation
     \item Requirements
-    \item What BlockQuiz is + live demo
+    \item What BlockQuiz is + demo
     \item How it works: architecture, grading, classes
     \item Pedagogical design rationale
     \item Evaluation: technical \& with teachers
@@ -84,14 +84,14 @@
 %        need. Point at each with the laser, one line each.
 %      - Then read out "the gap" slowly; that is what the thesis targets.
 % ============================================================
-\begin{frame}{Motivation \& the gap}
+\begin{frame}{Motivation}
   Digitale Grundbildung is mandatory in Austrian schools since 2022/23,
   but the available block tools do not fit classroom constraints \cite{digitaleGrunbildung}.
   \begin{itemize}
-    \item \textbf{Scratch} -- creative, open-ended, no deterministic grading
-    \item \textbf{Code.org} -- well scaffolded, but cloud-only
-    \item \textbf{MakeCode} -- great for hardware, less for assessment
-    \item \textbf{Blockly} -- a library, not a platform on its own
+    \item \href{https://scratch.mit.edu/}{Scratch} -- creative, open-ended, no deterministic grading
+    \item \href{https://code.org/}{Code.org} -- well scaffolded, but cloud-only
+    \item \href{https://www.microsoft.com/en-us/education/MakeCode}{MakeCode} -- great for hardware, less for assessment
+    \item \href{https://developers.google.com/blockly/}{Blockly} -- a library, not a platform on its own
   \end{itemize}
   The gap: short, gradable exercises a teacher can author, with a
   privacy-conscious deployment that fits a school network.
@@ -162,7 +162,7 @@
       \begin{itemize}
         \item Hidden iframe, blocked globals
         \item Time / step / loop limits
-        \item learner sees feedback now
+        \item Learner sees feedback immediately
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
@@ -170,7 +170,7 @@
       \begin{itemize}
         \item Isolated Bun subprocess, \texttt{node:vm}
         \item No DB, no session, hard kill timeout
-        \item the stored score, not the client's
+        \item The stored score, not the client's
       \end{itemize}
     \end{column}
   \end{columns}
@@ -207,15 +207,15 @@
 %        touched. So the roster stays in sync without a separate SCIM service.
 %      - This is the operationally riskiest part, so it is heavily tested.
 % ============================================================
-\begin{frame}{Class system \& identity-provider sync}
-  Cohorts are first-class and can sync to the school IdP.
-  \begin{itemize}
-    \item Two membership sources per row: \emph{manual} (admin) and \emph{sso} (IdP)
-    \item On every SSO login, IdP rows are reconciled, manual rows untouched
-    \item Course assignment by class
-  \end{itemize}
-  Roster stays in sync with the school IdP without a separate SCIM endpoint.
-\end{frame}
+% \begin{frame}{Class system \& identity-provider sync}
+%   Cohorts are first-class and can sync to the school IdP.
+%   \begin{itemize}
+%     \item Two membership sources per row: \emph{manual} (admin) and \emph{sso} (IdP)
+%     \item On every SSO login, IdP rows are reconciled, manual rows untouched
+%     \item Course assignment by class
+%   \end{itemize}
+%   Roster stays in sync with the school IdP without a separate SCIM endpoint.
+% \end{frame}
 
 % ============================================================
 % Slide — Pedagogical design rationale
@@ -234,7 +234,6 @@
     \item Replay + plain-language readout $\rightarrow$ debugging as a computational thinking skill
           \cite{brennan2012}, blocks-to-text bridge \cite{weintrop2015}
   \end{itemize}
-  Each one is captured per attempt and surfaced in analytics.
 \end{frame}
 
 % ============================================================
@@ -265,7 +264,7 @@
 %      - Be upfront: n=2, not a controlled study; the value is the themes.
 %      - The two backgrounds differ, which gives useful contrast.
 % ============================================================
-\begin{frame}{User evaluation -- method}
+\begin{frame}{User evaluation}
   Small qualitative probe, $n = 2$ student teachers at UIBK.
   \begin{itemize}
     \item Four structured tasks with open-text responses
@@ -274,7 +273,14 @@
     \item P2: kindergarten teacher, almost no software-platform experience
   \end{itemize}
   \vspace{0.2cm}
-  \emph{Not} a controlled study; the value is in the themes that emerged.
+  \textbf{Evaluation Means:} P1 = 4.5, P2 = 4.65 (of 5).
+  \begin{itemize}
+    \item \textbf{Highest:} suitability for children, age-appropriateness,
+          feedback usefulness, would recommend after improvements
+    \item \textbf{Lowest:} "I could orient myself quickly", "feels intuitive"
+  \end{itemize}
+  Pedagogical fit is recognised; onboarding is the weak spot.\\
+  Not a controlled study; the value is in the themes that emerged.
 \end{frame}
 
 % ============================================================
@@ -282,16 +288,9 @@
 % SAY: - Means were high: 4.5 and 4.65 out of 5.
 %      - Highest ratings: pedagogical fit. Lowest: orientation / onboarding.
 %      - One-line takeaway: fit is recognised, onboarding is the weak spot.
-% ============================================================
-\begin{frame}{User evaluation -- results}
-  \textbf{Means:} P1 = 4.5, P2 = 4.65 (of 5).
-  \begin{itemize}
-    \item \textbf{Highest:} suitability for children, age-appropriateness,
-          feedback usefulness, would recommend after improvements
-    \item \textbf{Lowest:} "I could orient myself quickly", "feels intuitive"
-  \end{itemize}
-  Pedagogical fit is recognised; onboarding is the weak spot.
-\end{frame}
+% % ============================================================
+% \begin{frame}{User evaluation -- results}
+% \end{frame}
 
 % ============================================================
 % Slide — User evaluation: themes & actions
@@ -321,6 +320,7 @@
       \end{itemize}
     \end{column}
   \end{columns}
+  \vspace{0.5cm}
   {\footnotesize Debrief: \emph{``Once the bugs are fixed, both would happily use it in class.''}
     None of the issues were architectural.}
 \end{frame}
@@ -333,13 +333,25 @@
 %      - The publish gate caught real mistakes during my own development.
 %      - Betting on the experimental SvelteKit features paid off.
 % ============================================================
-\begin{frame}{Lessons learned}
+\begin{frame}{Lessons learned \& Limitations \& future work}
   \begin{itemize}
     \item Typed discriminated-union exercise model: keeps CMS, player, sandbox,
           analytics honest as the system grew
     \item Message-based sandbox protocol, made subprocess regrading a small addition, not a refactor
     \item Publish-validation gate, caught real authoring mistakes during development
     \item Using SvelteKit experimental features, remote functions and async svelte
+  \end{itemize}
+  \vspace{0.2cm}
+  \textbf{Limitations of this thesis}
+  \begin{itemize}
+    \item User study: $n = 2$, student teachers only, no child participants
+    \item Exercise type addition requires quite extensive code changes, but has been simplified as much as possible
+  \end{itemize}
+  \vspace{0.2cm}
+  \textbf{Future work}
+  \begin{itemize}
+    \item Classroom pilot with children in the 8-12 target range
+    \item Blocks-to-text translation showing the code for students to learn code.
   \end{itemize}
 \end{frame}
 
@@ -350,19 +362,8 @@
 %      - Future: a classroom pilot with actual 8-12 learners, and a
 %        blocks-to-text view to bridge toward written code.
 % ============================================================
-\begin{frame}{Limitations \& future work}
-  \textbf{Limitations of this thesis}
-  \begin{itemize}
-    \item User study: $n = 2$, student teachers only, no child participants
-    \item Exercise type addition requires quite extensive code changes, but has been simplified as much as possible
-  \end{itemize}
-  \vspace{0.2cm}
-  \textbf{Future work}
-  \begin{itemize}
-    \item Classroom pilot with children in the 8-12 target range
-    \item Blocks-to-text showing the code for students to learn code.
-  \end{itemize}
-\end{frame}
+% \begin{frame}{Limitations \& future work}
+% \end{frame}
 
 % ============================================================
 % Slide — Conclusion
