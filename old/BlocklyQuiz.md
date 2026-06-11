@@ -942,7 +942,7 @@ Strengths:
 - Clear problem statement (Austrian digital literacy curriculum need, existing tools too open/complex)
 - Reasonable scope for a bachelor thesis (MVP with 10 exercises, not a full platform)
 - Solid technical components (sandbox, autograding, i18n, accessibility)
-- Educational/pedagogical component (question design framework, pilot evaluation)
+- Educational/pedagogic component (question design framework, pilot evaluation)
 - Privacy-conscious design (on-prem, data minimization)
 - Multi-disciplinary (software engineering + education + HCI)
 - Concrete evaluation plan (pilot with kids, usability testing)
@@ -960,7 +960,7 @@ For a bachelor thesis, this is actually pretty good. It's not groundbreaking res
 
 - Clear requirements
 - Thoughtful design decisions documented
-- Pedagogical grounding
+- pedagogic grounding
 - Usability evaluation
 - Privacy considerations
 - Deployable output
@@ -977,7 +977,7 @@ Yes, it's a solid bachelor thesis. Honest assessment:
 - Reasonable scope for 12–14 weeks (MVP, not full platform).
 - Multi-disciplinary: software engineering + education + HCI/accessibility.
 - Thoughtful design (privacy-first, on-prem, plugin architecture).
-- Pedagogical grounding (question design framework, cognitive load principles).
+- pedagogic grounding (question design framework, cognitive load principles).
 - Concrete evaluation (pilot usability study with kids, not just metrics).
 - Practical output (deployable, reusable by schools).
 
@@ -1000,7 +1000,7 @@ Yes, it's a solid bachelor thesis. Honest assessment:
 - Emphasize design decisions in the thesis (why Blockly vs MakeCode? Why this sandbox design?).
 - Frame pilot findings as actionable insights (e.g., "hints formulated at strategy level → 40% fewer stuck attempts").
 - Include a related-work comparison table (your system vs. Scratch/Code.org/Tynker on key dimensions).
-- Document the pedagogical framework explicitly (worked examples, scaffolding, cognitive load).
+- Document the pedagogic framework explicitly (worked examples, scaffolding, cognitive load).
 - Reflect critically on trade-offs and limitations.
 
 **Bottom line**: It's a **good, solid, practical bachelor thesis**—not groundbreaking, but well-scoped, thoughtfully designed, and evaluable. Ship it.
@@ -2854,7 +2854,7 @@ The user is asking several things:
 4. How to implement this in the bachelor thesis
 5. Teachers should be able to create exercises and compose them into courses
 
-This is a good comprehensive question. Let me think about what research shows and what makes sense pedagogically.
+This is a good comprehensive question. Let me think about what research shows and what makes sense pedagogicly.
 
 For turtle exercises:
 
@@ -3174,7 +3174,7 @@ export function lintExercise(ex: Exercise): { ok: boolean; errors: string[] } {
 - Principles from Code.org, Brilliant, research on scaffolding & worked examples
 - Question design checklist (your template)
 - JSON schema + linter rules
-- 10 example exercises with pedagogical rationale
+- 10 example exercises with pedagogic rationale
 - Plugin architecture for extensibility
 
 **Your contribution:** A **teacher-friendly, scalable CMS** for designing auto-gradable exercises with built-in quality checks and progressive difficulty sequencing.

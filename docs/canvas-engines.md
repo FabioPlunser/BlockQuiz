@@ -223,7 +223,7 @@ Why hand-written XML parsing instead of `DOMParser`? Three reasons:
 - It builds *new* regex instances per call so `lastIndex` cannot leak
   between recursive invocations — a real footgun with shared `RegExp`s.
 
-The pedagogical motivation (cited inline in the file header) is the
+The pedagogic motivation (cited inline in the file header) is the
 "blocks → natural language" bridge from Weintrop & Wilensky 2015: kids
 should be able to read what their program does in their first language
 before they have to read JavaScript.

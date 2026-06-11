@@ -27,7 +27,7 @@ This document captures the analysis and implementation plan for integrating the 
   - No exercise creation/editing: Only placeholders.
   - No course management: Add/edit exercises in courses.
   - Navigation issues: Query params cause refetches.
-  - No translations or pedagogical features.
+  - No translations or pedagogic features.
 
 ## Implementation Plan
 
@@ -137,11 +137,11 @@ This document captures the analysis and implementation plan for integrating the 
 
 - **Instructions**: Embed in student route. Add timeout/loop-trap in sandbox.
 
-### Step 5: Polish UI/UX and Pedagogical Features
+### Step 5: Polish UI/UX and pedagogic Features
 
 - **Hints and Progress**: In student page, add expandable hints, progress bar.
 - **Animations**: In TurtleCanvas, animate movements.
-- **Pedagogical**: Pre-seed 10 exercises in DB (e.g., square, triangle).
+- **pedagogic**: Pre-seed 10 exercises in DB (e.g., square, triangle).
 - **Pseudocode for Hints**:
   ```svelte
   let shownHints = $state(0);
@@ -175,6 +175,6 @@ This document captures the analysis and implementation plan for integrating the 
 1. Start with Step 1: Create exercise routes with slugs.
 2. Build incrementally, testing each step.
 3. Focus on turtle example first, then generalize for other exercise types.
-4. Ensure pedagogical design (one learning goal per exercise, playful themes).
+4. Ensure pedagogic design (one learning goal per exercise, playful themes).
 
 This plan provides a starting point—implement yourself for accuracy. Ask for clarification on any pseudocode or next steps.

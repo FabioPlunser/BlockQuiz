@@ -212,7 +212,7 @@ The rules engine is *only* the rules. The two callers
 `evaluateAndPersistGuestBadges` in `localStorage`) provide identical inputs
 shaped differently, so the same set of rules drives both experiences.
 
-The pedagogical framing — competence (first solve, perfect score),
+The pedagogic framing — competence (first solve, perfect score),
 autonomy (no hints), relatedness/breadth (polyglot, course complete) — is
 loosely grounded in Self-Determination Theory (Deci & Ryan 2000). The
 inline comment in `rules.ts:8` records the reference; the badge metadata

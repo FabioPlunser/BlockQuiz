@@ -5,7 +5,7 @@
  * returns the badges that were *newly* earned. Pure so it can be tested in
  * isolation and re-used by both the authenticated and the guest path.
  *
- * Pedagogical framing: the badge set is grounded in Self-Determination Theory
+ * pedagogic framing: the badge set is grounded in Self-Determination Theory
  * (Deci & Ryan 2000) — competence (first solve, perfect-score streak),
  * autonomy (no-hint solves), and relatedness/breadth (locale variety,
  * course completion).

@@ -25,7 +25,7 @@ Diese Bachelorarbeit präsentiert die Konzeption und Implementierung einer webba
 
 ### English
 
-This bachelor thesis presents the design and implementation of a web-based learning platform for block-based programming targeting children ages 6–12. Unlike existing solutions such as Scratch or MakeCode, the focus lies on short, focused exercises with automated grading and a Content Management System (CMS) for teachers. The platform supports multiple exercise types (turtle graphics, robot navigation) and provides multilingual support (DE/EN). Special emphasis is placed on privacy and easy deployment in school networks via Docker. Evaluation through a pilot study with 4–6 children shows [results]. The thesis discusses architectural decisions, pedagogical design principles, and future extension possibilities.
+This bachelor thesis presents the design and implementation of a web-based learning platform for block-based programming targeting children ages 6–12. Unlike existing solutions such as Scratch or MakeCode, the focus lies on short, focused exercises with automated grading and a Content Management System (CMS) for teachers. The platform supports multiple exercise types (turtle graphics, robot navigation) and provides multilingual support (DE/EN). Special emphasis is placed on privacy and easy deployment in school networks via Docker. Evaluation through a pilot study with 4–6 children shows [results]. The thesis discusses architectural decisions, pedagogic design principles, and future extension possibilities.
 
 ---
 
@@ -36,7 +36,7 @@ This bachelor thesis presents the design and implementation of a web-based learn
 3. Requirements Analysis
 4. System Design
 5. Architecture
-6. Pedagogical Design
+6. pedagogic Design
 7. Implementation
 8. Evaluation
 9. Discussion & Limitations
@@ -652,7 +652,7 @@ export const exerciseRemote = {
 
 ---
 
-## Chapter 6: Pedagogical Design (5-6 pages)
+## Chapter 6: pedagogic Design (5-6 pages)
 
 ### 6.1 Exercise Design Principles
 
