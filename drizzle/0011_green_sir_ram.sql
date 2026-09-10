@@ -1,0 +1,1 @@
+ALTER TABLE `courses` ADD `demo` integer DEFAULT false NOT NULL;

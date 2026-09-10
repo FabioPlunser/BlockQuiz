@@ -1,0 +1,29 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    volumes:
+      # Persist SQLite database
+      - ${DATA_DIR:-./data}:/app/data
+      # Persist logs
+      - ${LOGS_DIR:-./logs}:/app/logs
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./data/prod.db
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:?Set BETTER_AUTH_URL to the public app URL}
+      - ORIGIN=${BETTER_AUTH_URL:?Set BETTER_AUTH_URL to the public app URL}
+      - AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET to a generated secret}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'bun -e "fetch(''http://localhost:3000'').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"'
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

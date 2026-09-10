@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Code Sandbox</title>
+	<style>
+		body { margin: 0; padding: 0; }
+	</style>
+</head>
+<body>
+<script>
+(function() {
+	'use strict';
+
+	const DEFAULT_TIMEOUT = 2000;
+	const DEFAULT_MAX_COMMANDS = 10000;
+	const DEFAULT_MAX_ITERATIONS = 10000;
+	const blockedGlobals = [
+		'fetch',
+		'XMLHttpRequest',
+		'WebSocket',
+		'localStorage',
+		'sessionStorage',
+		'indexedDB',
+		'document',
+		'parent',
+		'top',
+		'opener',
+		'frames',
+		'importScripts',
+		'Worker',
+		'SharedWorker',
+		'ServiceWorker',
+		'navigator',
+		'location',
+		'history',
+		'open',
+		'close',
+		'postMessage'
+	];
+	let controlPort = null;
+	let channelId = null;
+
+	function instrumentLoops(code, tickFunctionName) {
+		const withWhileTrap = code.replace(/\bwhile\s*\(/g, `while (${tickFunctionName}(), `);
+		const withForTrap = withWhileTrap.replace(
+			/\bfor\s*\(\s*([^;]*);([^;]*);/g,
+			(_match, initializer, condition) => {
+				const normalizedCondition = condition.trim().length > 0 ? `(${condition})` : 'true';
+				return `for (${initializer}; ${tickFunctionName}(), ${normalizedCondition};`;
+			}
+		);
+		return withForTrap.replace(/\bdo\s*\{/g, `do { ${tickFunctionName}();`);
+	}
+
+	function createInitialTrace(exerciseType) {
+		return {
+			durationMs: 0,
+			commands: exerciseType === 'io' ? [] : [],
+			prints: [],
+			stdout: '',
+			stderr: ''
+		};
+	}
+
+	function formatValue(value) {
+		if (typeof value === 'string') {
+			return value;
+		}
+
+		if (typeof value === 'number' || typeof value === 'boolean') {
+			return String(value);
+		}
+
+		if (value === null || value === undefined) {
+			return '';
+		}
+
+		try {
+			return JSON.stringify(value);
+		} catch (_error) {
+			return String(value);
+		}
+	}
+
+	function normalizeError(err) {
+		const message = err instanceof Error ? err.message : String(err || 'Execution failed.');
+
+		if (message.includes('TIMEOUT')) {
+			return {
+				error: 'Execution exceeded the configured time limit.',
+				errorType: 'timeout'
+			};
+		}
+
+		if (message.includes('LOOP_LIMIT') || message.includes('Maximum call stack')) {
+			return {
+				error: 'Execution exceeded the configured iteration limit.',
+				errorType: 'loop'
+			};
+		}
+
+		if (message.includes('COMMAND_LIMIT')) {
+			return {
+				error: 'Execution exceeded the configured command limit.',
+				errorType: 'command_limit'
+			};
+		}
+
+		if (message.includes('Blocked access')) {
+			return {
+				error: 'Blocked access to a restricted browser API.',
+				errorType: 'security'
+			};
+		}
+
+		return {
+			error: message,
+			errorType: 'runtime'
+		};
+	}
+
+	function createVisualState(visual) {
+		const initialState = visual && visual.initialState ? visual.initialState : { x: 0, y: 0, angle: 0 };
+		return {
+			x: Number(initialState.x) || 0,
+			y: Number(initialState.y) || 0,
+			angle: Number(initialState.angle) || 0,
+			stepSize: Math.max(1, Number(visual && visual.stepSize) || 1)
+		};
+	}
+
+	function trackVisualCommand(state, methodName, args) {
+		if (!state) {
+			return;
+		}
+
+		if (methodName === 'move') {
+			const steps = Number(args[0]) || 0;
+			const distance = steps * state.stepSize;
+			const radians = (state.angle * Math.PI) / 180;
+			state.x += distance * Math.sin(radians);
+			state.y -= distance * Math.cos(radians);
+			return;
+		}
+
+		if (methodName === 'turn') {
+			const degrees = Number(args[0]) || 0;
+			let nextAngle = (state.angle + degrees) % 360;
+			if (nextAngle < 0) {
+				nextAngle += 360;
+			}
+			state.angle = nextAngle;
+		}
+	}
+
+	function buildApi(message, trace, visualState) {
+		const api = {};
+		let commandCount = 0;
+		const maxCommands = message.maxCommands || DEFAULT_MAX_COMMANDS;
+
+		for (const methodName of message.apiMethods || []) {
+			api[methodName] = function(...args) {
+				commandCount += 1;
+				if (commandCount > maxCommands) {
+					throw new Error(`COMMAND_LIMIT: Maximum command count (${maxCommands}) exceeded`);
+				}
+
+				trace.commands.push({
+					type: methodName,
+					args: args,
+					timestamp: Date.now()
+				});
+
+				trackVisualCommand(visualState, methodName, args);
+			};
+		}
+
+		return api;
+	}
+
+	function createIoRuntime(trace, stdin) {
+		const inputLines = String(stdin || '').split(/\r?\n/);
+		let cursor = 0;
+
+		function pushPrint(value) {
+			const text = formatValue(value);
+			trace.prints.push(text);
+			trace.stdout = trace.prints.join('\n');
+		}
+
+		function pushError(args) {
+			const line = args.map(formatValue).join(' ');
+			trace.stderr = trace.stderr ? `${trace.stderr}\n${line}` : line;
+		}
+
+		function prompt() {
+			const line = cursor < inputLines.length ? inputLines[cursor] : '';
+			cursor += 1;
+			return line;
+		}
+
+		const safeConsole = {
+			log: (...args) => pushPrint(args.map(formatValue).join(' ')),
+			warn: (...args) => pushError(args),
+			error: (...args) => pushError(args)
+		};
+
+		const safeWindow = {
+			alert: pushPrint,
+			prompt,
+			console: safeConsole
+		};
+
+		return {
+			print: pushPrint,
+			prompt,
+			console: safeConsole,
+			window: safeWindow,
+			self: safeWindow,
+			globalThis: safeWindow
+		};
+	}
+
+	function executeCode(message) {
+		const startedAt = performance.now();
+		const trace = createInitialTrace(message.exerciseType);
+		const visualState = message.exerciseType === 'io' ? null : createVisualState(message.visual);
+		const ioRuntime = createIoRuntime(trace, message.stdin);
+		const api = buildApi(message, trace, visualState);
+		const maxIterations = message.maxIterations || DEFAULT_MAX_ITERATIONS;
+		const timeoutMs = message.timeout || DEFAULT_TIMEOUT;
+		let iterations = 0;
+
+		const tickName = `__sandboxTick_${Math.random().toString(36).slice(2, 10)}`;
+		const protectedCode = instrumentLoops(message.code || '', tickName);
+
+		function tick() {
+			iterations += 1;
+			if (iterations > maxIterations) {
+				throw new Error(`LOOP_LIMIT: Maximum iteration count (${maxIterations}) exceeded`);
+			}
+			if (performance.now() - startedAt > timeoutMs) {
+				throw new Error(`TIMEOUT: Execution exceeded time limit (${timeoutMs}ms)`);
+			}
+			return true;
+		}
+
+		const parameterNames = [
+			'api',
+			'print',
+			'prompt',
+			'input',
+			'readLine',
+			'console',
+			'window',
+			'self',
+			'globalThis',
+			tickName,
+			...blockedGlobals
+		];
+		const parameterValues = [
+			api,
+			ioRuntime.print,
+			ioRuntime.prompt,
+			ioRuntime.prompt,
+			ioRuntime.prompt,
+			ioRuntime.console,
+			ioRuntime.window,
+			ioRuntime.self,
+			ioRuntime.globalThis,
+			tick,
+			...blockedGlobals.map(() => undefined)
+		];
+
+		try {
+			const runner = Function(
+				...parameterNames,
+				`"use strict";\n${protectedCode}`
+			);
+
+			runner(...parameterValues);
+
+			trace.durationMs = Math.round(performance.now() - startedAt);
+			if (visualState) {
+				trace.finalState = {
+					x: visualState.x,
+					y: visualState.y,
+					angle: visualState.angle
+				};
+			}
+
+			return {
+				success: true,
+				trace
+			};
+		} catch (err) {
+			trace.durationMs = Math.round(performance.now() - startedAt);
+			if (visualState) {
+				trace.finalState = {
+					x: visualState.x,
+					y: visualState.y,
+					angle: visualState.angle
+				};
+			}
+
+			const normalized = normalizeError(err);
+			return {
+				success: false,
+				trace,
+				error: normalized.error,
+				errorType: normalized.errorType
+			};
+		}
+	}
+
+	function postPortMessage(message) {
+		if (controlPort) {
+			controlPort.postMessage(message);
+		}
+	}
+
+	function handlePortMessage(event) {
+		const message = event.data;
+		if (!message || message.channelId !== channelId) {
+			return;
+		}
+
+		switch (message.type) {
+			case 'execute': {
+				const result = executeCode(message);
+				postPortMessage({
+					type: 'result',
+					channelId,
+					id: message.id,
+					success: result.success,
+					trace: result.trace,
+					error: result.error,
+					errorType: result.errorType
+				});
+				return;
+			}
+
+			case 'reset': {
+				postPortMessage({
+					type: 'result',
+					channelId,
+					id: message.id,
+					success: true,
+					trace: {
+						durationMs: 0,
+						commands: []
+					}
+				});
+				return;
+			}
+
+			default:
+				return;
+		}
+	}
+
+	function handleConnect(event) {
+		const message = event.data;
+		if (!message || message.type !== 'connect') {
+			return;
+		}
+
+		if (event.source !== window.parent || !event.ports || event.ports.length === 0) {
+			return;
+		}
+
+		if (message.parentOrigin !== event.origin || typeof message.channelId !== 'string') {
+			return;
+		}
+
+		channelId = message.channelId;
+		controlPort = event.ports[0];
+		controlPort.onmessage = handlePortMessage;
+		controlPort.start();
+
+		window.parent.postMessage(
+			{
+				type: 'ready',
+				channelId
+			},
+			event.origin
+		);
+	}
+
+	window.addEventListener('message', handleConnect);
+})();
+</script>
+</body>
+</html>

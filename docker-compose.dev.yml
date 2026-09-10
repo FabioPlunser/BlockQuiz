@@ -1,0 +1,76 @@
+services:
+  mock-oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    ports:
+      - '8081:8080'
+    environment:
+      # The login UI prefills these users; any password works.
+      JSON_CONFIG: |
+        {
+          "interactiveLogin": true,
+          "httpServer": "NettyWrapper",
+          "tokenCallbacks": [
+            {
+              "issuerId": "school",
+              "tokenExpiry": 3600,
+              "requestMappings": [
+                {
+                  "requestParam": "scope",
+                  "match": "*",
+                  "claims": {
+                    "sub": "lea@school.com",
+                    "email": "lea@school.com",
+                    "email_verified": true,
+                    "name": "Lea Lerner"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+
+  app:
+    image: oven/bun:1
+    working_dir: /app
+    ports:
+      # Host port 3000 matches the Apache reverse-proxy target for thesis.fabioplunser.com.
+      - '3000:5173'
+    volumes:
+      # Mount source code for hot reloading
+      - ./src:/app/src
+      - ./static:/app/static
+      - ./drizzle:/app/drizzle
+      - ./scripts:/app/scripts
+
+      # Mount configuration files
+      - ./package.json:/app/package.json
+      - ./bun.lock:/app/bun.lock
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./svelte.config.js:/app/svelte.config.js
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./drizzle.config.ts:/app/drizzle.config.ts
+      - ./eslint.config.js:/app/eslint.config.js
+      - ./project.inlang:/app/project.inlang
+
+      # Persist database
+      - ./data:/app/data
+
+      # Persist logs
+      - ./logs:/app/logs
+
+      # Use named volume for node_modules to avoid host conflicts
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:./data/dev.db
+      # All seeded accounts (10 teachers, 2 admins, 240 students) share this password.
+      - SEED_TEACHER_PASSWORD=BlockQuiz123!
+    # Install deps, push schema, seed (idempotent — no-op once seeded), then dev.
+    # To wipe + reseed: `docker compose -f docker-compose.dev.yml run --rm app bun --bun run db:seed -- --reset`.
+    command: sh -c "bun install && bun --bun run db:push && bun --bun run db:seed && bun --bun run dev --host 0.0.0.0"
+    # Keep container running for HMR
+    stdin_open: true
+    tty: true
+
+volumes:
+  node_modules:

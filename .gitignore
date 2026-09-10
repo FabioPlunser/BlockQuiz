@@ -25,5 +25,17 @@ vite.config.ts.timestamp-*
 # Paraglide
 src/lib/paraglide
 
+# Blockly media (copied from node_modules at install time)
+/static/blockly-media
+
 # SQLite
 *.db
+*.sqlite
+
+# Playwright
+/test-results
+/playwright-report
+/blob-report
+/data/outbox
+Trace-*.json
+
